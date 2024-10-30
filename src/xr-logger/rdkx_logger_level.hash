@@ -1,0 +1,16 @@
+%language=ANSI-C
+%struct-type
+%includes
+%define lookup-function-name rdkx_logger_level_str_to_num
+%{
+#include "rdkx_logger_private.h"
+%}
+struct rdkx_logger_level_s;
+%%
+XLOG_LEVEL_ALL,   0
+XLOG_LEVEL_DEBUG, 1
+XLOG_LEVEL_INFO,  2
+XLOG_LEVEL_WARN,  3
+XLOG_LEVEL_ERROR, 4
+XLOG_LEVEL_FATAL, 5
+%%

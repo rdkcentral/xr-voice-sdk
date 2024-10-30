@@ -1,0 +1,19 @@
+%language=ANSI-C
+%compare-strncmp
+%struct-type
+%includes
+%define lookup-function-name xrsr_http_log_filter_handler_get
+%{
+#include "xrsr_protocol_http_log_filter.h"
+%}
+struct xrsr_http_log_filter_handler_s;
+%%
+"SSL certificate problem: certificate has expired\x0a"
+"Invalid OCSP response\x0a"
+"No OCSP response received, getting response from CA\x0a"
+"No OCSP response received, ocsp staple soft fail support\x0a"
+"OCSP response has expired\x0a"
+"SSL certificate status: revoked (1)\x0a"
+"SSL certificate status1: revoked (1)\x0a"
+"No OCSP response received from CA\x0a"
+%%

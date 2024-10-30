@@ -1,0 +1,8 @@
+# Temp files
+*~
+
+# cmake files
+CMakeUserPresets.json
+
+# documentation output files
+src/doxygen/output/

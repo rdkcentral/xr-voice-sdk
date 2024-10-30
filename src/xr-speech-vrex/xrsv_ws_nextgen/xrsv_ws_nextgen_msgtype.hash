@@ -1,0 +1,17 @@
+%language=ANSI-C
+%struct-type
+%includes
+%define lookup-function-name xrsv_ws_nextgen_msgtype_handler_get
+%{
+#include "xrsv_ws_nextgen_private.h"
+%}
+struct xrsv_ws_nextgen_msgtype_handler_s;
+%%
+closeConnection,      xrsv_ws_nextgen_msgtype_conn_close
+vrexResponse,         xrsv_ws_nextgen_msgtype_response_vrex
+wuwVerification,      xrsv_ws_nextgen_msgtype_wuw_verification
+asr,                  xrsv_ws_nextgen_msgtype_asr
+listening,            xrsv_ws_nextgen_msgtype_listening
+tvControl,            xrsv_ws_nextgen_msgtype_tv_control
+endOfStream,          xrsv_ws_nextgen_msgtype_server_stream_end
+%%

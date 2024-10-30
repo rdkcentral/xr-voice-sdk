@@ -1,0 +1,26 @@
+{
+   "http" : {
+      "debug" : false
+   },
+   "ws" : {
+      "debug" : true,
+      "fpm" : {
+         "connect_check_interval" :    50,
+         "timeout_connect"        :  2000,
+         "timeout_inactivity"     : 10000,
+         "timeout_session"        :  5000,
+         "ipv4_fallback"          :  true,
+         "backoff_delay"          :    50
+      },
+     "lpm" : {
+         "connect_check_interval" :    50,
+         "timeout_connect"        : 10000,
+         "timeout_inactivity"     : 10000,
+         "timeout_session"        : 10000,
+         "ipv4_fallback"          :  true,
+         "backoff_delay"          :    100
+      }
+   },
+   "xraudio" : {
+   }
+}

@@ -1,0 +1,19 @@
+%language=ANSI-C
+%struct-type
+%includes
+%define lookup-function-name xrsv_ws_nextgen_tv_control_handler_get
+%{
+#include "xrsv_ws_nextgen_private.h"
+%}
+struct xrsv_ws_nextgen_tv_control_handler_s;
+%%
+TV_POWER_ON,                   xrsv_ws_nextgen_tv_control_power_on
+TV_POWER_ON_TOGGLE_ALLOWED,    xrsv_ws_nextgen_tv_control_power_on_toggle
+TV_POWER_OFF,                  xrsv_ws_nextgen_tv_control_power_off
+TV_POWER_OFF_TOGGLE_ALLOWED,   xrsv_ws_nextgen_tv_control_power_off_toggle
+TV_VOL_UP,                     xrsv_ws_nextgen_tv_control_volume_up
+TV_VOL_DOWN,                   xrsv_ws_nextgen_tv_control_volume_down
+TV_VOL_MUTE_ON,                xrsv_ws_nextgen_tv_control_volume_mute_toggle
+TV_VOL_MUTE_OFF,               xrsv_ws_nextgen_tv_control_volume_mute_toggle
+TV_VOL_MUTE_TOGGLE,            xrsv_ws_nextgen_tv_control_volume_mute_toggle
+%%
