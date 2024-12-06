@@ -1172,8 +1172,7 @@ xraudio_result_t xraudio_input_keyword_params(xraudio_input_object_t object, xra
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
 
    switch(keyword_phrase) {
-      default:
-      case XRAUDIO_KEYWORD_PHRASE_HEY_XFINITY: {
+      default: {
          XLOGD_INFO("keyword sensitivity <%f> detecting <%s>", keyword_sensitivity, (session->state == XRAUDIO_INPUT_STATE_DETECTING) ? "YES" : "NO");
          if(obj->detect_params.sensitivity != keyword_sensitivity) {
             obj->detect_params.sensitivity = keyword_sensitivity;

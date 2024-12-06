@@ -34,11 +34,7 @@
 #include <xraudio.h>
 #include <opus/opus.h>
 
-#if defined(XRSR_KEYWORD_PHRASE_HELLO_SKY)
-#define XRSR_KEYWORD_PHRASE (XRAUDIO_KEYWORD_PHRASE_HELLO_SKY)
-#else
-#define XRSR_KEYWORD_PHRASE (XRAUDIO_KEYWORD_PHRASE_HEY_XFINITY)
-#endif
+#define XRSR_KEYWORD_PHRASE (0)
 
 typedef enum {
    XRSR_THREAD_MAIN = 0,

@@ -208,9 +208,7 @@ typedef enum {
 /// @brief Keyword Phrase Types
 /// @details The keyword phrase enumeration indicates all the keyword phrases supported by xraudio.
 typedef enum {
-   XRAUDIO_KEYWORD_PHRASE_HEY_XFINITY = 0, ///< "Hey xfinity"
-   XRAUDIO_KEYWORD_PHRASE_HELLO_SKY   = 1, ///< "Hello sky"
-   XRAUDIO_KEYWORD_PHRASE_INVALID     = 2, ///< Invalid keyword phrase type
+   XRAUDIO_KEYWORD_PHRASE_INVALID     = 0, ///< Invalid keyword phrase type
 } xraudio_keyword_phrase_t;
 
 /// @brief Keyword Config Types
