@@ -658,7 +658,7 @@ void xrsv_ws_nextgen_handler_ws_session_begin(void *data, const uuid_t uuid, xrs
       stream_params.keyword_sensitivity_high_triggered = false;
       stream_params.keyword_gain                       = detector_result->kwd_gain;
       stream_params.dynamic_gain                       = detector_result->dynamic_gain;
-      stream_params.linear_confidence                  = 0.0;
+      stream_params.linear_confidence                  = detector_result->score;
       stream_params.nonlinear_confidence               = 0;
       stream_params.signal_noise_ratio                 = detector_result->snr; // if NULL 255.0 is invalid value;
       stream_params.par_eos_timeout                    = 0;
