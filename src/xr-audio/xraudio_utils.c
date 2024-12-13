@@ -559,6 +559,11 @@ const char *xraudio_capture_str(xraudio_capture_t type) {
 }
 
 const char *xraudio_keyword_phrase_str(xraudio_keyword_phrase_t type) {
+   switch(type) {
+      case XRAUDIO_KEYWORD_PHRASE_HEY_XFINITY: return("HEY_XFINITY");
+      case XRAUDIO_KEYWORD_PHRASE_HELLO_SKY:   return("HELLO_SKY");
+      case XRAUDIO_KEYWORD_PHRASE_INVALID:     return("INVALID");
+   }
    return(xraudio_invalid_return(type));
 }
 

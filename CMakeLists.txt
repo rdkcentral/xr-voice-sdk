@@ -171,6 +171,12 @@ if(XRSR_ALLOW_INPUT_FAILURE)
    target_compile_definitions(xr-voice-sdk PUBLIC XRSR_ALLOW_INPUT_FAILURE)
 endif()
 
+if(XRSR_KEYWORD_PHRASE STREQUAL hello_sky)
+   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_KEYWORD_PHRASE_HELLO_SKY)
+elseif(XRSR_KEYWORD_PHRASE STREQUAL hey_xfinity)
+   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_KEYWORD_PHRASE_HEY_XFINITY)
+endif()
+
 if(XRAUDIO_RESOURCE_MGMT)
    target_sources(xr-voice-sdk PUBLIC src/xr-audio/xraudio_resource.c)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_RESOURCE_MGMT)
