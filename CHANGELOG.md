@@ -16,6 +16,13 @@ All notable changes to this project will be documented in this file.
 
 * In the future, generate this file by [`auto-changelog`](https://github.com/CookPete/auto-changelog).
 
+## [1.0.3] - 2025-02-07
+
+### Added
+- Add capability to remove array elements in json config combine script
+
+
 ## [1.0.2] - 2024-12-06
+
 ### Added
 - Add KWD confidence score to VREX init message

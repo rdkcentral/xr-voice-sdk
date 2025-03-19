@@ -126,6 +126,12 @@ def json_prune(json_in, json_sub):
             del json_out[key]
          else:
             json_out[key] = json_prune(json_out[key], json_sub[key])
+      elif isinstance(json_out[key], list) and isinstance(json_sub[key], list):
+         for item in json_sub[key]:
+            if item in json_out[key]:
+               json_out[key].remove(item)
+         if len(json_out[key]) == 0:
+            del json_out[key]
       else:
          del json_out[key]
       
