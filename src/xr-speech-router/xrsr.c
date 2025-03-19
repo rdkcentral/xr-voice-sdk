@@ -269,7 +269,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
       if(routes[index].src >= XRSR_SRC_INVALID) {
          break;
       }
-      XLOGD_INFO("%u: src <%s>", index, xrsr_src_str(routes[index].src));
+      XLOGD_INFO("%u: src <%s>", index);
 
       if(routes[index].dst_qty < 1 || routes[index].dst_qty > XRSR_DST_QTY_MAX) {
          XLOGD_ERROR("invalid dsts array");
