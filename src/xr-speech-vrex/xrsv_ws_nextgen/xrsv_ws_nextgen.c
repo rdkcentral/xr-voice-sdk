@@ -1037,7 +1037,7 @@ uint64_t xrsv_ws_nextgen_time_get(void) {
 bool xrsv_ws_nextgen_msg_decode(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json) {
    if(xlog_level_active(XLOG_MODULE_ID, XLOG_LEVEL_INFO)) {
       char *str = json_dumps(obj_json, JSON_SORT_KEYS | JSON_INDENT(3));
-      XLOGD_INFO("obj \n<%s>", (str == NULL) ? "NULL" : obj->mask_pii ? "***" : str );
+      XLOGD_DEBUG("obj \n<%s>", (str == NULL) ? "NULL" : obj->mask_pii ? "***" : str );
       if(str != NULL) {
          free(str);
       }

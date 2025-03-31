@@ -2287,6 +2287,10 @@ void xraudio_msg_input_source_fd_set(xraudio_thread_state_t *state, void *msg) {
       if(!xraudio_in_session_group_semaphore_lock(input_source_fd_set->source)) {
          XLOGD_ERROR("could not acquire session");
          result = XRAUDIO_RESULT_ERROR_IN_USE;
+      } else { // Set the source for this instance
+         xraudio_session_record_inst_t *instance = &state->record.instances[group];
+         instance->source          = input_source_fd_set->source;
+         instance->stream_until[0] = XRAUDIO_INPUT_RECORD_UNTIL_END_OF_STREAM;
       }
    }
 
@@ -4456,7 +4460,7 @@ void xraudio_in_capture_internal_input_begin(xraudio_input_format_t *native, xra
       capture->audio_data_size    = 0;
       capture->format.container = (capture->format.encoding.type == XRAUDIO_ENCODING_PCM || capture->format.encoding.type == XRAUDIO_ENCODING_PCM_RAW) ? XRAUDIO_CONTAINER_WAV : XRAUDIO_CONTAINER_NONE;
 
-      XLOGD_INFO("%s file <%s> container <%s> encoding <%s> chan_qty <%u> %u Hz %u-bit", (index == 0) ? "native" : "decoded", filename, xraudio_container_str(capture->format.container), xraudio_encoding_str(capture->format.encoding.type), capture->format.channel_qty, capture->format.sample_rate, (capture->format.sample_size <= 2) ? capture->format.sample_size * 8 : 24 );
+      XLOGD_DEBUG("%s file <%s> container <%s> encoding <%s> chan_qty <%u> %u Hz %u-bit", (index == 0) ? "native" : "decoded", filename, xraudio_container_str(capture->format.container), xraudio_encoding_str(capture->format.encoding.type), capture->format.channel_qty, capture->format.sample_rate, (capture->format.sample_size <= 2) ? capture->format.sample_size * 8 : 24 );
 
       errno = 0;
       capture->fd = open(filename, XRAUDIO_CAPTURE_FILE_FLAGS, XRAUDIO_CAPTURE_FILE_MODE);
@@ -4707,7 +4711,7 @@ int xraudio_capture_file_filter_by_index(const struct dirent *name) {
       if(rc != sizeof(prefix) - 1) {
           XLOGD_ERROR("set filter to <%s> rc <%d>", prefix, rc);
       } else {
-          XLOGD_INFO("set filter to <%s>", prefix);
+          XLOGD_DEBUG("set filter to <%s>", prefix);
       }
    }
 
@@ -4810,7 +4814,7 @@ bool xraudio_capture_file_index_in_use(const char *dir_path, uint32_t index) {
 void xraudio_capture_file_delete(const char *dir_path, uint32_t index) {
    struct dirent **namelist = NULL;
 
-   XLOGD_INFO("index <%u>", index);
+   XLOGD_DEBUG("index <%u>", index);
 
    // Call once to set the filter up
    struct dirent filter;
@@ -4831,7 +4835,7 @@ void xraudio_capture_file_delete(const char *dir_path, uint32_t index) {
 
       snprintf(filename, sizeof(filename), "%s/%s", dir_path, namelist[entry_qty]->d_name);
 
-      XLOGD_INFO("remove file <%s>", filename);
+      XLOGD_DEBUG("remove file <%s>", filename);
       errno = 0;
       int rc = remove(filename);
       if(rc != 0) {
@@ -5641,7 +5645,7 @@ void xraudio_in_session_record_group_semaphore_unlock(xraudio_main_thread_params
    }
    #endif
 
-   XLOGD_INFO("group <%s>", xraudio_input_session_group_str(group));
+   XLOGD_DEBUG("group <%s>", xraudio_input_session_group_str(group));
 }
 
 void xraudio_in_session_group_semaphore_unlock(xraudio_thread_state_t *state, xraudio_devices_input_t source) {
