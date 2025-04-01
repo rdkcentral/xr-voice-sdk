@@ -325,7 +325,7 @@ bool xrsr_speech_stream_end(const uuid_t uuid, xrsr_src_t src, uint32_t dst_inde
 void xrsr_session_stream_begin(const uuid_t uuid, const char *uuid_str, xrsr_src_t src, uint32_t dst_index);
 void xrsr_session_end(const uuid_t uuid, const char *uuid_str, xrsr_src_t src, uint32_t dst_index, xrsr_session_stats_t *stats);
 
-xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_phrase_t keyword_phrase, xraudio_keyword_sensitivity_t keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio);
+xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_sensitivity_t keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio);
 void xrsr_xraudio_destroy(xrsr_xraudio_object_t object);
 void xrsr_xraudio_internal_capture_params_set(xrsr_xraudio_object_t object, xraudio_internal_capture_params_t *params);
 void xrsr_xraudio_internal_capture_delete_files(xrsr_xraudio_object_t object, const char *dir_path);
@@ -334,7 +334,7 @@ void xrsr_xraudio_device_revoked(xrsr_xraudio_object_t object);
 void xrsr_xraudio_device_request(xrsr_xraudio_object_t object);
 void xrsr_xraudio_device_update(xrsr_xraudio_object_t object, xrsr_src_t srcs[]);
 void xrsr_xraudio_device_close(xrsr_xraudio_object_t object);
-void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *obj, xraudio_keyword_phrase_t keyword_phrase, xraudio_keyword_sensitivity_t keyword_sensitivity);
+void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *obj, xraudio_keyword_sensitivity_t keyword_sensitivity);
 void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object);
 void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_keyword_detected_t *msg, xrsr_src_t current_session_src, bool requested_more_audio, bool *audio_stream_start);
 void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_devices_input_t source);

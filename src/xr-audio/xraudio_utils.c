@@ -558,37 +558,6 @@ const char *xraudio_capture_str(xraudio_capture_t type) {
    return(xraudio_invalid_return(type));
 }
 
-const char *xraudio_keyword_phrase_str(xraudio_keyword_phrase_t type) {
-   switch(type) {
-      case XRAUDIO_KEYWORD_PHRASE_HEY_XFINITY: return("HEY_XFINITY");
-      case XRAUDIO_KEYWORD_PHRASE_HELLO_SKY:   return("HELLO_SKY");
-      case XRAUDIO_KEYWORD_PHRASE_INVALID:     return("INVALID");
-   }
-   return(xraudio_invalid_return(type));
-}
-
-const char *xraudio_keyword_config_str(xraudio_keyword_config_t type) {
-   switch(type) {
-      case XRAUDIO_KEYWORD_CONFIG_1:       return("CONFIG_1");
-      case XRAUDIO_KEYWORD_CONFIG_2:       return("CONFIG_2");
-      case XRAUDIO_KEYWORD_CONFIG_3:       return("CONFIG_3");
-      case XRAUDIO_KEYWORD_CONFIG_4:       return("CONFIG_4");
-      case XRAUDIO_KEYWORD_CONFIG_5:       return("CONFIG_5");
-      case XRAUDIO_KEYWORD_CONFIG_6:       return("CONFIG_6");
-      case XRAUDIO_KEYWORD_CONFIG_7:       return("CONFIG_7");
-      case XRAUDIO_KEYWORD_CONFIG_8:       return("CONFIG_8");
-      case XRAUDIO_KEYWORD_CONFIG_9:       return("CONFIG_9");
-      case XRAUDIO_KEYWORD_CONFIG_10:      return("CONFIG_10");
-      case XRAUDIO_KEYWORD_CONFIG_11:      return("CONFIG_11");
-      case XRAUDIO_KEYWORD_CONFIG_12:      return("CONFIG_12");
-      case XRAUDIO_KEYWORD_CONFIG_13:      return("CONFIG_13");
-      case XRAUDIO_KEYWORD_CONFIG_14:      return("CONFIG_14");
-      case XRAUDIO_KEYWORD_CONFIG_15:      return("CONFIG_15");
-      case XRAUDIO_KEYWORD_CONFIG_INVALID: return("INVALID");
-   }
-   return(xraudio_invalid_return(type));
-}
-
 const char *xraudio_capabilities_input_str(uint16_t type) {
    static char str[64];
 
