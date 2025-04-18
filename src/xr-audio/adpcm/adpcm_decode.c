@@ -186,7 +186,7 @@ bool adpcm_analyze(adpcm_dec_t *decoder, adpcm_t *inbuf, uint32_t inlen, xraudio
     }
 
     // Get sequence_value, step_size_index, and predicted_sample
-    sequence_value = inbuf[adpcm_frame->offset_sequence_value];
+    sequence_value = inbuf[adpcm_frame->offset_sequence_value] >> adpcm_frame->shift_sequence_value;
     
     if(sequence_value < adpcm_frame->sequence_value_min || sequence_value > adpcm_frame->sequence_value_max) {
         XLOGD_ERROR("sequence value <%u> is out of bounds - min <%u> max <%u>", sequence_value, adpcm_frame->sequence_value_min, adpcm_frame->sequence_value_max);

@@ -1134,13 +1134,14 @@ xraudio_input_format_t xrsr_xrsr_format_to_xraudio(xrsr_audio_format_t format) {
    xraudio_format.channel_qty   = 1;
 
    switch(format.type) {
-      case XRSR_AUDIO_FORMAT_ADPCM_FRAME:      { xraudio_format.encoding.type                                    = XRAUDIO_ENCODING_ADPCM_FRAME; 
+      case XRSR_AUDIO_FORMAT_ADPCM_FRAME:      { xraudio_format.encoding.type                                          = XRAUDIO_ENCODING_ADPCM_FRAME; 
                                                  xraudio_format.encoding.value.adpcm_frame.size_packet                 = format.value.adpcm_frame.size_packet;
                                                  xraudio_format.encoding.value.adpcm_frame.size_header                 = format.value.adpcm_frame.size_header;
                                                  xraudio_format.encoding.value.adpcm_frame.offset_step_size_index      = format.value.adpcm_frame.offset_step_size_index;
                                                  xraudio_format.encoding.value.adpcm_frame.offset_predicted_sample_lsb = format.value.adpcm_frame.offset_predicted_sample_lsb;
                                                  xraudio_format.encoding.value.adpcm_frame.offset_predicted_sample_msb = format.value.adpcm_frame.offset_predicted_sample_msb;
                                                  xraudio_format.encoding.value.adpcm_frame.offset_sequence_value       = format.value.adpcm_frame.offset_sequence_value;
+                                                 xraudio_format.encoding.value.adpcm_frame.shift_sequence_value        = format.value.adpcm_frame.shift_sequence_value;
                                                  xraudio_format.encoding.value.adpcm_frame.sequence_value_min          = format.value.adpcm_frame.sequence_value_min;
                                                  xraudio_format.encoding.value.adpcm_frame.sequence_value_max          = format.value.adpcm_frame.sequence_value_max;
                                                  break;
