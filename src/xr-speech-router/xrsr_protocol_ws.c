@@ -288,7 +288,7 @@ void xrsr_ws_fd_set(xrsr_state_ws_t *ws, int *nfds, fd_set *readfds, fd_set *wri
 void xrsr_ws_handle_fds(xrsr_state_ws_t *ws, fd_set *readfds, fd_set *writefds, fd_set *exceptfds) {
    // First, let's check if we have received a message over the websocket
    if(ws->socket >= 0 && FD_ISSET(ws->socket, readfds)) {
-      XLOGD_INFO("src <%s> data available for read", xrsr_src_str(ws->audio_src));
+      XLOGD_DEBUG("src <%s> data available for read", xrsr_src_str(ws->audio_src));
       xrsr_ws_read_pending(ws);
    }
 
@@ -298,7 +298,7 @@ void xrsr_ws_handle_fds(xrsr_state_ws_t *ws, fd_set *readfds, fd_set *writefds, 
       if(ws->write_pending_bytes) {
          int bytes = nopoll_conn_pending_write_bytes(ws->obj_conn);
          if(bytes != (nopoll_conn_complete_pending_write(ws->obj_conn))) {
-            XLOGD_WARN("src <%s> still waiting to write pending bytes...", xrsr_src_str(ws->audio_src));
+            XLOGD_DEBUG("src <%s> still waiting to write pending bytes...", xrsr_src_str(ws->audio_src));
             ws->write_pending_retries++;
             if(ws->write_pending_retries > XRSR_WS_WRITE_PENDING_RETRY_MAX) {
                xrsr_ws_event(ws, SM_EVENT_WS_ERROR, false);
@@ -306,7 +306,7 @@ void xrsr_ws_handle_fds(xrsr_state_ws_t *ws, fd_set *readfds, fd_set *writefds, 
             // No point in continuing, as we haven't sent the pending data yet.
             return;
          }
-         XLOGD_INFO("src <%s> pending bytes written successfully", xrsr_src_str(ws->audio_src));
+         XLOGD_DEBUG("src <%s> pending bytes written successfully", xrsr_src_str(ws->audio_src));
          ws->write_pending_bytes   = false;
          ws->write_pending_retries = 0;
       }
@@ -319,7 +319,7 @@ void xrsr_ws_handle_fds(xrsr_state_ws_t *ws, fd_set *readfds, fd_set *writefds, 
 
          if(xrsr_ws_get_msg_out(ws, &buf, &len)) {
             if(buf) {
-               XLOGD_INFO("src <%s> sending outgoing message", xrsr_src_str(ws->audio_src));
+               XLOGD_DEBUG("src <%s> sending outgoing message", xrsr_src_str(ws->audio_src));
                bytes = nopoll_conn_send_text(ws->obj_conn, (const char *)buf, (long)len);
                // NoPoll now has the data copied into an internal buffer
                free(buf);
@@ -349,14 +349,14 @@ void xrsr_ws_handle_fds(xrsr_state_ws_t *ws, fd_set *readfds, fd_set *writefds, 
       if(rc < 0) {
          int errsv = errno;
          if(errsv == EAGAIN || errsv == EWOULDBLOCK) {
-            XLOGD_INFO("src <%s> read would block", xrsr_src_str(ws->audio_src));
+            XLOGD_DEBUG("src <%s> read would block", xrsr_src_str(ws->audio_src));
             xrsr_ws_event(ws, SM_EVENT_AUDIO_ERROR, false);
          } else {
             XLOGD_ERROR("src <%s> pipe read error <%s>", xrsr_src_str(ws->audio_src), strerror(errsv));
             xrsr_ws_event(ws, SM_EVENT_AUDIO_ERROR, false);
          }
       } else if(rc == 0) { // EOF
-         XLOGD_INFO("src <%s> pipe read EOF", xrsr_src_str(ws->audio_src));
+         XLOGD_DEBUG("src <%s> pipe read EOF", xrsr_src_str(ws->audio_src));
          xrsr_ws_event(ws, SM_EVENT_EOS_PIPE, false);
       } else {
          XLOGD_DEBUG("src <%s> pipe read <%d>", xrsr_src_str(ws->audio_src), rc);
@@ -394,7 +394,7 @@ void xrsr_ws_handle_fds(xrsr_state_ws_t *ws, fd_set *readfds, fd_set *writefds, 
 
 void xrsr_ws_process_timeout(void *data) {
    xrsr_state_ws_t *ws = (xrsr_state_ws_t *)data;
-   XLOGD_INFO("src <%s>", xrsr_src_str(ws->audio_src));
+   XLOGD_DEBUG("src <%s>", xrsr_src_str(ws->audio_src));
    xrsr_ws_event(ws, SM_EVENT_TIMEOUT, false);
 }
 
@@ -1135,7 +1135,7 @@ void St_Ws_Connected(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardResp
          switch(pEvent->mID) {
             case SM_EVENT_TIMEOUT: {
                if(!xrsr_ws_conn_is_ready(ws)) {
-                  XLOGD_WARN("src <%s> websocket is not ready", xrsr_src_str(ws->audio_src));
+                  XLOGD_DEBUG("src <%s> websocket is not ready", xrsr_src_str(ws->audio_src));
                   if(ws->connect_wait_time <= 0) {
                      XLOGD_ERROR("src <%s> server hang on HTTP upgrade request", xrsr_src_str(ws->audio_src));
                      xrsr_ws_event(ws, SM_EVENT_ESTABLISH_TIMEOUT, true);

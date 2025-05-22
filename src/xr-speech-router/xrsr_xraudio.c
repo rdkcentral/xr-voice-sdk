@@ -46,7 +46,6 @@ typedef struct {
    xraudio_devices_output_t      device_output;
    bool                          detect_active;
    bool                          session_rejected;
-   xraudio_keyword_phrase_t      keyword_phrase;
    xraudio_keyword_sensitivity_t keyword_sensitivity;
    xraudio_devices_input_t       available_inputs[XRAUDIO_INPUT_MAX_DEVICE_QTY];
    xraudio_devices_output_t      available_outputs[XRAUDIO_OUTPUT_MAX_DEVICE_QTY];
@@ -67,7 +66,7 @@ static __inline xrsr_session_group_t xrsr_xraudio_source_to_group(xraudio_device
 static xraudio_devices_input_t g_local_mic_full_power = XRAUDIO_DEVICE_INPUT_NONE;
 static xraudio_devices_input_t g_local_mic_low_power  = XRAUDIO_DEVICE_INPUT_NONE;
 
-xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_phrase_t keyword_phrase, xraudio_keyword_sensitivity_t keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio) {
+xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_sensitivity_t keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)malloc(sizeof(xrsr_xraudio_obj_t));
 
    if(obj == NULL) {
@@ -91,7 +90,6 @@ xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_phrase_t keyword_phras
    obj->device_output        = XRAUDIO_DEVICE_OUTPUT_NONE;
    obj->detect_active        = true;
    obj->session_rejected     = false;
-   obj->keyword_phrase       = keyword_phrase;
    obj->keyword_sensitivity  = keyword_sensitivity;
    obj->xraudio_obj          = xraudio_object_create(json_obj_xraudio);
    if(obj->xraudio_obj == NULL) {
@@ -397,7 +395,7 @@ void xrsr_xraudio_device_close(xrsr_xraudio_object_t object) {
    }
 }
 
-void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_keyword_phrase_t keyword_phrase, xraudio_keyword_sensitivity_t keyword_sensitivity) {
+void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_keyword_sensitivity_t keyword_sensitivity) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
 
    if(!xrsr_xraudio_object_is_valid(obj)) {
@@ -405,17 +403,16 @@ void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_k
       return;
    }
 
-   XLOGD_INFO("phrase <%s> sensitivity <%f>", xraudio_keyword_phrase_str(keyword_phrase), keyword_sensitivity);
+   XLOGD_INFO("sensitivity <%f>", keyword_sensitivity);
 
-   bool changed = (obj->keyword_phrase != keyword_phrase) || (obj->keyword_sensitivity != keyword_sensitivity);
+   bool changed = (obj->keyword_sensitivity != keyword_sensitivity);
 
-   obj->keyword_phrase        = keyword_phrase;
    obj->keyword_sensitivity   = keyword_sensitivity;
 
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
    if(changed && (stream->detecting)) {
-      xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->keyword_phrase, obj->keyword_sensitivity);
+      xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->keyword_sensitivity);
       if(XRAUDIO_RESULT_OK != result) {
          XLOGD_ERROR("xraudio_detect_params <%s>", xraudio_result_str(result));
       }
@@ -433,11 +430,11 @@ void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
 }
 
 void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
-   XLOGD_INFO("phrase <%s> sensitivity <%f>", xraudio_keyword_phrase_str(obj->keyword_phrase), obj->keyword_sensitivity);
+   XLOGD_INFO("sensitivity <%f>", obj->keyword_sensitivity);
 
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
-   xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->keyword_phrase, obj->keyword_sensitivity);
+   xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->keyword_sensitivity);
    if(XRAUDIO_RESULT_OK != result) {
       XLOGD_ERROR("xraudio_detect_params <%s>", xraudio_result_str(result));
    }
@@ -1137,13 +1134,14 @@ xraudio_input_format_t xrsr_xrsr_format_to_xraudio(xrsr_audio_format_t format) {
    xraudio_format.channel_qty   = 1;
 
    switch(format.type) {
-      case XRSR_AUDIO_FORMAT_ADPCM_FRAME:      { xraudio_format.encoding.type                                    = XRAUDIO_ENCODING_ADPCM_FRAME; 
+      case XRSR_AUDIO_FORMAT_ADPCM_FRAME:      { xraudio_format.encoding.type                                          = XRAUDIO_ENCODING_ADPCM_FRAME; 
                                                  xraudio_format.encoding.value.adpcm_frame.size_packet                 = format.value.adpcm_frame.size_packet;
                                                  xraudio_format.encoding.value.adpcm_frame.size_header                 = format.value.adpcm_frame.size_header;
                                                  xraudio_format.encoding.value.adpcm_frame.offset_step_size_index      = format.value.adpcm_frame.offset_step_size_index;
                                                  xraudio_format.encoding.value.adpcm_frame.offset_predicted_sample_lsb = format.value.adpcm_frame.offset_predicted_sample_lsb;
                                                  xraudio_format.encoding.value.adpcm_frame.offset_predicted_sample_msb = format.value.adpcm_frame.offset_predicted_sample_msb;
                                                  xraudio_format.encoding.value.adpcm_frame.offset_sequence_value       = format.value.adpcm_frame.offset_sequence_value;
+                                                 xraudio_format.encoding.value.adpcm_frame.shift_sequence_value        = format.value.adpcm_frame.shift_sequence_value;
                                                  xraudio_format.encoding.value.adpcm_frame.sequence_value_min          = format.value.adpcm_frame.sequence_value_min;
                                                  xraudio_format.encoding.value.adpcm_frame.sequence_value_max          = format.value.adpcm_frame.sequence_value_max;
                                                  break;

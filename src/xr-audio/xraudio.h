@@ -205,35 +205,6 @@ typedef enum {
    XRAUDIO_CAPTURE_OUTPUT       = 0x20, ///< output to destination
 } xraudio_capture_t;
 
-/// @brief Keyword Phrase Types
-/// @details The keyword phrase enumeration indicates all the keyword phrases supported by xraudio.
-typedef enum {
-   XRAUDIO_KEYWORD_PHRASE_HEY_XFINITY = 0, ///< "Hey xfinity"
-   XRAUDIO_KEYWORD_PHRASE_HELLO_SKY   = 1, ///< "Hello sky"
-   XRAUDIO_KEYWORD_PHRASE_INVALID     = 2, ///< Invalid keyword phrase type
-} xraudio_keyword_phrase_t;
-
-/// @brief Keyword Config Types
-/// @details The keyword config enumeration indicates all the keyword configuration supported by xraudio.
-typedef enum {
-   XRAUDIO_KEYWORD_CONFIG_1       = 0,  ///<
-   XRAUDIO_KEYWORD_CONFIG_2       = 1,  ///<
-   XRAUDIO_KEYWORD_CONFIG_3       = 2,  ///<
-   XRAUDIO_KEYWORD_CONFIG_4       = 3,  ///<
-   XRAUDIO_KEYWORD_CONFIG_5       = 4,  ///<
-   XRAUDIO_KEYWORD_CONFIG_6       = 5,  ///<
-   XRAUDIO_KEYWORD_CONFIG_7       = 6,  ///<
-   XRAUDIO_KEYWORD_CONFIG_8       = 7,  ///<
-   XRAUDIO_KEYWORD_CONFIG_9       = 8,  ///<
-   XRAUDIO_KEYWORD_CONFIG_10      = 9,  ///<
-   XRAUDIO_KEYWORD_CONFIG_11      = 10, ///<
-   XRAUDIO_KEYWORD_CONFIG_12      = 11, ///<
-   XRAUDIO_KEYWORD_CONFIG_13      = 12, ///<
-   XRAUDIO_KEYWORD_CONFIG_14      = 13, ///<
-   XRAUDIO_KEYWORD_CONFIG_15      = 14, ///<
-   XRAUDIO_KEYWORD_CONFIG_INVALID = 15, ///< Invalid keyword config type
-} xraudio_keyword_config_t;
-
 /// @brief xraudio object type
 /// @details The xraudio object type is returned by the xraudio_object_create api.  It is used in all subsequent calls to xraudio api's.
 typedef void *          xraudio_object_t;
@@ -403,7 +374,7 @@ xraudio_result_t xraudio_privacy_mode_get(xraudio_object_t object, xraudio_devic
 // Recording APIs - Synchronous if callback is NULL
 /// @brief Set keyword detection parameters
 /// @details Sets the keyword detection parameters.  The parameters will remain persistent until the xraudio object is destroyed.  The parameters will take effect on the next call to xraudio_keyword_detect.
-xraudio_result_t xraudio_detect_params(xraudio_object_t object, xraudio_keyword_phrase_t keyword_phrase, xraudio_keyword_sensitivity_t keyword_sensitivity);
+xraudio_result_t xraudio_detect_params(xraudio_object_t object, xraudio_keyword_sensitivity_t keyword_sensitivity);
 /// @brief Start keyword detection
 /// @details Starts a keyword detection session.  The detector begins processing incoming audio data and provides keyword detection events by invoking the callback.
 xraudio_result_t xraudio_detect_keyword(xraudio_object_t object, keyword_callback_t callback, void *param);
@@ -571,10 +542,6 @@ const char *     keyword_callback_event_str(keyword_callback_event_t type);
 const char *     xraudio_resource_event_str(xraudio_resource_event_t type);
 /// @brief Convert the capture type to a string
 const char *     xraudio_capture_str(xraudio_capture_t type);
-/// @brief Convert the keyword_phrase type to a string
-const char *     xraudio_keyword_phrase_str(xraudio_keyword_phrase_t type);
-/// @brief Convert the keyword_config type to a string
-const char *     xraudio_keyword_config_str(xraudio_keyword_config_t type);
 /// @brief Convert the xraudio_eos_event_t type to a string
 const char *     xraudio_eos_event_str(xraudio_eos_event_t type);
 /// @brief Convert the xraudio_ppr_event_t type to a string

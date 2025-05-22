@@ -16,6 +16,22 @@ All notable changes to this project will be documented in this file.
 
 * In the future, generate this file by [`auto-changelog`](https://github.com/CookPete/auto-changelog).
 
+## [1.0.5] - 2025-05-16
+
+### Changed
+- Extend adpcm frame info
+
+
+## [1.0.4] - 2025-03-31
+
+### Changed
+- Rationalize Voice Logging
+- replace xraudio_keyword_phrase_t
+
+### Fixed
+- Unable to start new voice stream with conversational UI server
+
+
 ## [1.0.3] - 2025-02-07
 
 ### Added

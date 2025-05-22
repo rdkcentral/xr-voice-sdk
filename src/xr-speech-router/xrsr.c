@@ -34,12 +34,6 @@
 #include <xraudio.h>
 #include <opus/opus.h>
 
-#if defined(XRSR_KEYWORD_PHRASE_HELLO_SKY)
-#define XRSR_KEYWORD_PHRASE (XRAUDIO_KEYWORD_PHRASE_HELLO_SKY)
-#else
-#define XRSR_KEYWORD_PHRASE (XRAUDIO_KEYWORD_PHRASE_HEY_XFINITY)
-#endif
-
 typedef enum {
    XRSR_THREAD_MAIN = 0,
    XRSR_THREAD_QTY  = 1,
@@ -482,7 +476,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
          return(false);
    }
 
-   g_xrsr.xrsr_xraudio_object = xrsr_xraudio_create(XRSR_KEYWORD_PHRASE, sensitivity, xraudio_power_mode, privacy_mode, json_obj_xraudio);
+   g_xrsr.xrsr_xraudio_object = xrsr_xraudio_create(sensitivity, xraudio_power_mode, privacy_mode, json_obj_xraudio);
 
    if(capture_config != NULL) {
       if(!xrsr_capture_config_apply(capture_config)) {
@@ -1430,7 +1424,15 @@ bool xrsr_session_audio_fd_set(xrsr_src_t src, int fd, xrsr_audio_format_t audio
       return(false);
    }
 
-   return(xrsr_xraudio_input_source_fd_set(g_xrsr.xrsr_xraudio_object, src, fd, audio_format, callback, user_data));
+   bool ret = xrsr_xraudio_input_source_fd_set(g_xrsr.xrsr_xraudio_object, src, fd, audio_format, callback, user_data);
+
+   xrsr_session_t *session = &g_xrsr.sessions[xrsr_source_to_group(src)];
+
+   if(ret && session->requested_more_audio) { // Start the audio stream since more audio data has been requested
+      XLOGD_INFO("requested more audio.  start the stream");
+      xrsr_session_audio_stream_start(src);
+   }
+   return(ret);
 }
 
 bool xrsr_session_keyword_info_set(xrsr_src_t src, uint32_t keyword_begin, uint32_t keyword_duration) {
@@ -1523,7 +1525,7 @@ void xrsr_msg_keyword_update(const xrsr_thread_params_t *params, xrsr_thread_sta
    if(keyword_update->keyword_config == NULL) {
       XLOGD_ERROR("NULL keyword config");
    } else {
-      xrsr_xraudio_keyword_detect_params(g_xrsr.xrsr_xraudio_object, XRSR_KEYWORD_PHRASE, (xraudio_keyword_sensitivity_t)keyword_update->keyword_config->sensitivity);
+      xrsr_xraudio_keyword_detect_params(g_xrsr.xrsr_xraudio_object, (xraudio_keyword_sensitivity_t)keyword_update->keyword_config->sensitivity);
    }
    if(keyword_update->semaphore != NULL) {
       sem_post(keyword_update->semaphore);
