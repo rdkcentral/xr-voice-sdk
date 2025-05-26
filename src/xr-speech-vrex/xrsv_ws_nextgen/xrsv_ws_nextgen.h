@@ -85,6 +85,7 @@ typedef struct {
    bool        test_flag;                 ///< True if the device is used for testing only, otherwise false
    bool        bypass_wuw_verify_success; ///< True if the server WUW verification is bypassed (return success), otherwise false
    bool        bypass_wuw_verify_failure; ///< True if the server WUW verification is bypassed (return failure), otherwise false
+   bool        listen_for_key_names;      ///< True if the server needs to only listen for key names, otherwise false
    bool        mask_pii;                  ///< True if the PII must be masked from the log
    void       *user_data;                 ///< User data that is passed in to all of the callbacks
 } xrsv_ws_nextgen_params_t;
@@ -268,6 +269,13 @@ typedef void (*xrsv_ws_nextgen_handler_tv_power_t)(bool power, bool toggle, void
 /// @return The function has no return value.
 typedef void (*xrsv_ws_nextgen_handler_tv_volume_t)(bool up, uint32_t repeat_count, void *user_data);
 
+/// @brief XRSV_WS_NEXTGEN key code handler
+/// @details Function type to emit key code events during the session.
+/// @param[in] key_code     16-bit key code
+/// @param[in] user_data     the data set by the user
+/// @return The function has no return value.
+typedef void (*xrsv_ws_nextgen_handler_key_code_t)(uint16_t key_code, void *user_data);
+
 /// @}
 
 /// @addtogroup XRSV_WS_NEXTGEN_STRUCTS
@@ -294,6 +302,7 @@ typedef struct {
    xrsv_ws_nextgen_handler_tv_mute_t           tv_mute;           ///< The server wants to mute/unmute the TV
    xrsv_ws_nextgen_handler_tv_power_t          tv_power;          ///< The server wants to control the TV power
    xrsv_ws_nextgen_handler_tv_volume_t         tv_volume;         ///< The server wants to control the TV's volume
+   xrsv_ws_nextgen_handler_key_code_t          key_code;          ///< The server wants to emit a key code
 } xrsv_ws_nextgen_handlers_t;
 
 /// @}

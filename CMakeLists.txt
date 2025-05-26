@@ -117,6 +117,7 @@ target_sources(xr-voice-sdk PUBLIC
                src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.c
                xrsv_ws_nextgen_msgtype.c
                xrsv_ws_nextgen_tv_control.c
+               xrsv_ws_nextgen_key_code.c
                src/xr-audio/xraudio.c
                src/xr-audio/xraudio_input.c
                src/xr-audio/xraudio_thread.c
@@ -330,4 +331,10 @@ add_custom_command(
    OUTPUT xrsv_ws_nextgen_tv_control.c
    COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=xrsv_ws_nextgen_tv_control.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_tv_control.hash
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_tv_control.hash
+   VERBATIM)
+
+add_custom_command(
+   OUTPUT xrsv_ws_nextgen_key_code.c
+   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=xrsv_ws_nextgen_key_code.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_key_code.hash
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_key_code.hash
    VERBATIM)
