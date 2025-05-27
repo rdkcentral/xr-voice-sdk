@@ -53,7 +53,7 @@
 #define XRSR_USER_AGENT_LEN_MAX            (256)   ///< Maximum length of the NULL-terminated user agent string.
 #define XRSR_SESSION_IP_LEN_MAX            (48)    ///< Maximum length of the NULL-terminated IP address string.
 
-#define XRSR_DST_QTY_MAX                   (1)     ///< Maximum quantity of destinations for a source
+#define XRSR_DST_QTY_MAX                   (2)     ///< Maximum quantity of destinations for a source
 
 #define XRSR_SESSION_BY_TEXT_MAX_LENGTH    (128)   ///< Maximum text string length for text-only sessions
 #define XRSR_SESSION_AUDIO_FILE_MAX_LENGTH (256)   ///< Maximum string length for audio file name
@@ -697,7 +697,7 @@ bool xrsr_route(const xrsr_route_t routes[]);
 /// @param[in] low_latency Enables low latency mode if true, otherwise disables.
 /// @param[in] low_cpu_util Enables low cpu utilization mode if true, otherwise disables.
 /// @return The function returns true if successful or false otherwise.
-bool xrsr_session_request(xrsr_src_t src, xrsr_audio_format_t output_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
+bool xrsr_session_request(xrsr_src_t src, uint8_t dst_index, xrsr_audio_format_t output_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
 
 /// @brief Updates the file descriptor for a speech router session
 /// @details Requests to update the file descriptor for a session that has been granted, but does not have the source file descriptor yet.

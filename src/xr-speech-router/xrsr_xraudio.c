@@ -523,7 +523,8 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
    input_format.type = XRSR_SESSION_REQUEST_TYPE_AUDIO_MIC;
 
    // Call the appropriate handler based on the source
-   xrsr_session_begin(src, user_initiated, msg->xraudio_format, detector_result, input_format, uuid_is_null(msg->uuid) ? NULL : &msg->uuid, false, false);
+   uint8_t dst_index = 0;
+   xrsr_session_begin(src, dst_index, user_initiated, msg->xraudio_format, detector_result, input_format, uuid_is_null(msg->uuid) ? NULL : &msg->uuid, false, false);
 }
 
 void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_devices_input_t source) {
@@ -777,7 +778,7 @@ void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback
    xrsr_queue_msg_push(xrsr_msgq_fd_get(), (const char *)&msg, sizeof(msg));
 }
 
-bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, xraudio_input_format_t xraudio_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
+bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, uint8_t dst_index, xraudio_input_format_t xraudio_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
    xraudio_keyword_detector_result_t *detector_result = NULL;
 
@@ -820,7 +821,7 @@ bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, 
       }
    }
 
-   xrsr_session_begin(src, detector_result == NULL, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
+   xrsr_session_begin(src, dst_index, detector_result == NULL, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
 
    return(true);
 }

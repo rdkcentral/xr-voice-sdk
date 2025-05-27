@@ -1394,7 +1394,7 @@ void xrsr_msg_route_update(const xrsr_thread_params_t *params, xrsr_thread_state
    }
 }
 
-bool xrsr_session_request(xrsr_src_t src, xrsr_audio_format_t output_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
+bool xrsr_session_request(xrsr_src_t src,  uint8_t dst_index, xrsr_audio_format_t output_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
    if(input_format.type >= XRSR_SESSION_REQUEST_TYPE_INVALID) {
       XLOGD_INFO("unsupported input format <%s>", xrsr_session_request_type_str(input_format.type));
       return(false);
@@ -1407,6 +1407,8 @@ bool xrsr_session_request(xrsr_src_t src, xrsr_audio_format_t output_format, xrs
    xraudio_format.sample_size   = (output_format_type == XRSR_AUDIO_FORMAT_PCM_RAW || output_format_type == XRSR_AUDIO_FORMAT_PCM_32_BIT || output_format_type == XRSR_AUDIO_FORMAT_PCM_32_BIT_MULTI) ? XRAUDIO_INPUT_MAX_SAMPLE_SIZE : XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE;
    xraudio_format.channel_qty   = (output_format_type == XRSR_AUDIO_FORMAT_PCM_RAW || output_format_type == XRSR_AUDIO_FORMAT_PCM_32_BIT_MULTI) ? XRAUDIO_INPUT_MAX_CHANNEL_QTY : XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY;
 
+   XLOGD_WARN("DAVE dst index <%u>", dst_index);
+
    if(input_format.type == XRSR_SESSION_REQUEST_TYPE_AUDIO_MIC) {
       if(input_format.value.audio_mic.stream_params_required == true ) {
          xrsr_session_config_update_t *session_config_update = &g_xrsr.sessions[xrsr_source_to_group(src)].session_config_update;
@@ -1415,7 +1417,7 @@ bool xrsr_session_request(xrsr_src_t src, xrsr_audio_format_t output_format, xrs
       }
    }
 
-   return(xrsr_xraudio_session_request(g_xrsr.xrsr_xraudio_object, src, xraudio_format, input_format, uuid, low_latency, low_cpu_util));
+   return(xrsr_xraudio_session_request(g_xrsr.xrsr_xraudio_object, src, dst_index, xraudio_format, input_format, uuid, low_latency, low_cpu_util));
 }
 
 bool xrsr_session_audio_fd_set(xrsr_src_t src, int fd, xrsr_audio_format_t audio_format, xrsr_input_data_read_cb_t callback, void *user_data) {
@@ -2728,22 +2730,21 @@ void xrsr_send_stream_data(xrsr_src_t src, uint8_t *buffer, uint32_t size)
    }
 }
 
-void xrsr_session_begin(xrsr_src_t src, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
+void xrsr_session_begin(xrsr_src_t src, uint8_t dst_index, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
    if((uint32_t)src >= (uint32_t)XRSR_SRC_INVALID) {
       XLOGD_ERROR("invalid source <%s>", xrsr_src_str(src));
       return;
    }
-
-   // TODO Only the handler for dst index 0 is called.  Really this needs to be changed so that each protocol doesn't need to get called here.
-   for(uint32_t dst_index = 0; dst_index < 1; dst_index++) {
-      xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[dst_index];
-
-      if(dst->handler == NULL) {
-         XLOGD_ERROR("no handler for source <%s> dst index <%u>", xrsr_src_str(src), dst_index);
-         return;
-      }
-      (*dst->handler)(src, false, user_initiated, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
+   if(dst_index >= XRSR_DST_QTY_MAX || g_xrsr.routes[src].dsts[dst_index].handler == NULL) {
+      XLOGD_ERROR("source <%s> invalid dst index <%u>", xrsr_src_str(src), dst_index);
+      return;
    }
+
+   // TODO Only the handler for the specified dst index is called.  May need to support simultaneous and/or chained destinations in the future.
+   
+   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[dst_index];
+
+   (*dst->handler)(src, false, user_initiated, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
 }
 
 void xrsr_keyword_detect_error(xrsr_src_t src) {
