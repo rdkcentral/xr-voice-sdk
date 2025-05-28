@@ -1864,7 +1864,17 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
    const char *audio_file_in    = (begin->audio_file_in[0]    == '\0') ? NULL : begin->audio_file_in;
 
    bool create_stream = true;
-   for(uint32_t dst_index = 0; dst_index < XRSR_DST_QTY_MAX; dst_index++) {
+
+   // Default to all destinations
+   uint8_t dst_index_begin = 0;
+   uint8_t dst_index_end   = XRSR_DST_QTY_MAX;
+   
+   if(begin->dst_index < XRSR_DST_QTY_MAX) { // A specific destination index is requested
+      dst_index_begin = begin->dst_index;
+      dst_index_end   = begin->dst_index + 1;
+   }
+
+   for(uint8_t dst_index = dst_index_begin; dst_index < dst_index_end; dst_index++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[session->src].dsts[dst_index];
 
       if((uint32_t)session->src >= XRSR_SRC_INVALID) { // Source can be released by index 0
@@ -2744,7 +2754,7 @@ void xrsr_session_begin(xrsr_src_t src, uint8_t dst_index, bool user_initiated, 
    
    xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[dst_index];
 
-   (*dst->handler)(src, false, user_initiated, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
+   (*dst->handler)(src, dst_index, false, user_initiated, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
 }
 
 void xrsr_keyword_detect_error(xrsr_src_t src) {

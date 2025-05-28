@@ -75,7 +75,7 @@ typedef struct {
    xrsr_session_config_update_t *session_config_update;
 } xrsr_state_http_t;
 
-void xrsr_protocol_handler_http(xrsr_src_t src, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
+void xrsr_protocol_handler_http(xrsr_src_t src, uint8_t dst_index, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
 bool xrsr_http_init(xrsr_state_http_t *http, bool debug);
 void xrsr_http_term(xrsr_state_http_t *http, bool closing);
 void xrsr_http_terminate(xrsr_state_http_t *http);

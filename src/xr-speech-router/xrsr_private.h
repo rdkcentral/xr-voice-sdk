@@ -191,6 +191,7 @@ typedef struct {
 typedef struct {
    xrsr_queue_msg_header_t           header;
    xrsr_src_t                        src;
+   uint8_t                           dst_index;
    bool                              retry;
    bool                              user_initiated;
    xrsr_session_request_t            input_format;
@@ -293,7 +294,7 @@ typedef union {
 
 typedef void *xrsr_xraudio_object_t;
 
-typedef void (*xrsr_route_handler_t)(xrsr_src_t src, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
+typedef void (*xrsr_route_handler_t)(xrsr_src_t src, uint8_t dst_index, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
 typedef void (*xrsr_timer_handler_t)(void *data);
 
 

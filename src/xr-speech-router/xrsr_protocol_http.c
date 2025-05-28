@@ -233,11 +233,12 @@ int _xrsr_http_timer_function(CURLM *multi, long timeout_ms, void *userp) {
 
 // END -- CURL callback functions
 
-void xrsr_protocol_handler_http(xrsr_src_t src, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
+void xrsr_protocol_handler_http(xrsr_src_t src, uint8_t dst_index, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
     // This function kicks off the session
     xrsr_queue_msg_session_begin_t msg;
     msg.header.type     = XRSR_QUEUE_MSG_TYPE_SESSION_BEGIN;
     msg.src             = src;
+    msg.dst_index       = dst_index;
     msg.retry           = retry;
     msg.user_initiated  = user_initiated;
     msg.input_format    = input_format;
