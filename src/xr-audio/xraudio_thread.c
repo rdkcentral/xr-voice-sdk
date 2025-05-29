@@ -1399,7 +1399,15 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
          xraudio_in_capture_internal_input_begin(&instance->format_out, NULL, &state->record.capture_internal, &instance->capture_internal, record->identifier);
       }
    }
-   if(instance->fifo_audio_data[0] >= 0){ // Stream to pipe
+
+   bool audio_fifo_set = false;
+   for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
+      if(instance->fifo_audio_data[index] >= 0) {
+         audio_fifo_set = true;
+         break;
+      }
+   }
+   if(audio_fifo_set){ // Stream to pipe
       instance->record_callback = xraudio_in_write_to_pipe;
    } else if(instance->fd >= 0) { // Record to file
       instance->record_callback = xraudio_in_write_to_file;
@@ -3355,7 +3363,7 @@ int xraudio_in_write_to_pipe(xraudio_devices_input_t source, xraudio_main_thread
             }
             for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
                if(instance->fifo_audio_data[index] < 0) {
-                  break;
+                  continue;
                }
                errno = 0;
                rc = write(instance->fifo_audio_data[index], chunk_1_samples, size);
@@ -3406,7 +3414,7 @@ int xraudio_in_write_to_pipe(xraudio_devices_input_t source, xraudio_main_thread
             }
             for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
                if(instance->fifo_audio_data[index] < 0) {
-                  break;
+                  continue;
                }
                errno = 0;
                rc = write(instance->fifo_audio_data[index], chunk_2_samples, size);
@@ -3515,7 +3523,7 @@ int xraudio_in_write_to_pipe(xraudio_devices_input_t source, xraudio_main_thread
          for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
             //XLOGD_DEBUG("streaming channel %d", chan);
             if(instance->fifo_audio_data[index] < 0) {
-               break;
+               continue;
             }
             //XLOGD_INFO("src <%s> pipe <%d> size <%u> hal_mic_frame_size <%u> frame_size_out <%u>", xraudio_devices_input_str(source), instance->fifo_audio_data[index], data_size, session->hal_mic_frame_size, instance->frame_size_out);
             errno = 0;
@@ -5187,7 +5195,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
 
          for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
             if(instance->fifo_audio_data[index] < 0) {
-               break;
+               continue;
             }
             if(instance->fifo_audio_data[index] >= 0) { // Close the write side of the pipe so the read side gets EOF
                close(instance->fifo_audio_data[index]);

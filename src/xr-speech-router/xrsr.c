@@ -2824,19 +2824,28 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
       session->requested_more_audio = false;
       session->stream_id++;
 
-      // create pipe for each destination
+      // Default to all destinations
+      uint32_t dst_index_begin = 0;
+      uint32_t dst_index_end   = XRSR_DST_QTY_MAX;
+   
+      if(dst_index < XRSR_DST_QTY_MAX) { // A specific destination index is requested
+         dst_index_begin = dst_index;
+         dst_index_end   = dst_index + 1;
+      }
+      
+      // initialize the destination parameters
       for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
-         xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
+         session->pipe_size[index]   = -1;
+         session->pipe_fds_rd[index] = -1;
+         dsts[index].pipe            = -1;
+         dsts[index].from            = XRAUDIO_INPUT_RECORD_FROM_INVALID;
+         dsts[index].offset          = 0;
+         dsts[index].until           = XRAUDIO_INPUT_RECORD_UNTIL_INVALID;
+      }
 
-         if(dst->handler == NULL) {
-            session->pipe_size[index]   = -1;
-            session->pipe_fds_rd[index] = -1;
-            dsts[index].pipe            = -1;
-            dsts[index].from            = XRAUDIO_INPUT_RECORD_FROM_INVALID;
-            dsts[index].offset          = 0;
-            dsts[index].until           = XRAUDIO_INPUT_RECORD_UNTIL_INVALID;
-            break;
-         }
+      // create pipe for each destination
+      for(uint32_t index = dst_index_begin; index < dst_index_end; index++) {
+         xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
          int pipe_fds[2];
 
@@ -3006,7 +3015,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                // Ensure that the pipes are large enough to hold the entire audio data
                for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
-                  if(dst->handler == NULL) {
+                  if(dst->handler == NULL || dsts[index].pipe < 0) {
                      continue;
                   }
                   if(data_length > session->pipe_size[index]) {
@@ -3083,7 +3092,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                         xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
-                        if(dst->handler == NULL) {
+                        if(dst->handler == NULL || dsts[index].pipe < 0) {
                            continue;
                         }
                         errno = 0;
@@ -3103,7 +3112,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
-                  if(dst->handler == NULL) {
+                  if(dst->handler == NULL || dsts[index].pipe < 0) {
                      continue;
                   }
                   close(dsts[index].pipe);

@@ -64,7 +64,7 @@
 #define XRAUDIO_FIFO_NAME_LENGTH_MAX      (64)
 #define XRAUDIO_FIFO_NAME_LENGTH_MIN      (2)
 
-#define XRAUDIO_FIFO_QTY_MAX              (1)
+#define XRAUDIO_FIFO_QTY_MAX              (2)
 
 #define BLOCK_INTERFERER_DURING_VREX       (1)
 

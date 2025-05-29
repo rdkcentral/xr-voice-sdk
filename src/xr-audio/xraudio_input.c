@@ -819,19 +819,24 @@ xraudio_result_t xraudio_input_stream_to_pipe(xraudio_input_object_t object, xra
       return(XRAUDIO_RESULT_ERROR_STATE);
    }
 
-   if(dsts[0].pipe < 0) {
-      XLOGD_ERROR("src <%s> invalid parameters - pipe[0] <%d>", xraudio_devices_input_str(source), dsts[0].pipe);
+   bool pipe_is_valid = false;
+   for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
+      if(dsts[index].pipe >= 0) {
+         pipe_is_valid = true;
+         break;
+      }
+   }
+   if(!pipe_is_valid) {
+      XLOGD_ERROR("src <%s> invalid parameters - pipe invalid", xraudio_devices_input_str(source));
       XRAUDIO_RECORD_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
 
-   bool found_end = false;
    for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
       int pipe = dsts[index].pipe;
-      if(pipe < 0 || found_end) {
-         found_end = true;
+      if(pipe < 0) {
          session->fifo_audio_data[index] = -1;
-         break;
+         continue;
       }
 
       xraudio_input_record_from_t  from   = dsts[index].from;
