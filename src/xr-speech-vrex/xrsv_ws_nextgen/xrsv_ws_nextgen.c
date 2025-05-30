@@ -1510,7 +1510,13 @@ bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *ke
    //XLOGD_WARN("DAVE REMOVE THIS name <%s> code 0x%04X", key_name, handler->key_code);
    
    if(KEY_EXIT == handler->key_code) {
-      // TODO detector timeout will just close websocket, but server could send "exit" key to inform?
+      XLOGD_WARN("server sent the EXIT key <%s>", key_name);
+      if(obj->handlers.conn_close != NULL) {
+         const char *str_reason = "rxd EXIT key";
+         int code = 0;
+   
+         obj->handlers.conn_close(str_reason, code, obj->user_data);
+      }
    } else if(obj->handlers.key_code != NULL) {
       (*obj->handlers.key_code)(handler->key_code, obj->user_data);
    }

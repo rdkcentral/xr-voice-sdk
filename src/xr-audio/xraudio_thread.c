@@ -2298,7 +2298,9 @@ void xraudio_msg_input_source_fd_set(xraudio_thread_state_t *state, void *msg) {
       } else { // Set the source for this instance
          xraudio_session_record_inst_t *instance = &state->record.instances[group];
          instance->source          = input_source_fd_set->source;
-         instance->stream_until[0] = XRAUDIO_INPUT_RECORD_UNTIL_END_OF_STREAM;
+         for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
+            instance->stream_until[index] = XRAUDIO_INPUT_RECORD_UNTIL_END_OF_STREAM;
+         }
       }
    }
 
@@ -5182,7 +5184,16 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
    }
 
    if(bytes_read <= 0) {
-      if(instance->stream_until[0] == XRAUDIO_INPUT_RECORD_UNTIL_END_OF_STREAM) { // Session ended, notify
+      bool session_ended = false;
+
+      for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
+         if(instance->stream_until[index] == XRAUDIO_INPUT_RECORD_UNTIL_END_OF_STREAM) {
+            session_ended = true;
+            break;
+         }
+      }
+
+      if(session_ended) { // Session ended, notify
 
          if(instance->capture_internal.active && session->external_frame_bytes_read > 0) {
             int rc_cap = xraudio_in_capture_internal_to_file(session, &session->external_frame_buffer[session->external_frame_group_index * session->external_frame_size_out], (uint32_t)session->external_frame_bytes_read, capture_file); // Subtract 1 from frame group index because we added one for record callback
