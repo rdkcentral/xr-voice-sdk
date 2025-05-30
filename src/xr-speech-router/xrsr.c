@@ -1407,8 +1407,6 @@ bool xrsr_session_request(xrsr_src_t src,  uint8_t dst_index, xrsr_audio_format_
    xraudio_format.sample_size   = (output_format_type == XRSR_AUDIO_FORMAT_PCM_RAW || output_format_type == XRSR_AUDIO_FORMAT_PCM_32_BIT || output_format_type == XRSR_AUDIO_FORMAT_PCM_32_BIT_MULTI) ? XRAUDIO_INPUT_MAX_SAMPLE_SIZE : XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE;
    xraudio_format.channel_qty   = (output_format_type == XRSR_AUDIO_FORMAT_PCM_RAW || output_format_type == XRSR_AUDIO_FORMAT_PCM_32_BIT_MULTI) ? XRAUDIO_INPUT_MAX_CHANNEL_QTY : XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY;
 
-   XLOGD_WARN("DAVE dst index <%u>", dst_index);
-
    if(input_format.type == XRSR_SESSION_REQUEST_TYPE_AUDIO_MIC) {
       if(input_format.value.audio_mic.stream_params_required == true ) {
          xrsr_session_config_update_t *session_config_update = &g_xrsr.sessions[xrsr_source_to_group(src)].session_config_update;
