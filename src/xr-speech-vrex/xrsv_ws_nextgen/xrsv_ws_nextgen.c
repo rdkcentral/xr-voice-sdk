@@ -122,6 +122,8 @@ static bool xrsv_ws_nextgen_handler_ws_recv_msg(void *data, xrsr_recv_msg_t type
 
 static bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *key_name);
 
+static void xrsv_ws_nextgen_msg_to_app(xrsv_ws_nextgen_obj_t *obj, const char *msg);
+
 bool xrsv_ws_nextgen_object_is_valid(xrsv_ws_nextgen_obj_t *obj) {
    if(obj != NULL && obj->identifier == XRSV_WS_NEXTGEN_IDENTIFIER) {
       return(true);
@@ -981,36 +983,10 @@ bool xrsv_ws_nextgen_handler_ws_recv_msg(void *data, xrsr_recv_msg_t type, const
          }
 
          // Modify the text to put on the screen
-         json_t *obj_payload = json_object_get(obj_json, XRSV_WS_NEXTGEN_JSON_KEY_MSG_PAYLOAD);
-         if(obj_payload != NULL) {
-            bool send_to_ui = false;
-            if(final) { // Clear the UI message
-               json_t *obj_msg_type = json_object_get(obj_json, XRSV_WS_NEXTGEN_JSON_KEY_MSG_TYPE);
-
-               if(obj_msg_type == NULL || !json_is_string(obj_msg_type)) {
-                  XLOGD_ERROR("message type invalid");
-               } else {
-                  const char *str_msg_type = json_string_value(obj_msg_type);
-                  if(0 == strcmp(str_msg_type, "asr")) {
-                     json_t *ui_msg = json_string("");
-                     json_object_set(obj_payload, "text", ui_msg);
-                     send_to_ui = true;
-                  }
-               }
-            } else { // Set the UI message
-               json_t *ui_msg = json_string("LISTENING FOR KEY NAMES");
-               json_object_set(obj_payload, "text", ui_msg);
-               send_to_ui = true;
-            }
-            if(send_to_ui) {
-               char *obj_dump = json_dumps(obj_json, JSON_COMPACT);
-               if(obj_dump != NULL) {
-                  if(obj->handlers.msg) {
-                     obj->handlers.msg((const char *)obj_dump, strlen(obj_dump), obj->user_data);
-                  }
-                  free(obj_dump);
-               }
-            }
+         if(final) { // Clear the UI message
+            xrsv_ws_nextgen_msg_to_app(obj, "");
+         } else { // Set the UI message
+            xrsv_ws_nextgen_msg_to_app(obj, "Listening for key names");
          }
       }
    }
@@ -1474,6 +1450,37 @@ bool is_all_digits(const char *text) {
    }
    return(true);
 }
+// Sample
+// {"msgType":"asr","trx":"fdaa38fc-638f-458a-80e5-db85dfab71a3","created":1748729669193,"msgPayload":{"text":"Do you support","dictate":false,"isFinal":false}}
+void xrsv_ws_nextgen_msg_to_app(xrsv_ws_nextgen_obj_t *obj, const char *msg) {
+   json_t *json_obj_type    = json_object();
+   json_t *json_obj_payload = json_object();
+   json_object_set_new_nocheck(json_obj_type,    "msgType",    json_string("asr"));
+   char uuid_str[37];
+   uuid_unparse_lower(obj->uuid, uuid_str);
+   json_object_set_new_nocheck(json_obj_type,    "trx",        json_string(uuid_str));
+   //json_object_set_new_nocheck(json_obj_type,    "created",    json_integer(0));
+   json_object_set_new_nocheck(json_obj_payload, "text",       json_string(msg));
+   json_object_set_new_nocheck(json_obj_payload, "dictate",    json_false());
+   json_object_set_new_nocheck(json_obj_payload, "isFinal",    json_false());
+   json_object_set_new_nocheck(json_obj_type,    "msgPayload", json_obj_payload);
+   
+   char *obj_str = json_dumps(json_obj_type, JSON_COMPACT);
+
+   if(obj_str == NULL) {
+      XLOGD_WARN("failed to dump JSON object");
+   } else {
+      XLOGD_INFO("sent JSON object <%s>", obj_str);
+
+      if(obj->handlers.msg) {
+         obj->handlers.msg((const char *)obj_str, strlen(obj_str), obj->user_data);
+      }
+
+      free(obj_str);
+   }
+
+   json_decref(json_obj_type);
+}
 
 bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *key_name) {
    // TODO The key name to code lookup below is not the correct place for this code.  The key code name should be sent to the callback and 
@@ -1510,13 +1517,22 @@ bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *ke
    //XLOGD_WARN("DAVE REMOVE THIS name <%s> code 0x%04X", key_name, handler->key_code);
    
    if(KEY_EXIT == handler->key_code) {
-      XLOGD_WARN("server sent the EXIT key <%s>", key_name);
+      XLOGD_WARN("server sent the <%s> key", key_name);
       if(obj->handlers.conn_close != NULL) {
          const char *str_reason = "rxd EXIT key";
          int code = 0;
    
          obj->handlers.conn_close(str_reason, code, obj->user_data);
       }
+      obj->recv_event = XRSR_RECV_EVENT_DISCONNECT_REMOTE; // XRSR_RECV_EVENT_EOS_SERVER
+   } else if(KEY_F2 == handler->key_code) {
+      XLOGD_WARN("server sent the <%s> key", key_name);
+      const char *msg = "Navigational Voice Guidance: Speak any of the following - UP, DOWN, LEFT, RIGHT, SELECT, HOME, GUIDE, INFO, DISMISS, EXIT, QUIT.";
+      xrsv_ws_nextgen_msg_to_app(obj, msg);
+   } else if(KEY_F24 == handler->key_code) {
+      XLOGD_WARN("server sent the <%s> key", key_name);
+      const char *msg = "Thanks to everyone who has contributed to this lab week project: Dave Wolaver, Cyrus Hilliard, Jim Conway, Jason Thomson, and many others.";
+      xrsv_ws_nextgen_msg_to_app(obj, msg);
    } else if(obj->handlers.key_code != NULL) {
       (*obj->handlers.key_code)(handler->key_code, obj->user_data);
    }

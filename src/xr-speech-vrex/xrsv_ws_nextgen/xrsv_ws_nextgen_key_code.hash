@@ -66,4 +66,5 @@ PROVIDER,      KEY_F6
 QUICK,         KEY_F14
 EXIT,          KEY_ESC
 QUIT,          KEY_EXIT
+THANKS,        KEY_F24
 %%
