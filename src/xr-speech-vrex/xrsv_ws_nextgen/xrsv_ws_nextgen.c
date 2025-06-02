@@ -258,10 +258,6 @@ xrsv_ws_nextgen_object_t xrsv_ws_nextgen_create(const xrsv_ws_nextgen_params_t *
       rc |= json_object_set_new_nocheck(obj->obj_init_stb_id, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_ID_PARTNER, json_string(params->partner_id));
    }
 
-   if(params->listen_for_key_names) {// Key Name Listen Mode
-      rc |= json_object_set_new_nocheck(obj->obj_init_stb_id, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_KEY_NAME_LISTEN_MODE, json_true());
-   }
-
    // ID Values Object
    if(params->account_id != NULL) {
       obj->obj_init_stb_id_account = json_object();
@@ -357,7 +353,7 @@ xrsv_ws_nextgen_object_t xrsv_ws_nextgen_create(const xrsv_ws_nextgen_params_t *
    obj->user_data  = params->user_data;
    obj->recv_event = XRSR_RECV_EVENT_NONE;
    
-   obj->listen_for_key_names  = params->listen_for_key_names;
+   obj->listen_for_key_names  = false;
    obj->listen_for_key_index  = 0;
    obj->created_last_asr      = 0;
    obj->created_last_key_name = 0;
@@ -692,6 +688,7 @@ void xrsv_ws_nextgen_handler_ws_session_begin(void *data, const uuid_t uuid, xrs
    obj->user_initiated        = config_out->user_initiated;
    obj->first_audio_stream    = true;
    obj->listen_for_key_index  = 0;
+   obj->listen_for_key_names  = (dst_index == 1) ? true : false;
    obj->created_last_asr      = 0;
    obj->created_last_key_name = 0;
    obj->prev_str_len          = 0;
@@ -712,6 +709,13 @@ void xrsv_ws_nextgen_handler_ws_session_begin(void *data, const uuid_t uuid, xrs
       // Make sure this is cleared in case previous session created it.
       json_object_del(obj->obj_init_stb, XRSV_WS_NEXTGEN_JSON_KEY_TEXT);
    }
+
+   if(obj->listen_for_key_names) { // Add key name listen mode
+      rc |= json_object_set_new_nocheck(obj->obj_init_stb, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_KEY_NAME_LISTEN_MODE, json_true());
+   } else { // Remove key name listen mode
+      json_object_del(obj->obj_init_stb, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_KEY_NAME_LISTEN_MODE);
+   }
+
    // Root Object
    uuid_unparse_lower(uuid, uuid_str);
    rc |= json_object_set_new_nocheck(obj->obj_init, XRSV_WS_NEXTGEN_JSON_KEY_TRX, json_string(uuid_str));
