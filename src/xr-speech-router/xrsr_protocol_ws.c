@@ -727,6 +727,18 @@ void xrsr_ws_on_msg(xrsr_state_ws_t *ws, noPollConn *conn, noPollMsg *msg) {
          XLOGD_INFO("src <%s> recv_event %s", xrsr_src_str(ws->audio_src), xrsr_recv_event_str(recv_event));
          // Close the connection
          xrsr_ws_event(ws, SM_EVENT_APP_CLOSE, false);
+      } else if(recv_event == XRSR_RECV_EVENT_TIMEOUT_SERVER) {
+         ws->stream_end_reason  = XRSR_STREAM_END_REASON_AUDIO_EOF;
+         ws->session_end_reason = XRSR_SESSION_END_REASON_EOS;
+         XLOGD_INFO("src <%s> recv_event %s", xrsr_src_str(ws->audio_src), xrsr_recv_event_str(recv_event));
+         // Close the connection
+         xrsr_ws_event(ws, SM_EVENT_APP_CLOSE, false);
+      } else if(recv_event == XRSR_RECV_EVENT_USER_QUIT) {
+         ws->stream_end_reason  = XRSR_STREAM_END_REASON_AUDIO_EOF;
+         ws->session_end_reason = XRSR_SESSION_END_REASON_EOS;
+         XLOGD_INFO("src <%s> recv_event %s", xrsr_src_str(ws->audio_src), xrsr_recv_event_str(recv_event));
+         // Close the connection
+         xrsr_ws_event(ws, SM_EVENT_APP_CLOSE, false);
       }
    }
 }

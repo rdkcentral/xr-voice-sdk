@@ -264,6 +264,8 @@ const char *xrsr_audio_container_str(xrsr_audio_container_t container) {
 const char *xrsr_recv_event_str(xrsr_recv_event_t recv_event) {
    switch(recv_event) {
       case XRSR_RECV_EVENT_EOS_SERVER:        return("EOS SERVER");
+      case XRSR_RECV_EVENT_TIMEOUT_SERVER:    return("TIMEOUT SERVER");
+      case XRSR_RECV_EVENT_USER_QUIT:         return("USER QUIT");
       case XRSR_RECV_EVENT_DISCONNECT_REMOTE: return("DISCONNECT REMOTE");
       case XRSR_RECV_EVENT_NONE:              return("NONE");
       case XRSR_RECV_EVENT_INVALID:           return("INVALID");

@@ -204,9 +204,11 @@ typedef enum {
 
 typedef enum {
    XRSR_RECV_EVENT_EOS_SERVER        = 0,
-   XRSR_RECV_EVENT_DISCONNECT_REMOTE = 1,
-   XRSR_RECV_EVENT_NONE              = 2,
-   XRSR_RECV_EVENT_INVALID           = 3,
+   XRSR_RECV_EVENT_TIMEOUT_SERVER    = 1,
+   XRSR_RECV_EVENT_USER_QUIT         = 2,
+   XRSR_RECV_EVENT_DISCONNECT_REMOTE = 3,
+   XRSR_RECV_EVENT_NONE              = 4,
+   XRSR_RECV_EVENT_INVALID           = 5,
 } xrsr_recv_event_t;
 
 typedef enum {
