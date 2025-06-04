@@ -120,10 +120,10 @@ static bool xrsv_ws_nextgen_handler_ws_connected(void *data, const uuid_t uuid, 
 static void xrsv_ws_nextgen_handler_ws_disconnected(void *data, const uuid_t uuid, xrsr_session_end_reason_t reason, bool retry, bool *detect_resume, rdkx_timestamp_t *timestamp);
 static bool xrsv_ws_nextgen_handler_ws_recv_msg(void *data, xrsr_recv_msg_t type, const uint8_t *buffer, uint32_t length, xrsr_recv_event_t *recv_event);
 
-static bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *key_name);
+static bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *key_name, int64_t created);
 
 static void xrsv_ws_nextgen_msg_to_app_asr(xrsv_ws_nextgen_obj_t *obj, int64_t created, bool is_final, const char *msg);
-static void xrsv_ws_nextgen_msg_to_app_vrex_response(xrsv_ws_nextgen_obj_t *obj, int64_t created, bool is_final, const char *msg);
+static void xrsv_ws_nextgen_msg_to_app_vrex_response(xrsv_ws_nextgen_obj_t *obj, int64_t created, bool is_final, uint32_t timeout, const char *msg);
 
 bool xrsv_ws_nextgen_object_is_valid(xrsv_ws_nextgen_obj_t *obj) {
    if(obj != NULL && obj->identifier == XRSV_WS_NEXTGEN_IDENTIFIER) {
@@ -1176,7 +1176,7 @@ bool xrsv_ws_nextgen_msgtype_asr(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, b
          if(obj->listen_for_key_names) { // Look for key names
             XLOGD_WARN("DAVE check <%s>", token);
 
-            if(xrsv_ws_nextgen_key_name_handler(obj, token)) {
+            if(xrsv_ws_nextgen_key_name_handler(obj, token, created)) {
                // key was found, so update the index to the end of the key name
                if(set_index) {
                   obj->listen_for_key_index = (token - str_upper) + strlen(token);
@@ -1194,6 +1194,9 @@ bool xrsv_ws_nextgen_msgtype_asr(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, b
 
       if(elapsed_ms > 5000) {
          XLOGD_WARN("DAVE END THE LISTEN FOR KEY NAMES SESSION");
+         
+         xrsv_ws_nextgen_msg_to_app_vrex_response(obj, created, false, 1, "Exit key listening mode");
+
          if(obj->handlers.conn_close != NULL) {
             const char *str_reason = "key name listen timeout";
             int code = 0;
@@ -1313,19 +1316,20 @@ bool xrsv_ws_nextgen_msgtype_response_vrex(xrsv_ws_nextgen_obj_t *obj, json_t *o
          free(obj_str);
       }
    
-      xrsv_ws_nextgen_msg_to_app_vrex_response(obj, created, false, "Exit key listening mode.");
-   }
-   if(obj->handlers.response_vrex != NULL) {
-      // Get Return Code
-      int code         = -1;
-      json_t *obj_code = NULL;
-      if(obj_json) {
-         obj_code = json_object_get(obj_json, XRSV_WS_NEXTGEN_JSON_KEY_RETURN_CODE);
-         if(obj_code && json_is_integer(obj_code)) {
-            code = json_integer_value(obj_code);
+      xrsv_ws_nextgen_msg_to_app_vrex_response(obj, created, false, 1, "Exit key listening mode");
+   } else {
+      if(obj->handlers.response_vrex != NULL) {
+         // Get Return Code
+         int code         = -1;
+         json_t *obj_code = NULL;
+         if(obj_json) {
+            obj_code = json_object_get(obj_json, XRSV_WS_NEXTGEN_JSON_KEY_RETURN_CODE);
+            if(obj_code && json_is_integer(obj_code)) {
+               code = json_integer_value(obj_code);
+            }
          }
+         obj->handlers.response_vrex(code, obj->user_data);
       }
-      obj->handlers.response_vrex(code, obj->user_data);
    }
 
    // Either way, update the context in the init object
@@ -1475,7 +1479,7 @@ bool xrsv_ws_nextgen_msgtype_emit_key_by_name(xrsv_ws_nextgen_obj_t *obj, json_t
    }
    const char *str_key_name = json_string_value(obj_key_name);
 
-   xrsv_ws_nextgen_key_name_handler(obj, str_key_name);
+   xrsv_ws_nextgen_key_name_handler(obj, str_key_name, created);
 
    if(forward_to_app != NULL) {
       *forward_to_app = false;
@@ -1542,7 +1546,7 @@ void xrsv_ws_nextgen_msg_to_app_asr(xrsv_ws_nextgen_obj_t *obj, int64_t created,
 //                   }
 //}}
 
-void xrsv_ws_nextgen_msg_to_app_vrex_response(xrsv_ws_nextgen_obj_t *obj, int64_t created, bool is_final, const char *msg) {
+void xrsv_ws_nextgen_msg_to_app_vrex_response(xrsv_ws_nextgen_obj_t *obj, int64_t created, bool is_final, uint32_t timeout, const char *msg) {
    json_t *json_obj_type     = json_object();
    json_t *json_obj_payload  = json_object();
    json_t *json_obj_lastcmd  = json_object();
@@ -1562,7 +1566,7 @@ void xrsv_ws_nextgen_msg_to_app_vrex_response(xrsv_ws_nextgen_obj_t *obj, int64_
    json_object_set_new_nocheck(json_obj_lastcmd,  "transcription",    json_string(""));
    json_object_set_new_nocheck(json_obj_lastcmd,  "created",          json_integer(created));
    json_object_set_new_nocheck(json_obj_execute,  "executeAgent",     json_string("FLEX_EOS"));
-   json_object_set_new_nocheck(json_obj_execute,  "responseTime",     json_integer(3));
+   json_object_set_new_nocheck(json_obj_execute,  "responseTime",     json_integer(timeout));
    json_object_set_new_nocheck(json_obj_response, "target",           json_string("TV"));
 
    json_object_set_new_nocheck(json_obj_action,   "_type",            json_string("sky.legacy"));
@@ -1570,7 +1574,7 @@ void xrsv_ws_nextgen_msg_to_app_vrex_response(xrsv_ws_nextgen_obj_t *obj, int64_
    json_object_set_new_nocheck(json_obj_action,   "domain",           json_string("TV"));
    json_object_set_new_nocheck(json_obj_action,   "target",           json_string("client"));
 
-   json_object_set_new_nocheck(json_obj_value,    "value",          json_string(msg));
+   json_object_set_new_nocheck(json_obj_value,    "value",            json_string(msg));
    json_array_append_new(json_arr_entities, json_obj_value);
 
    json_object_set_new_nocheck(json_obj_action,   "entities",         json_arr_entities);
@@ -1601,7 +1605,7 @@ void xrsv_ws_nextgen_msg_to_app_vrex_response(xrsv_ws_nextgen_obj_t *obj, int64_
    json_decref(json_obj_type);
 }
 
-bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *key_name) {
+bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *key_name, int64_t created) {
    // TODO The key name to code lookup below is not the correct place for this code.  The key code name should be sent to the callback and 
    // control manager needs to do the lookup.
    
@@ -1646,12 +1650,12 @@ bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *ke
       obj->recv_event = XRSR_RECV_EVENT_USER_QUIT;
    } else if(KEY_F2 == handler->key_code) {
       XLOGD_WARN("server sent the <%s> key", key_name);
-      //const char *msg = "Navigational Voice Guidance: Speak any of the following - UP, DOWN, LEFT, RIGHT, SELECT, HOME, GUIDE, INFO, DISMISS, EXIT, QUIT.";
-      //xrsv_ws_nextgen_msg_to_app_asr(obj, 0, false, msg);
+      const char *msg = "Navigational Voice Guidance - Speak any of the following - UP, DOWN, LEFT, RIGHT, SELECT, HOME, NEXT, BACK, EXIT, QUIT."; // Possibly add GUIDE and INFO?
+      xrsv_ws_nextgen_msg_to_app_asr(obj, created, false, msg);
    } else if(KEY_F24 == handler->key_code) {
       XLOGD_WARN("server sent the <%s> key", key_name);
-      //const char *msg = "Thanks to everyone who has contributed to this lab week project: Dave Wolaver, Cyrus Hilliard, Jim Conway, Jason Thomson, and many others.";
-      //xrsv_ws_nextgen_msg_to_app_asr(obj, 0, false, msg);
+      const char *msg = "Lab Week Team: Dave Wolaver, Cyrus Hilliard, Jim Conway, Jason Thomson, Eric Colon, Chandresh Pitty, Prathyusha Nallamothu, Sreejith Chandrasekharan, Vijayendra Ghadge, Mani Nutalapati.";
+      xrsv_ws_nextgen_msg_to_app_asr(obj, created, false, msg);
    } else if(obj->handlers.key_code != NULL) {
       (*obj->handlers.key_code)(handler->key_code, obj->user_data);
    }
