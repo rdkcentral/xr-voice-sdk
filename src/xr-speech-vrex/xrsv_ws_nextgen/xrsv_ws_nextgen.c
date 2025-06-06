@@ -227,7 +227,7 @@ xrsv_ws_nextgen_object_t xrsv_ws_nextgen_create(const xrsv_ws_nextgen_params_t *
       rc |= json_array_append_new(obj_capabilities, json_string("BYPASS_WUW_FORCE_FAILURE"));
    }
    if(params->listen_for_key_names) {
-      rc |= json_array_append_new(obj_capabilities, json_string("LISTEN_FOR_KEY_NAMES"));
+      rc |= json_array_append_new(obj_capabilities, json_string("CAN_EMIT_KEYS_BY_NAME"));
    }
 
    if(params->experience) {
@@ -1654,7 +1654,7 @@ bool xrsv_ws_nextgen_key_name_handler(xrsv_ws_nextgen_obj_t *obj, const char *ke
       xrsv_ws_nextgen_msg_to_app_asr(obj, created, false, msg);
    } else if(KEY_F24 == handler->key_code) {
       XLOGD_WARN("server sent the <%s> key", key_name);
-      const char *msg = "Lab Week Team: Dave Wolaver, Cyrus Hilliard, Jim Conway, Jason Thomson, Eric Colon, Chandresh Pitty, Prathyusha Nallamothu, Sreejith Chandrasekharan, Vijayendra Ghadge, Mani Nutalapati.";
+      const char *msg = "Thank you for attending the Lab Week Demonstration!";
       xrsv_ws_nextgen_msg_to_app_asr(obj, created, false, msg);
    } else if(obj->handlers.key_code != NULL) {
       (*obj->handlers.key_code)(handler->key_code, obj->user_data);
