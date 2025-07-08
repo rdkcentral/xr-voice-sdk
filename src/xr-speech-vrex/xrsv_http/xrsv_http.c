@@ -40,7 +40,6 @@ typedef struct {
    void *               param;
    char                 query_element_trx[41];
    char                 query_element_device_id[64];
-   char                 query_element_receiver_id[64];
    char                 query_element_codec[17];
    char                 query_element_app_id[64];
    char                 query_element_partner_id[32];
@@ -88,9 +87,6 @@ xrsv_http_object_t xrsv_http_create(const xrsv_http_params_t *params) {
    
    if(params->device_id != NULL) {
       xrsv_http_update_device_id(obj, params->device_id);
-   }
-   if(params->receiver_id) {
-      xrsv_http_update_receiver_id(obj, params->receiver_id);
    }
    if(params->app_id != NULL) {
       xrsv_http_update_app_id(obj, params->app_id);
@@ -160,22 +156,6 @@ bool xrsv_http_update_device_id(xrsv_http_object_t object, const char *device_id
    int rc = snprintf(obj->query_element_device_id, sizeof(obj->query_element_device_id), "xboDeviceId=%s", device_id);
    if(rc >= sizeof(obj->query_element_device_id)) {
       XLOGD_WARN("truncated device id <%d>", rc);
-   } else {
-      rv = true;
-   }
-   return(rv);
-}
-
-bool xrsv_http_update_receiver_id(xrsv_http_object_t object, const char *receiver_id) {
-   xrsv_http_obj_t *obj = (xrsv_http_obj_t *)object;
-   if(!xrsv_http_object_is_valid(obj)) {
-      XLOGD_ERROR("invalid object");
-      return(false);
-   }
-   bool rv = false;
-   int rc = snprintf(obj->query_element_receiver_id, sizeof(obj->query_element_receiver_id), "receiverId=%s", receiver_id);
-   if(rc >= sizeof(obj->query_element_receiver_id)) {
-      XLOGD_WARN("truncated receiver id <%d>", rc);
    } else {
       rv = true;
    }
@@ -265,7 +245,6 @@ void xrsv_http_destroy(xrsv_http_object_t object) {
    XLOGD_INFO("");
 
    obj->query_element_device_id[0]     = '\0';
-   obj->query_element_receiver_id[0]   = '\0';
    obj->query_element_codec[0]         = '\0';
    obj->query_element_trx[0]           = '\0';
    obj->query_element_app_id[0]        = '\0';
