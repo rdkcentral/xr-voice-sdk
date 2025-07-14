@@ -60,7 +60,6 @@
 /// @details The param data structure is used to provide input parameters to the xrsv_http_open() function.  All string parameters must be NULL-terminated.  If a string parameter is not present, NULL must be set for it.
 typedef struct {
    const char *device_id;        ///< The client device's unique identifier
-   const char *receiver_id;      ///< The client device's receiver identifier
    const char *partner_id;       ///< The network's partner identifier
    const char *experience;       ///< User experience identifier
    const char *app_id;           ///< The application identifier for HTTP requests from the client device
