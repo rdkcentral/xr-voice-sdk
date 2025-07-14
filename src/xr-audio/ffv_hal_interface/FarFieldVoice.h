@@ -66,16 +66,16 @@ private:
 	~FarFieldVoice();
 	static FarFieldVoice* instancePtr;
 	static int instanceCnt;
-	static ::std::mutex mtx;
+	static std::mutex mtx;
 	void FarFieldVoiceHalThread();
-	::std::thread m_ffvHalThread;
+	std::thread m_ffvHalThread;
 	bool m_ffvHalThreadActive{false};
-	::farfieldvoice::Capabilities m_capabilities;
-	::hal::HalState m_halState;
-	::farfieldvoice::Status m_ffvStatus;
-	::std::vector<FarFieldVoiceEventListener*> m_eventListeners;
+	farfieldvoice::Capabilities m_capabilities;
+	hal::HalState m_halState;
+	farfieldvoice::Status m_ffvStatus;
+	std::vector<FarFieldVoiceEventListener*> m_eventListeners;
 	FarFieldVoiceController* m_controller;
-	void changeStateTo(::hal::HalState newState);
+	void changeStateTo(hal::HalState newState);
 	friend class FarFieldVoiceController;
 public:
 	FarFieldVoice(const FarFieldVoice& obj) = delete;  // delete  copy constructor to prevent copies
@@ -87,7 +87,7 @@ public:
      */
 	static FarFieldVoice* getService()
 	{
-		::std::lock_guard<::std::mutex> lock(mtx);
+		std::lock_guard<std::mutex> lock(mtx);
 		if (instancePtr == nullptr)
 		{
 			instancePtr = new FarFieldVoice();
@@ -103,7 +103,7 @@ public:
      */
 	static void destroy()
 	{
-		::std::lock_guard<::std::mutex> lock(mtx);
+		std::lock_guard<std::mutex> lock(mtx);
 		if ((instancePtr != nullptr) && (instanceCnt > 0))
 		{
 			if (--instanceCnt == 0)
@@ -118,7 +118,7 @@ public:
      *
      * @returns farfieldvoice::Capabilities.
      */
-	::hal::BinderStatus getCapabilities(::farfieldvoice::Capabilities* capabilities);
+	hal::BinderStatus getCapabilities(farfieldvoice::Capabilities* capabilities);
 
 	/**
 	 * Gets the current state of the Far Field Voice service.
@@ -127,14 +127,14 @@ public:
 	 *
      * @see FarFieldVoiceEventListener.onStateChanged().
      */
-	::hal::BinderStatus getState(::hal::HalState* halState);
+	hal::BinderStatus getState(hal::HalState* halState);
 
     /**
      * Get the current status of the Far Field Voice HAL.
      *
      * @returns farfieldvoice::Status - Current status.
      */
-	::hal::BinderStatus getStatus(::farfieldvoice::Status* ffvStatus);
+	hal::BinderStatus getStatus(farfieldvoice::Status* ffvStatus);
 
     /**
      * Register a Far Field Voice event listener.
@@ -152,7 +152,7 @@ public:
      *
      * @see unregisterEventListener()
      */
-	::hal::BinderStatus registerEventListener(FarFieldVoiceEventListener* listener, bool* result);
+	hal::BinderStatus registerEventListener(FarFieldVoiceEventListener* listener, bool* result);
 
     /**
      * Unregister a Far Field Voice event listener.
@@ -165,7 +165,7 @@ public:
      *
      * @see registerEventListener()
      */
-	::hal::BinderStatus unregisterEventListener(FarFieldVoiceEventListener* listener, bool* result);
+	hal::BinderStatus unregisterEventListener(FarFieldVoiceEventListener* listener, bool* result);
 
     /**
 	 * Open the Far Field Voice HAL.
@@ -192,7 +192,7 @@ public:
      * 
      * @see IFarFieldVoiceController, close(), registerEventListener()
      */
-	::hal::BinderStatus open(FarFieldVoiceControllerListener* controllerListener, FarFieldVoiceController** controller);
+	hal::BinderStatus open(FarFieldVoiceControllerListener* controllerListener, FarFieldVoiceController** controller);
 
     /**
      * Close the Far Field Voice HAL.
@@ -215,6 +215,6 @@ public:
      *
      * @see open()
      */
-	::hal::BinderStatus close(FarFieldVoiceController* controller, bool* result);
+	hal::BinderStatus close(FarFieldVoiceController* controller, bool* result);
 
 };	// class FarFieldVoice

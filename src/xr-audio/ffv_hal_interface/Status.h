@@ -42,12 +42,12 @@ public:
      * This is for information only and useful to log when the Far Field
      * Voice service is opened.
      */
-	::std::string codeBuildVersion;
+	std::string codeBuildVersion;
 
     /**
      * Current power mode.
      */
-	::farfieldvoice::PowerMode powerMode = ::farfieldvoice::PowerMode::DEEP_SLEEP;
+	farfieldvoice::PowerMode powerMode = farfieldvoice::PowerMode::DEEP_SLEEP;
 
     /**
      * Indicates if the Keyword channel has been opened.
@@ -55,29 +55,14 @@ public:
 	bool keywordChannelOpen = false;
 
     /**
-     * Indicates if the Keyword channel has been started.
-     */
-	bool keywordChannelStarted = false;
-
-    /**
      * Indicates if the Continual channel has been opened.
      */
 	bool continualChannelOpen = false;
 
     /**
-     * Indicates if the Continual channel has been started.
-     */
-	bool continualChannelStarted = false;
-
-    /**
      * Indicates if the Microphone channels has been opened.
      */
 	bool microphoneChannelsOpen = false;
-
-    /**
-     * Indicates if the Microphone channels has been started.
-     */
-	bool microphoneChannelsStarted = false;
 
     /**
      * Indicates if a keyword was detected on the Keyword channel.
@@ -87,7 +72,7 @@ public:
     /**
      * Keyword detect information (applicable only if keywordDetected is true).
      */
-	::farfieldvoice::KeywordDetectData keywordDetectData;
+	farfieldvoice::KeywordDetectData keywordDetectData;
 
     /**
      * Indicates if privacy state is active.
@@ -134,7 +119,7 @@ public:
      *
      * This is for information only and useful to log if an error condition occurs.
      */
-	::std::string vendorErrorText;
+	std::string vendorErrorText = "none";
 };  // class Status
 
 }  // namespace farfieldvoice

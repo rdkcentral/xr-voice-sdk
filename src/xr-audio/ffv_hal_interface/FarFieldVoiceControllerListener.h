@@ -40,7 +40,7 @@ public:
     /**
 	 * Callback when a keyword is detected on the Keyword channel.
      */
-    virtual void onKeywordDetected(::farfieldvoice::KeywordDetectData keywordDetectData) = 0;
+    virtual void onKeywordDetected(farfieldvoice::KeywordDetectData keywordDetectData) = 0;
 
     /**
 	 * Callback when a start of voice command is detected on the Keyword channel following the keyword.

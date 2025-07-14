@@ -28,6 +28,10 @@
 
 #include <stdint.h>
 
+#ifdef _WIN32
+#include <windows.h> 
+#endif
+
 namespace hal
 {
 
@@ -38,9 +42,15 @@ public:
 	~HalFileDescriptor();
 
     /**
-	 * Far Field Voice client pipe file read descriptor.
+	 * Far Field Voice audio pipe file descriptors.
      */
-	int m_clientFileDescriptor;
-};  // class HalFileDescriptor
+#ifdef _WIN32	// Windows
+	HANDLE m_readPipeHandle;	// Windows read pipe handle
+	HANDLE m_writePipeHandle;	// Windows write pipe handle
+#else	// Linux
+	int m_readFileDescriptor;	// Linux read file descriptor
+	int m_writeFileDescriptor;	// Linux write file descriptor
+#endif
 
+};  // class HalFileDescriptor
 }  // namespace hal

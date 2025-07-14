@@ -46,44 +46,15 @@ public:
     /**
      * Open the Keyword channel.
      *
-     * If successful, creates and returns a pipe for passing Keyword channel audio to the client.
-     *
-     * Audio data is signed 16 bits per sample at 16kHz sampling rate. The endian order of each sample
-     * value is that of the host processor's native endian order.
-     *
-     * If successful, the Keyword channel is in the open state.
-     * 
-     * @returns hal::HalFileDescriptor or null if the Keyword channel is already open or pipe create fails.
-     *
-     * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Keyword channel is already open.
-     * @exception hal::BinderStatus EX_NULL_POINTER		fileDescriptor is null or pipe create failed.
-     *
-     * @pre The Keyword channel must be in the closed state.
-     * 
-     * @see closeKeywordChannel()
-     */
-	::hal::BinderStatus openKeywordChannel(::hal::HalFileDescriptor** fileDescriptor);
-
-    /**
-     * Close the Keyword channel.
-     *
-     * The Keyword channel is stopped, the channel's pipe is closed, and the Keyword channel is in the
-     * closed state.
-     *
-     * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Keyword channel is not open.
-     *
-     * @pre The Keyword channel must be in the open state.
-     * 
-     * @see openKeywordChannel()
-     */
-	::hal::BinderStatus closeKeywordChannel();
-
-    /**
-     * Start the Keyword channel.
+     * If successful, creates and returns a pipe for passing Keyword channel audio to the client and
+     * the Keyword channel is in the open state.
      *
      * Keyword channel audio processing is initialized and keyword detection is started. Upon keyword
      * detection, audio samples are written to the Keyword channel's pipe.
      *
+     * Audio data is signed 16 bits per sample at 16kHz sampling rate. The endian order of each sample
+     * value is that of the host processor's native endian order.
+    *
      * Once a keyword is detected, the Far Field Voice service begins writing audio samples to the Keyword
      * channel's pipe whenever audio samples are available. Initially, samples may be written to the pipe
      * faster than real time as audio buffered within the service is provided as fast as possible. Once all
@@ -100,7 +71,7 @@ public:
      * The sample offset values provided in 'onKeywordDetected', 'onStartOfCommand', 'onEndOfCommand',
      * 'onNoStartOfCommand', and 'onNoEndOfCommand' are the relative sample number with respect to the audio
      * samples written to the Keyword channel's pipe. A sample offset value of zero corresponds to the first
-     * sample written after starting the Keyword channel.
+     * sample written after opening the Keyword channel.
      *
      * A normal sequence of callbacks after the keyword is detected:
      *   onKeywordDetected()
@@ -116,8 +87,26 @@ public:
      *   onStartOfCommand()
      *   onNoEndOfCommand()
      *
-     * If the Keyword channel is already started, keyword detection is reset, audio samples are not
-     * written to the Keyword channel's pipe until after a keyword is detected, and SUCCESS is returned.
+     * The Keyword channel can be opened only in Standby or Full Power modes.
+     * 
+     * @returns hal::HalFileDescriptor or null if the Keyword channel is already open or pipe create fails.
+     *
+     * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Keyword channel is already open or power state is not
+     *													Standby or Full Power.
+     * @exception hal::BinderStatus EX_NULL_POINTER		'fileDescriptor' is null or pipe create failed.
+     *
+     * @pre The Keyword channel must be in the closed state.
+     * @pre The power state must be Full Power or Standby.
+     * 
+     * @see closeKeywordChannel()
+     */
+	hal::BinderStatus openKeywordChannel(hal::HalFileDescriptor** fileDescriptor);
+
+    /**
+     * Close the Keyword channel.
+     *
+     * The Keyword channel is stopped, the channel's pipe is closed, and the Keyword channel is in the
+     * closed state.
      *
      * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Keyword channel is not open.
      *
@@ -125,47 +114,34 @@ public:
      * 
      * @see openKeywordChannel()
      */
-	::hal::BinderStatus startKeywordChannel();
-
-    /**
-     * Stop the Keyword channel.
-     *
-     * Keyword channel audio processing is stopped. Audio samples are not written to the Keyword channel's pipe.
-     *
-     * If the Keyword channel is already stopped, no action occurs and SUCCESS is returned.
-     *
-     * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Keyword channel is not open.
-     *
-     * @pre The Keyword channel must be in the open state.
-     * 
-     * @see openKeywordChannel(), startKeywordChannel()
-     */
-	::hal::BinderStatus stopKeywordChannel();
+	hal::BinderStatus closeKeywordChannel();
 
     /**
      * Open the Continual channel.
      *
-     * If successful, creates and returns a pipe for passing Continual channel audio to the client.
+     * If successful, creates and returns a pipe for passing Continual channel audio to the client
+     * and the Continual channel is in the open state.
+     *
+     * Continual channel audio processing is initialized and audio samples are written to the Continual
+     * channel's pipe at 16kHz sampling rate.
      *
      * Audio data is signed 16 bits per sample at 16kHz sampling rate. The endian order of each sample
      * value is that of the host processor's native endian order.
      *
      * The Continual channel can be opened only in Full Power mode.
-     *
-     * If successful, the Continual channel is in the open state.
      * 
      * @returns hal::HalFileDescriptor or null if the Continual channel is already open, the power mode
      *          is not Full Power, or pipe create fails.
      *
      * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Continual channel is already open or power mode is not Full Power.
-     * @exception hal::BinderStatus EX_NULL_POINTER		fileDescriptor is null or pipe create failed.
+     * @exception hal::BinderStatus EX_NULL_POINTER		'fileDescriptor' is null or pipe create failed.
      *
      * @pre The Continual channel must be in the closed state.
      * @pre The power mode must be Full Power.
      * 
      * @see closeContinualChannel()
      */
-	::hal::BinderStatus openContinualChannel(::hal::HalFileDescriptor** fileDescriptor);
+	hal::BinderStatus openContinualChannel(hal::HalFileDescriptor** fileDescriptor);
 
     /**
      * Close the Continual channel.
@@ -179,44 +155,13 @@ public:
      * 
      * @see openContinualChannel()
      */
-	::hal::BinderStatus closeContinualChannel();
-
-    /**
-     * Start the Continual channel.
-     *
-     * Continual channel audio processing is initialized and audio samples are written to the Continual
-     * channel's pipe at 16kHz sampling rate.
-     *
-     * If the Continual channel is already started, no action occurs and SUCCESS is returned.
-     *
-     * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Continual channel is not open.
-     *
-     * @pre The Continual channel must be in the open state.
-     * 
-     * @see openContinualChannel()
-     */
-	::hal::BinderStatus startContinualChannel();
-
-    /**
-     * Stop the Continual channel.
-     *
-     * Continual channel audio processing is stopped. Audio samples are not written to the Continual
-     * channel's pipe.
-     *
-     * If the Continual channel is already stopped, no action occurs and SUCCESS is returned.
-     *
-     * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Continual channel is not open.
-     *
-     * @pre The Continual channel must be in the open state.
-     * 
-     * @see openContinualChannel(), startContinualChannel()
-     */
-	::hal::BinderStatus stopContinualChannel();
+	hal::BinderStatus closeContinualChannel();
 
     /**
      * Open the Microphone channels.
      *
-     * If successful, creates and returns a pipe for passing raw microphone data to the client.
+     * If successful, creates and returns a pipe for passing raw microphone data to the client and
+     * the Microphone channels is in the open state.
      *
      * Audio data is signed 32 bits per sample at 16kHz sampling rate. The endian order of each sample
      * value is that of the host processor's native endian order. Multiple microphones are interleaved
@@ -224,21 +169,19 @@ public:
      * Far Field Voice service's Capabilities.
      *
      * The Microphone channels can be opened only in Full Power mode.
-     *
-     * If successful, the Microphone channels is in the open state.
      * 
      * @returns hal::HalFileDescriptor or null if the Microphone channels is already open, the power mode is not
      *          Full Power, or pipe create fails.
      *
      * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Microphone channels is already open or power mode is not Full Power.
-     * @exception hal::BinderStatus EX_NULL_POINTER 	fileDescriptor is null or pipe create failed.
+     * @exception hal::BinderStatus EX_NULL_POINTER 	'fileDescriptor' is null or pipe create failed.
      *
      * @pre The Microphone channels must be in the closed state.
      * @pre The power mode must be Full Power.
      * 
      * @see closeMicrophoneChannels()
      */
-	::hal::BinderStatus openMicrophoneChannels(::hal::HalFileDescriptor** fileDescriptor);
+	hal::BinderStatus openMicrophoneChannels(hal::HalFileDescriptor** fileDescriptor);
 
     /**
      * Close the Microphone channels.
@@ -252,53 +195,21 @@ public:
      * 
      * @see openMicrophoneChannels()
      */
-	::hal::BinderStatus closeMicrophoneChannels();
-
-    /**
-     * Start the Microphone channels.
-     *
-     * Microphone channels raw microphone samples are written to the Microphone channel's pipe at 16kHz
-     * sampling rate.
-     *
-     * If the Microphone channels is already started, no action occurs and SUCCESS is returned.
-     *
-     * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Microphone channels is not open.
-     *
-     * @pre The Microphone channels must be in the open state.
-     * 
-     * @see openMicrophoneChannels()
-     */
-	::hal::BinderStatus startMicrophoneChannels();
-
-    /**
-     * Stop the Microphone channels.
-     *
-     * Microphone channels audio processing is stopped. Audio samples are not written to the Microphone
-     * channel's pipe.
-     *
-     * If the Microphone channels is already stopped, no action occurs and SUCCESS is returned.
-     *
-     * @exception hal::BinderStatus EX_ILLEGAL_STATE	The Microphone channels is not open.
-     *
-     * @pre The Microphone channels must be in the open state.
-     * 
-     * @see openMicrophoneChannels(), startMicrophoneChannels()
-     */
-	::hal::BinderStatus stopMicrophoneChannels();
+	hal::BinderStatus closeMicrophoneChannels();
 
     /**
      * Start (activate) privacy state.
      *
      * All audio input will be forced to silence when privacy state is active.
      */
-	::hal::BinderStatus startPrivacyState();
+	hal::BinderStatus startPrivacyState();
 
     /**
      * Stop (inactivate) privacy state.
      *
      * All audio input will use actual input when privacy state is inactive.
      */
-	::hal::BinderStatus stopPrivacyState();
+	hal::BinderStatus stopPrivacyState();
 
     /**
      * Enter Full Power mode processing state.
@@ -311,7 +222,7 @@ public:
      *
      * @see FarFieldVoiceEventListener.onEnteredFullPowerMode(), FarFieldVoiceEventListener.onFullPowerModeFailed()
      */
-	::hal::BinderStatus enterFullPowerMode();
+	hal::BinderStatus enterFullPowerMode();
 
     /**
      * Enter Standby mode processing state.
@@ -324,7 +235,7 @@ public:
      *
      * @see FarFieldVoiceEventListener.onEnteredStandbyMode(), FarFieldVoiceEventListener.onStandbyModeFailed()
      */
-	::hal::BinderStatus enterStandbyMode();
+	hal::BinderStatus enterStandbyMode();
 
     /**
      * Enter Deep Sleep mode processing state.
@@ -333,7 +244,7 @@ public:
      *
      * @see FarFieldVoiceEventListener.onEnteredDeepSleepMode()
      */
-	::hal::BinderStatus enterDeepSleepMode();
+	hal::BinderStatus enterDeepSleepMode();
 
     /**
      * Start recording audio.
@@ -349,7 +260,7 @@ public:
      * @retval true				Successfully started recording.
      * @retval false			An error occurred opening file(s).
      */
-	::hal::BinderStatus startAudioRecording(::std::string fileNamePrefix, long ioSelect, bool* result);
+	hal::BinderStatus startAudioRecording(std::string fileNamePrefix, long ioSelect, bool* result);
 
     /**
      * Stop recording audio.
@@ -358,7 +269,7 @@ public:
      * @retval true				Successfully stopped recording.
      * @retval false			An error occurred closing file(s).
      */
-	::hal::BinderStatus stopAudioRecording(bool* result);
+	hal::BinderStatus stopAudioRecording(bool* result);
 
     /**
      * Perform a test command.
@@ -369,13 +280,14 @@ public:
      *
      * @returns string - Response to command.
      */
-	::hal::BinderStatus testCommand(::std::string command, ::std::string* response);
+	hal::BinderStatus testCommand(std::string command, std::string* response);
 
 private:
 	FarFieldVoice* m_parent;
 	FarFieldVoiceControllerListener* m_controllerListener;
-	::hal::HalFileDescriptor *m_keywordFileDescriptor;
-	::hal::HalFileDescriptor *m_continualFileDescriptor;
-	::hal::HalFileDescriptor *m_microphonesFileDescriptor;
+	hal::HalFileDescriptor *m_keywordFileDescriptor;
+	hal::HalFileDescriptor *m_continualFileDescriptor;
+	hal::HalFileDescriptor *m_microphonesFileDescriptor;
+	bool m_armKeywordDetect;
 	friend class FarFieldVoice;
 };  // class FarFieldVoiceController

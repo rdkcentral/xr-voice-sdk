@@ -40,7 +40,7 @@ public:
     /**
 	 * Callback when Far Field Voice has transitioned to a new state.
      */
-    virtual void onStateChanged(::hal::HalState oldState, ::hal::HalState newState) = 0;
+    virtual void onStateChanged(hal::HalState oldState, hal::HalState newState) = 0;
 
     /**
 	 * Callback when Far Field Voice has transitioned to Full Power mode.

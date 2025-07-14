@@ -87,12 +87,12 @@ public:
     /**
      * Name of keyword detector vendor.
      */
-	::std::string keywordDetectVendorName;
+	std::string keywordDetectVendorName = "N/A";
 
     /**
      * Name of component where keyword was detected.
      */
-	::std::string keywordDetectComponentName;
+	std::string keywordDetectComponentName = "N/A";
 };  // class KeywordDetectData
 
 }  // namespace farfieldvoice
