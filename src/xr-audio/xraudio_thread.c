@@ -947,7 +947,7 @@ void *xraudio_main_thread(void *param) {
                   XLOGD_ERROR("record fd read error <%d>", rc);
                }
             } else {
-               //XLOGD_DEBUG("val <%llu>", val);
+               XLOGD_DEBUG("val <%llu>", val);
                if(val > 0) {
                   unsigned long timeout;
                   xraudio_process_mic_data(&state->params, &state->record, &timeout);
@@ -2429,7 +2429,7 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
    xraudio_eos_event_t eos_event_hal = XRAUDIO_EOS_EVENT_NONE;
 
    rc = xraudio_hal_input_read(params->hal_input_obj, mic_frame_data, mic_frame_size, &eos_event_hal);
-   //XLOGD_DEBUG("bytes read %d, bytes expected %u, frame size %u", rc, mic_frame_size, session->frame_size_in);
+   XLOGD_DEBUG("bytes read %d, bytes expected %u, frame size %u", rc, mic_frame_size, session->frame_size_in);
    if(rc != (int) mic_frame_size) {
       if(rc < 0) {
          XLOGD_ERROR("hal mic read: error %d", rc);
@@ -3038,6 +3038,10 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
       xraudio_keyword_detector_t *detector = &session->keyword_detector;
       xraudio_keyword_detector_session_arm(detector, detector->callback, detector->cb_param, detector->sensitivity);
       return(0);
+   }
+
+   if(!xraudio_hal_input_detection_event(params->hal_input_obj, detector->active_chan, detector->result.endpoints.begin, detector->result.endpoints.end)) {
+      XLOGD_WARN("unable to send detection event to DSP");
    }
 
    if(!xraudio_in_session_group_semaphore_lock(source)) {
@@ -4694,7 +4698,7 @@ int xraudio_in_capture_internal_to_file(xraudio_session_record_t *session, uint8
 }
 
 int xraudio_capture_file_filter_all(const struct dirent *name) {
-   //XLOGD_DEBUG("checking <%s>", name->d_name ? name->d_name : "NULL");
+   XLOGD_DEBUG("checking <%s>", name->d_name ? name->d_name : "NULL");
    if(name == NULL) {
       return(0);
    }
@@ -4702,7 +4706,7 @@ int xraudio_capture_file_filter_all(const struct dirent *name) {
 }
 
 int xraudio_capture_file_filter_by_index(const struct dirent *name) {
-   //XLOGD_DEBUG("checking <%s>", name->d_name ? name->d_name : "NULL");
+   XLOGD_DEBUG("checking <%s>", name->d_name ? name->d_name : "NULL");
    static char prefix[sizeof(CAPTURE_INTERNAL_FILENAME_PREFIX) + 6];
    if(name == NULL) {
       return(0);
