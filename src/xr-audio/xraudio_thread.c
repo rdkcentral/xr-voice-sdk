@@ -2495,6 +2495,9 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
          instance->eos_event = eos_event;
          if(eos_event != XRAUDIO_EOS_EVENT_NONE) {
             XLOGD_DEBUG("eos event: %s", xraudio_eos_event_str(eos_event));
+            if(!xraudio_hal_input_eos_event(params->hal_input_obj, eos_event)) {
+               XLOGD_WARN("unable to send eos event to DSP");
+            }
          }
          #ifdef XRAUDIO_PPR_ENABLED
          xraudio_eos_event_t eos_event_ppr = XRAUDIO_EOS_EVENT_NONE;
