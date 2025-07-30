@@ -36,6 +36,11 @@ public:
      * Number of microphone inputs.
 	 */
 	int32_t microphoneChannelCount = 0;
+
+	/**
+     * Indicates if the Continual channel is supported.
+	 */
+    bool continualChannelSupported = 0;
 };
 
 }  // namespace farfieldvoice

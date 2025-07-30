@@ -67,9 +67,7 @@ private:
 	static FarFieldVoice* instancePtr;
 	static int instanceCnt;
 	static std::mutex mtx;
-	void FarFieldVoiceHalThread();
-	std::thread m_ffvHalThread;
-	bool m_ffvHalThreadActive{false};
+	std::recursive_mutex m_recursiveMtx;
 	farfieldvoice::Capabilities m_capabilities;
 	hal::HalState m_halState;
 	farfieldvoice::Status m_ffvStatus;
@@ -98,8 +96,6 @@ public:
 
    /**
      * Destroy the Far Field Voice HAL class. The class is a singleton and destroyed if needed.
-     *
-     * @returns Capabilities parcelable.
      */
 	static void destroy()
 	{
@@ -113,6 +109,7 @@ public:
 			}
 		}
 	}
+
     /**
      * Get the capabilities of the Far Field Voice HAL.
      *
@@ -121,7 +118,7 @@ public:
 	hal::BinderStatus getCapabilities(farfieldvoice::Capabilities* capabilities);
 
 	/**
-	 * Gets the current state of the Far Field Voice service.
+	 * Get the current state of the Far Field Voice HAL.
      *
      * @returns hal::HalState - Current state.
 	 *
@@ -138,34 +135,27 @@ public:
 
     /**
      * Register a Far Field Voice event listener.
-     * 
-     * A `FarFieldVoiceEventListener` can only be registered once and will fail on subsequent
-     * registration attempts.
      *
      * The listener is notified when a Far Field Voice event occurs.
      *
      * @param[in] listener	Listener object for callbacks.
      *
-     * @return boolean
-     * @retval true		The event listener was registered.
-     * @retval false	The event listener is already registered.
+     * @exception hal::BinderStatus EX_NULL_POINTER 	'listener' is null.
      *
      * @see unregisterEventListener()
      */
-	hal::BinderStatus registerEventListener(FarFieldVoiceEventListener* listener, bool* result);
+	hal::BinderStatus registerEventListener(FarFieldVoiceEventListener* listener);
 
     /**
      * Unregister a Far Field Voice event listener.
      *
      * @param[in] listener		Listener object for callbacks.
      *
-     * @return boolean
-     * @retval true		The event listener was unregistered.
-     * @retval false	The event listener was not found registered.
+     * @exception hal::BinderStatus EX_NULL_POINTER 	'listener' is null.
      *
      * @see registerEventListener()
      */
-	hal::BinderStatus unregisterEventListener(FarFieldVoiceEventListener* listener, bool* result);
+	hal::BinderStatus unregisterEventListener(FarFieldVoiceEventListener* listener);
 
     /**
 	 * Open the Far Field Voice HAL.
@@ -207,14 +197,10 @@ public:
      * @exception hal::BinderStatus EX_ILLEGAL_STATE		The Far Field Voice HAL state is not HalState::READY.
      * @exception hal::BinderStatus EX_ILLEGAL_ARGUMENT 	'controller' is not same as returned by open().
      *
-     * @return boolean
-     * @retval true		Successfully closed.
-     * @retval false	Invalid state or unrecognised parameter.
-     *
      * @pre Resource is in hal::HalState::READY state.
      *
      * @see open()
      */
-	hal::BinderStatus close(FarFieldVoiceController* controller, bool* result);
+	hal::BinderStatus close(FarFieldVoiceController* controller);
 
 };	// class FarFieldVoice

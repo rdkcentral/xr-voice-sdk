@@ -27,7 +27,7 @@
 #pragma once
 
 #include "PowerMode.h"
-#include "KeywordDetectData.h"
+#include "KeywordDetectInfo.h"
 #include <string>
 
 namespace farfieldvoice
@@ -47,7 +47,7 @@ public:
     /**
      * Current power mode.
      */
-	farfieldvoice::PowerMode powerMode = farfieldvoice::PowerMode::DEEP_SLEEP;
+	farfieldvoice::PowerMode powerMode = farfieldvoice::PowerMode::NONE;
 
     /**
      * Indicates if the Keyword channel has been opened.
@@ -60,9 +60,9 @@ public:
 	bool continualChannelOpen = false;
 
     /**
-     * Indicates if the Microphone channels has been opened.
+     * Indicates if the Microphones channel has been opened.
      */
-	bool microphoneChannelsOpen = false;
+	bool microphonesChannelOpen = false;
 
     /**
      * Indicates if a keyword was detected on the Keyword channel.
@@ -72,7 +72,7 @@ public:
     /**
      * Keyword detect information (applicable only if keywordDetected is true).
      */
-	farfieldvoice::KeywordDetectData keywordDetectData;
+	farfieldvoice::KeywordDetectInfo keywordDetectInfo;
 
     /**
      * Indicates if privacy state is active.
@@ -113,13 +113,6 @@ public:
      * This is for information only and useful to log if an error condition occurs.
      */
 	int64_t vendorErrorCode = 0L;
-
-    /**
-     * Vendor specific error text to indicate an error condition.
-     *
-     * This is for information only and useful to log if an error condition occurs.
-     */
-	std::string vendorErrorText = "none";
 };  // class Status
 
 }  // namespace farfieldvoice

@@ -45,6 +45,8 @@ public:
 	 * Far Field Voice audio pipe file descriptors.
      */
 #ifdef _WIN32	// Windows
+	static bool m_instanceInUse[3];
+	int m_instanceUsed;
 	HANDLE m_readPipeHandle;	// Windows read pipe handle
 	HANDLE m_writePipeHandle;	// Windows write pipe handle
 #else	// Linux

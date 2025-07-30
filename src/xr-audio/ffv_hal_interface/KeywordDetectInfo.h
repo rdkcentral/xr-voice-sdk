@@ -19,9 +19,9 @@
 
 /** @brief
  *
- * KeywordDetectData.h
+ * KeywordDetectInfo.h
  *
- * Contains the definition of the Far Field Voice HAL keyword detect data.
+ * Contains the definition of the Far Field Voice HAL keyword detect information.
  */
 
 #pragma once
@@ -31,7 +31,7 @@
 namespace farfieldvoice
 {
 
-class KeywordDetectData
+class KeywordDetectInfo
 {
 public:
     /**
@@ -93,6 +93,6 @@ public:
      * Name of component where keyword was detected.
      */
 	std::string keywordDetectComponentName = "N/A";
-};  // class KeywordDetectData
+};  // class KeywordDetectInfo
 
 }  // namespace farfieldvoice

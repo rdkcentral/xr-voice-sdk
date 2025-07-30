@@ -27,7 +27,7 @@
 #pragma once
 
 #include <stdint.h>
-#include "KeywordDetectData.h"
+#include "KeywordDetectInfo.h"
 
 using namespace std;
 using namespace hal;
@@ -40,26 +40,10 @@ public:
     /**
 	 * Callback when a keyword is detected on the Keyword channel.
      */
-    virtual void onKeywordDetected(farfieldvoice::KeywordDetectData keywordDetectData) = 0;
-
-    /**
-	 * Callback when a start of voice command is detected on the Keyword channel following the keyword.
-     */
-    virtual void onStartOfCommand(long sampleOffset) = 0;
+    virtual void onKeywordDetected(farfieldvoice::KeywordDetectInfo keywordDetectInfo) = 0;
 
     /**
 	 * Callback when an End of voice command is detected on the Keyword channel following the keyword.
      */
-    virtual void onEndOfCommand(long sampleOffset) = 0;
-
-    /**
-	 * Callback when a start of voice command is not detected on the Keyword channel following within a
-     * time period.
-     */
-    virtual void onNoStartOfCommand(long sampleOffset) = 0;
-
-    /**
-	 * Callback when an end of voice command is not detected on the Keyword channel within a time period.
-     */
-    virtual void onNoEndOfCommand(long sampleOffset) = 0;
+    virtual void onEndOfCommand(long sampleOffset, bool timedOut) = 0;
 };  // class FarFieldVoiceControllerListener
