@@ -21,7 +21,7 @@
  *
  * FarFieldVoiceWrapper.h
  *
- * Contains the definition of the C API wrapper for the FarFieldVoice HAL.
+ * Contains the definition of the C API wrapper for the Far Field Voice HAL.
  *
  */
 
@@ -29,13 +29,10 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-
-#ifdef _WIN32
-#include <windows.h> 
-#endif
+#include "FFVplatformDependent.h"
 
 #ifdef __cplusplus
-	#include "FarFieldVoice.h"
+#include "FarFieldVoice.h"
 extern "C"
 {
 #endif
@@ -45,13 +42,6 @@ typedef void* FFVhalHandle;
 
 // Far Field Voice HAL Controller handle.
 typedef void* FFVhalControlHandle;
-
-// Far Field Voice HAL file descriptor.
-#ifdef _WIN32	// Windows
-typedef HANDLE FFVhalFileDescriptor;
-#else	// Linux
-typedef int FFVhalFileDescriptor;
-#endif
 
 // HAL API status equivalent to common RDK-E HAL Binder status (::android::binder::Status).
 typedef enum
@@ -69,7 +59,7 @@ typedef enum
 	EX_TRANSACTION_FAILED = -129
 } FFVhalApiStatus_t;
 
-// HAL state equivalent to common RDK-E HAL State (::com::rdk::hal::State).
+// HAL state equivalent to common RDK-E HAL State (com::rdk::hal::State).
 typedef enum
 {
 	UNKNOWN = 0,
@@ -83,14 +73,14 @@ typedef enum
 	CLOSING = 8
 } FFVhalState_t;
 
-// Far Field Voice HAL capabilities (equivalent to com.rdk.hal.farfieldvoice.Capabilities).
+// Far Field Voice HAL capabilities (equivalent to com::rdk::hal::farfieldvoice::Capabilities).
 typedef struct
 {
 	int32_t microphoneChannelCount;		// number of microphone inputs
     bool continualChannelSupported;		// flag: Continual channel is supported
 } FFVhalCapabilities_t;
 
-// Far Field Voice HAL power mode (equivalent to com.rdk.hal.farfieldvoice.PowerMode).
+// Far Field Voice HAL power mode (equivalent to com::rdk::hal::farfieldvoice::PowerMode).
 typedef enum
 {
 	NONE = 0,			// never set or power mode change in progress (not ready)
@@ -99,7 +89,22 @@ typedef enum
 	DEEP_SLEEP = 3		// Deep Sleep
 } FFVhalPowerMode_t;
 
-// Far Field Voice HAL keyword detect information (equivalent to com.rdk.hal.farfieldvoice.KeywordDetectInfo).
+// Far Field Voice HAL channel type (equivalent to com::rdk::hal::farfieldvoice::ChannelType).
+typedef enum
+{
+	KEYWORD = 0,		// Keyword
+	CONTINUAL = 1,		// Continual
+	MICROPHONES = 2		// Microphones
+} FFVhalChannelType_t;
+
+// Far Field Voice HAL failure code (equivalent to com::rdk::hal::farfieldvoice::FailureCode).
+typedef enum
+{
+	SUB_COMPONENT_FAILURE = 0,	// failure to instantiate or communicate with a sub component
+	IO_FAILURE = 1				// failure to perform I/O
+} FFVhalFailureCode_t;
+
+// Far Field Voice HAL keyword detect information (equivalent to com::rdk::hal::farfieldvoice::KeywordDetectInfo).
 typedef struct
 {
 	int64_t beginSampleOffset;			// keyword channel sample offset to the beginning of the keyword
@@ -116,7 +121,7 @@ typedef struct
 	const char *pKeywordDetectComponentName;	// pntr to name of component where keyword was detected string
 } FFVhalKwdInfo_t;
 
-// Far Field Voice HAL status (equivalent to com.rdk.hal.farfieldvoice.Status).
+// Far Field Voice HAL status (equivalent to com::rdk::hal::farfieldvoice::Status).
 typedef struct
 {
 	const char *pCodeBuildVersion;			// pntr to build version of this Far Field Voice HAL code instance string
@@ -133,24 +138,11 @@ typedef struct
 	int64_t vendorErrorCode;				// vendor specific error code to indicate an error condition
 } FFVhalStatus_t;
 
-// Far Field Voice HAL failure code (equivalent to com.rdk.hal.farfieldvoice.FailureCode).
-typedef enum
-{
-	SUB_COMPONENT_FAILURE = 0,	// failure to instantiate or communicate with a sub component
-	IO_FAILURE = 1				// failure to perform I/O
-} FFVhalFailureCode_t;
-
 // Callback when Far Field Voice HAL has transitioned to a new state.
 typedef void (*FFVhalOnStateChangedCb_t)(FFVhalState_t oldState, FFVhalState_t newState);
 
-// Callback when Far Field Voice has entered Full Power mode.
-typedef void (*FFVhalOnEnteredFullPowerModeCb_t)(void);
-
-// Callback when Far Field Voice has entered Standby mode.
-typedef void (*FFVhalOnEnteredStandbyModeCb_t)(void);
-
-// Callback when Far Field Voice has entered Deep Sleep mode.
-typedef void (*FFVhalOnEnteredDeepSleepModeCb_t)(void);
+// Callback when Far Field Voice has transitioned to a new power mode.
+typedef void (*FFVhalOnEnteredPowerModeCb_t)(FFVhalPowerMode_t powerMode);
 
 // Callback when Far Field Voice has failed.
 typedef void (*FFVhalOnHardwareFailedCb_t)(FFVhalFailureCode_t failureCode);
@@ -233,9 +225,7 @@ FFVhalApiStatus_t FFVhal_getStatus(
 FFVhalApiStatus_t FFVhal_registerEventListeners(
 	FFVhalHandle handle,										// Far Field Voice HAL handle
 	FFVhalOnStateChangedCb_t onStateChanged,					// on state changed callback
-	FFVhalOnEnteredFullPowerModeCb_t onEnteredFullPowerMode,	// on entered Full Power mode callback
-	FFVhalOnEnteredStandbyModeCb_t onEnteredStandbyMode,		// on entered Standby mode callback
-	FFVhalOnEnteredDeepSleepModeCb_t onEnteredDeepSleepMode,	// on entered Deep Sleep mode callback
+	FFVhalOnEnteredPowerModeCb_t onEnteredPowerMode,			// on entered power mode callback
 	FFVhalOnHardwareFailedCb_t onHardwareFailed					// on failure callback
 );
 
@@ -251,9 +241,7 @@ FFVhalApiStatus_t FFVhal_registerEventListeners(
 FFVhalApiStatus_t FFVhal_unregisterEventListeners(
 	FFVhalHandle handle,										// Far Field Voice HAL handle
 	FFVhalOnStateChangedCb_t onStateChanged,					// on state changed callback
-	FFVhalOnEnteredFullPowerModeCb_t onEnteredFullPowerMode,	// on entered Full Power mode callback
-	FFVhalOnEnteredStandbyModeCb_t onEnteredStandbyMode,		// on entered Standby mode callback
-	FFVhalOnEnteredDeepSleepModeCb_t onEnteredDeepSleepMode,	// on entered Deep Sleep mode callback
+	FFVhalOnEnteredPowerModeCb_t onEnteredPowerMode,			// on entered power mode callback
 	FFVhalOnHardwareFailedCb_t onHardwareFailed					// on failure callback
 );
 
@@ -302,236 +290,142 @@ FFVhalApiStatus_t FFVhal_close(
 );
 
 //
-// Open the Keyword channel.
+// Open an audio channel.
 //
-// If successful, creates and returns a pipe for passing Keyword channel audio to the client and
-// the Keyword channel is in the open state.
+// If successful, creates and returns a pipe for passing the specified channel type audio to the
+// client and the specified channel type is in the open state.
 //
-// Keyword channel audio processing is initialized and keyword detection is started. Upon keyword
-// detection, audio samples are written to the Keyword channel's pipe.
+// If the channel type is Keyword:
 //
-// Audio data is signed 16 bits per sample at 16kHz sampling rate. The endian order of each sample
-// value is that of the host processor's native endian order.
+// 	Keyword channel audio processing is initialized and keyword detection is started. Upon keyword
+// 	detection, audio samples are written to the Keyword channel's pipe.
 //
-// Once a keyword is detected, the Far Field Voice HAL begins writing audio samples to the Keyword
-// channel's pipe whenever audio samples are available. Initially, samples may be written to the pipe
-// faster than real time as audio buffered within the HAL is provided as fast as possible. Once all
-// buffered audio is written to the pipe, audio will be written at a rate based on 16kHz sampling rate
-// (real time).
+//  Audio data is signed 16 bits per sample at 16kHz sampling rate. The endian order of each sample
+//  value is that of the host processor's native endian order.
 //
-// The following controller callbacks can occur after the Keyword channel is opened.
-//	onKeywordDetected()
-//	onEndOfCommand()
+//  Once a keyword is detected, the Far Field Voice HAL begins writing audio samples to the Keyword
+//  channel's pipe whenever audio samples are available. Initially, samples may be written to the pipe
+//  faster than real time as audio buffered within the HAL is provided as fast as possible. Once all
+//  buffered audio is written to the pipe, audio will be written at a rate based on 16kHz sampling rate
+//  (real time).
 //
-// The sample offset values provided in 'onKeywordDetected' and 'onEndOfCommand' are the relative
-// sample number with respect to the audio samples written to the Keyword channel's pipe. A sample
-// offset value of zero corresponds to the first sample written after opening the Keyword channel.
+// 	The following controller callbacks can occur after the Keyword channel is opened.
+//	 onKeywordDetected()
+//	 onEndOfCommand()
 //
-// Prerequisites:
-//	The Keyword channel must be in the closed state.
-//	The Microphones channel must be in the closed state.
-//	The power mode must be Full Power or Standby.
+//  The sample offset values provided in 'onKeywordDetected' and 'onEndOfCommand' are the relative
+//  sample number with respect to the audio samples written to the Keyword channel's pipe. A sample
+//  offset value of zero corresponds to the first sample written after opening the Keyword channel.
 //
-// Returns:
-//	EX_NONE = Success (the Keyword channel's pipe file descriptor is stored in pFileDescriptor)
-//	EX_NULL_POINTER = controllerHandle or pFileDescriptor is NULL, or failed to create pipe, or controller failed
-//	EX_ILLEGAL_STATE = Keyword channel is already open, Microphones channel is open, or power mode is not STANDBY or FULL_POWER
+//  Prerequisites:
+//	 The Keyword channel must be in the closed state.
+//	 The Microphones channel must be in the closed state.
+//	 The power mode must be Full Power or Standby.
 //
-FFVhalApiStatus_t FFVhal_openKeywordChannel(
+//  Returns:
+//   EX_ILLEGAL_ARGUMENT = Invalid channel type
+//	 EX_ILLEGAL_STATE = Keyword channel is already open, Microphones channel is open, or power mode is not STANDBY or FULL_POWER
+//
+// If the channel type is Continual:
+//
+//  Continual channel audio processing is initialized and audio samples are written to the Continual
+//  channel's pipe at 16kHz sampling rate. Audio data is signed 16 bits per sample. The endian order
+//  of each sample value is that of the host processor's native endian order.
+//
+//  Prerequisites:
+//	 The Continual channel must be in the closed state.
+//	 The Microphones channel must be in the closed state.
+//	 The power mode must be Full Power.
+//
+//  Returns:
+//	 EX_ILLEGAL_ARGUMENT = Invalid channel type or the Continual channel is not supported 
+//	 EX_ILLEGAL_STATE = Continual channel is already open, Microphones channel is open, or power mode is not FULL_POWER
+//
+// If the channel type is Microphones:
+//
+//  Raw microphone data is written to the Microphones channel's pipe at 16kHz sampling rate. Sample
+//  values are signed 32 bits per sample. The endian order of each sample value is that of the host
+//  processor's native endian order. Multiple microphones are interleaved by sample with the number
+//  of microphones being equal to the microphoneChannelCount field in the FFVhalCapabilities_t structure
+//  provided by FFVhal_GetCapabilities.
+//
+//  Prerequisites:
+//	 The Microphones channel must be in the closed state.
+//	 The Keyword channel must be in the closed state.
+//	 The Continual channel must be in the closed state.
+//	 The power mode must be Full Power.
+//
+//  Returns:
+//   EX_ILLEGAL_ARGUMENT = Invalid channel type
+//   EX_ILLEGAL_STATE = Microphones channel is already open, Keyword or Continual channel are open,
+//                      or power mode is not FULL_POWER
+//
+// Common to all channel types:
+//
+//  Returns:
+//	 EX_NONE = Success (the audio channel's pipe file descriptor is stored in pFileDescriptor)
+//	 EX_NULL_POINTER = controllerHandle or pFileDescriptor is NULL, or failed to create pipe, or controller failed
+//
+FFVhalApiStatus_t FFVhal_openChannel(
 	FFVhalControlHandle controllerHandle,	// Far Field Voice HAL Controller handle
-	FFVhalFileDescriptor *pFileDescriptor	// pntr to Keyword channel pipe read file descriptor variable
+	FFVhalChannelType_t channelType,		// Far Field Voice channel type
+	FFVhalFileDescriptor *pFileDescriptor	// pntr to pipe read file descriptor variable
 );
 
 //
-// Close the Keyword channel.
+// Close an audio channel.
 //
-// Keyword channel audio processing is stopped, the Keyword channel's pipe is closed, and the Keyword channel
+// The specified channel type audio processing is stopped, the channel's pipe is closed, and the channel
 // is in the closed state.
 //
 // Prerequisites:
-//	The Keyword channel must be in the open state.
+//	The specified channel type must be in the open state.
 //
 // Returns:
 //	EX_NONE = Success
+//  EX_ILLEGAL_ARGUMENT = Invalid channel type
 //	EX_NULL_POINTER = controllerHandle is NULL or controller failed
-//	EX_ILLEGAL_STATE = Keyword channel is not open
+//	EX_ILLEGAL_STATE = Channel type is not open
 //
-// Note: The Keyword channel pipe file descriptor becomes invalid.
+// Note: The channel's pipe file descriptor becomes invalid.
 //
-FFVhalApiStatus_t FFVhal_closeKeywordChannel(
-	FFVhalControlHandle controllerHandle	// Far Field Voice HAL Controller handle
-);
-
-//
-// Open the Continual channel.
-//
-// If successful, creates and returns a pipe for passing Continual channel audio to the client and
-// the Continual channel is in the open state.
-//
-// Continual channel audio processing is initialized and audio samples are written to the Continual
-// channel's pipe at 16kHz sampling rate. Audio data is signed 16 bits per sample. The endian order
-// of each sample value is that of the host processor's native endian order.
-//
-// Prerequisites:
-//	The Continual channel must be in the closed state.
-//	The Microphones channel must be in the closed state.
-//	The power mode must be Full Power.
-//
-// Returns:
-//	EX_NONE = Success (the Continual channel's pipe file descriptor is stored in pFileDescriptor)
-//	EX_NULL_POINTER = controllerHandle or pFileDescriptor is NULL, or failed to create pipe, or controller failed
-//	EX_ILLEGAL_STATE = Continual channel is already open, Microphones channel is open, or power mode is not FULL_POWER
-//	EX_ILLEGAL_ARGUMENT = The Continual channel is not supported
-//
-FFVhalApiStatus_t FFVhal_openContinualChannel(
+FFVhalApiStatus_t FFVhal_closeChannel(
 	FFVhalControlHandle controllerHandle,	// Far Field Voice HAL Controller handle
-	FFVhalFileDescriptor *pFileDescriptor	// pntr to Continual channel pipe read file descriptor variable
+	FFVhalChannelType_t channelType			// Far Field Voice channel type
 );
 
 //
-// Close the Continual channel.
-//
-// Continual channel audio processing is stopped, the Continual channel's pipe is closed, and the Continual channel
-// is in the closed state.
-//
-// Prerequisites:
-//	The Continual channel must be in the open state.
-//
-// Returns:
-//	EX_NONE = Success
-//	EX_NULL_POINTER = controllerHandle is NULL or controller failed
-//	EX_ILLEGAL_STATE = Continual channel is not open
-//
-// Note: The Continual channel pipe file descriptor becomes invalid.
-//
-FFVhalApiStatus_t FFVhal_closeContinualChannel(
-	FFVhalControlHandle controllerHandle	// Far Field Voice HAL Controller handle
-);
-
-//
-// Open the Microphones channel.
-//
-// If successful, creates and returns a pipe for passing raw microphone data to the client and
-// the Microphones channel is in the open state.
-//
-// Raw microphone data is written to the Microphones channel's pipe at 16kHz sampling rate. Sample
-// values are signed 32 bits per sample. The endian order of each sample value is that of the host
-// processor's native endian order. Multiple microphones are interleaved by sample with the number
-// of microphones being equal to the microphoneChannelCount field in the FFVhalCapabilities_t structure
-// provided by FFVhal_GetCapabilities.
-//
-// Prerequisites:
-//	The Microphones channel must be in the closed state.
-//	The Keyword channel must be in the closed state.
-//	The Continual channel must be in the closed state.
-//	The power mode must be Full Power.
-//
-// Returns:
-//	EX_NONE = Success (the Microphones channel's pipe file descriptor is stored in pFileDescriptor)
-//	EX_NULL_POINTER = controllerHandle or pFileDescriptor is NULL, or failed to create pipe, or controller failed
-//	EX_ILLEGAL_STATE = Microphones channel is already open, Keyword or Continual channel are open,
-//                     or power mode is not FULL_POWER
-//
-FFVhalApiStatus_t FFVhal_openMicrophonesChannel(
-	FFVhalControlHandle controllerHandle,	// Far Field Voice HAL Controller handle
-	FFVhalFileDescriptor *pFileDescriptor	// pntr to Microphones channel pipe read file descriptor variable
-);
-
-//
-// Close the Microphones channel.
-//
-// Microphones channel processing is stopped, the Microphones channel's pipe is closed, and the Microphones
-// channel is in the closed state.
-//
-// Prerequisites:
-//	The Microphones channel must be in the open state.
-//
-// Returns:
-//	EX_NONE = Success
-//	EX_NULL_POINTER = controllerHandle is NULL or controller failed
-//	EX_ILLEGAL_STATE = Microphones channel is not open
-//
-// Note: The Microphones channel pipe file descriptor becomes invalid.
-//
-FFVhalApiStatus_t FFVhal_closeMicrophonesChannel(
-	FFVhalControlHandle controllerHandle	// Far Field Voice HAL Controller handle
-);
-
-//
-// Start (activate) privacy state.
+// Set (activate or deactivate) privacy state.
 //
 // All audio input will be forced to silence when privacy state is active.
-//
-// Returns:
-//	EX_NONE = Success
-//	EX_NULL_POINTER = controllerHandle is NULL or controller failed
-//
-FFVhalApiStatus_t FFVhal_startPrivacyState(
-	FFVhalControlHandle controllerHandle	// Far Field Voice HAL Controller handle
-);
-
-//
-// Stop (inactivate) privacy state.
-//
 // All audio input will use actual input when privacy state is inactive.
 //
 // Returns:
 //	EX_NONE = Success
 //	EX_NULL_POINTER = controllerHandle is NULL or controller failed
 //
-FFVhalApiStatus_t FFVhal_stopPrivacyState(
-	FFVhalControlHandle controllerHandle	// Far Field Voice HAL Controller handle
+FFVhalApiStatus_t FFVhal_setPrivacyState(
+	FFVhalControlHandle controllerHandle,	// Far Field Voice HAL Controller handle
+	bool activate							// flag: true = activate privacy state
 );
 
 //
-// Enter Full Power mode processing state.
+// Set power mode.
 //
-// If successful, Full Power mode audio processing will be initialized.
+// If successful, the specified power mode is initialized.
 //
 // Prerequisites:
-//	All channels must be in the closed state.
+//	All audio channels must be in the closed state.
 //
 // Returns:
 //	EX_NONE = Success
+//  EX_ILLEGAL_ARGUMENT = Invalid power mode
 //	EX_NULL_POINTER = controllerHandle is NULL or controller failed
-//	EX_ILLEGAL_STATE = Keyword or Continual or Microphones channel is open
+//	EX_ILLEGAL_STATE = An audio channel is open
 //
-FFVhalApiStatus_t FFVhal_enterFullPowerMode(
-	FFVhalControlHandle controllerHandle	// Far Field Voice HAL Controller handle
-);
-
-//
-// Enter Standby mode processing state.
-//
-// If successful, Standby (low power) mode audio processing will be initialized.
-//
-// Prerequisites:
-//	All channels must be in the closed state.
-//
-// Returns:
-//	EX_NONE = Success
-//	EX_NULL_POINTER = controllerHandle is NULL or controller failed
-//	EX_ILLEGAL_STATE = Keyword or Continual or Microphones channel is open
-//
-FFVhalApiStatus_t FFVhal_enterStandbyMode(
-	FFVhalControlHandle controllerHandle	// Far Field Voice HAL Controller handle
-);
-
-//
-// Enter Deep Sleep mode processing state.
-//
-// If successful, Deep Sleep (no power) mode audio processing will be initialized.
-//
-// Prerequisites:
-//	All channels must be in the closed state.
-//
-// Returns:
-//	EX_NONE = Success
-//	EX_NULL_POINTER = controllerHandle is NULL or controller failed
-//	EX_ILLEGAL_STATE = Keyword or Continual or Microphones channel is open
-//
-FFVhalApiStatus_t FFVhal_enterDeepSleepMode(
-	FFVhalControlHandle controllerHandle	// Far Field Voice HAL Controller handle
+FFVhalApiStatus_t FFVhal_setPowerMode(
+	FFVhalControlHandle controllerHandle,	// Far Field Voice HAL Controller handle
+	FFVhalPowerMode_t powerMode				// target power mode
 );
 
 //
