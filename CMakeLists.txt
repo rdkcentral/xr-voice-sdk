@@ -30,7 +30,8 @@ set(CMAKE_BUILD_TYPE Release)
 
 project(xr-voice-sdk)
 
-option(GIT_BRANCH,      "Repository Branch" OFF)
+option(VSDK_BRANCH,  "Voice SDK Repository Branch" OFF)
+option(VSDK_VERSION, "Voice SDK Version" OFF)
 
 set(STAGING_BINDIR_NATIVE,     "invalid" CACHE PATH "staging bin dir native")
 
@@ -261,15 +262,12 @@ install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
 
 add_custom_command(
    OUTPUT vsdk_version.h
-   COMMAND echo "#define VSDK_VER_MAJOR \"1\"" > vsdk_version.h
-   COMMAND echo -n "#define VSDK_VER_MINOR \"" >> vsdk_version.h
-   COMMAND bash -c "echo -n $(git -C ${CMAKE_CURRENT_SOURCE_DIR} rev-list --count 4b825dc642cb6eb9a060e54bf8d69288fbee4904..HEAD) >> vsdk_version.h"
-   COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} diff --quiet || echo -n "++" >> vsdk_version.h
-   COMMAND echo "\"" >> vsdk_version.h
-   COMMAND echo "#define VSDK_BRANCH    \"${GIT_BRANCH}\"" >> vsdk_version.h
+   COMMAND echo "#define VSDK_BRANCH    \"${VSDK_BRANCH}\"" >> vsdk_version.h
    COMMAND echo -n "#define VSDK_COMMIT_ID " >> vsdk_version.h
    COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} log --format=\"%H\" -n 1 >> vsdk_version.h
-   COMMAND echo "#define VSDK_VERSION (VSDK_VER_MAJOR \".\" VSDK_VER_MINOR)" >> vsdk_version.h
+   COMMAND echo -n "#define VSDK_VERSION \"${VSDK_VERSION}" >> vsdk_version.h
+   COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} diff --quiet || echo -n "++" >> vsdk_version.h
+   COMMAND echo "\"" >> vsdk_version.h
    VERBATIM)
 
 add_custom_command(
