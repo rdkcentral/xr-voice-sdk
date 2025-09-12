@@ -28,9 +28,7 @@ endif()
 set(CMAKE_VERBOSE_MAKEFILE ON)
 set(CMAKE_BUILD_TYPE Release)
 
-project(xr-voice-sdk)
-
-option(VSDK_VERSION, "Voice SDK Version" OFF)
+project(xr-voice-sdk VERSION ${CMAKE_PROJECT_VERSION})
 
 set(STAGING_BINDIR_NATIVE,     "invalid" CACHE PATH "staging bin dir native")
 
@@ -71,8 +69,8 @@ option(XLOG_CURTAIL_ENABLED, "xlog curtail"             OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
-    SOVERSION 1              # Major version number
-    VERSION 1.0.0            # Full version number (major.minor.patch)
+    SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR} # Major version number
+    VERSION   ${CMAKE_PROJECT_VERSION}       # Full version number (major.minor.patch)
 )
 
 target_include_directories(xr-voice-sdk PUBLIC 
@@ -266,7 +264,7 @@ add_custom_command(
    COMMAND echo "\"" >> vsdk_version.h
    COMMAND echo -n "#define VSDK_COMMIT_ID " >> vsdk_version.h
    COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} log --format=\"%H\" -n 1 >> vsdk_version.h
-   COMMAND echo -n "#define VSDK_VERSION \"${VSDK_VERSION}" >> vsdk_version.h
+   COMMAND echo -n "#define VSDK_VERSION \"${CMAKE_PROJECT_VERSION}" >> vsdk_version.h
    COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} diff --quiet || echo -n "++" >> vsdk_version.h
    COMMAND echo "\"" >> vsdk_version.h
    VERBATIM)
