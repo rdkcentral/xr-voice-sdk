@@ -264,7 +264,7 @@ add_custom_command(
    COMMAND echo "\"" >> vsdk_version.h
    COMMAND echo -n "#define VSDK_COMMIT_ID " >> vsdk_version.h
    COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} log --format=\"%H\" -n 1 >> vsdk_version.h
-   COMMAND echo -n "#define VSDK_VERSION \"${CMAKE_PROJECT_VERSION}" >> vsdk_version.h
+   COMMAND echo -n "#define VSDK_VERSION   \"${CMAKE_PROJECT_VERSION}" >> vsdk_version.h
    COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} diff --quiet || echo -n "++" >> vsdk_version.h
    COMMAND echo "\"" >> vsdk_version.h
    VERBATIM)
