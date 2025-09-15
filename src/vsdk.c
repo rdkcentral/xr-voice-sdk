@@ -67,11 +67,11 @@ void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty) {
    *qty -= qty_avail;
 }
 
-int vsdk_init(void) {
+int vsdk_init(bool ansi_color) {
    if(g_vsdk.initialized) {
       return(0);
    }
-   int rc = xlog_init(XLOG_MODULE_ID_VSDK, NULL, 0);
+   int rc = xlog_init(XLOG_MODULE_ID_VSDK, NULL, 0, ansi_color);
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -79,11 +79,11 @@ int vsdk_init(void) {
    return(rc);
 }
 
-int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe) {
+int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_color) {
    if(g_vsdk.initialized) {
       return(0);
    }
-   int rc = xlog_init_user_print(XLOG_MODULE_ID_VSDK, print, print_safe);
+   int rc = xlog_init_user_print(XLOG_MODULE_ID_VSDK, print, print_safe, ansi_color);
 
    if(rc == 0) {
       g_vsdk.initialized = true;
