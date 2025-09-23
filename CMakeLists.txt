@@ -219,7 +219,7 @@ endif()
 if(XRAUDIO_PPR_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_PPR_ENABLED)
 endif()
-   target_link_libraries(xr-voice-sdk xraudio_ffv_algorithms)
+   target_link_libraries(xr-voice-sdk xraudio-ffv-algorithms)
 endif()
 
 if(XRAUDIO_SDF_ENABLED)
