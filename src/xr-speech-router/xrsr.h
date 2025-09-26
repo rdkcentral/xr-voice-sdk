@@ -589,6 +589,13 @@ typedef struct {
    xrsr_dst_t dsts[XRSR_DST_QTY_MAX]; ///< Array of destinations for the route
 } xrsr_route_t;
 
+/// @brief XRSR configuration structure
+/// @details The configuration data structure indicates detailed information for the xrsr module.
+typedef struct {
+   bool local_mic;     ///< Platform has a local microphone
+   bool local_mic_tap; ///< Platform has a local microphone tap
+} xrsr_config_t;
+
 /// @brief XRSR keyword configuration structure
 /// @details The keyword configuration data structure indicates detailed information for the keyword detector.
 typedef struct {
@@ -623,6 +630,12 @@ extern "C" {
 /// @param[inout] qty          Quantity of entries in the version_info array
 /// @return The function has no return value.
 void xrsr_version(xrsr_version_info_t *version_info, uint32_t *qty);
+
+/// @brief Get the XRSR configuration
+/// @details Given a xrsr_config_t pointer, gets configuration information
+/// @param[in] type xrsr_config_t pointer
+/// @return The function returns true if successful or false otherwise
+bool xrsr_config_get(xrsr_config_t *config);
 
 /// @brief Opens the speech router
 /// @details Opens the router and begins processing voice sessions.
