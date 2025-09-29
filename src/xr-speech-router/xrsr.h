@@ -592,8 +592,9 @@ typedef struct {
 /// @brief XRSR configuration structure
 /// @details The configuration data structure indicates detailed information for the xrsr module.
 typedef struct {
-   bool local_mic;     ///< Platform has a local microphone
-   bool local_mic_tap; ///< Platform has a local microphone tap
+   bool local_mic;         ///< Platform has a local microphone
+   bool local_mic_tap;     ///< Platform has a local microphone tap
+   bool networked_standby; ///< Platform has networked standby capability
 } xrsr_config_t;
 
 /// @brief XRSR keyword configuration structure

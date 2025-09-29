@@ -142,6 +142,7 @@ typedef struct {
    xrsr_http_json_config_t        http_json_config;
    #endif
    
+   bool                           networked_standby;
    bool                           local_mic;
    bool                           local_mic_tap;
 } xrsr_global_t;
@@ -250,15 +251,18 @@ bool xrsr_config_get(xrsr_config_t *config) {
    }
 
    #ifdef XRAUDIO_KWD_ENABLED
-      config->local_mic     = true;
+      config->networked_standby = true;
+      config->local_mic         = true;
       #ifdef MICROPHONE_TAP_ENABLED
-      config->local_mic_tap = true;
+      config->local_mic_tap     = true;
       #else
-      config->local_mic_tap = false;
+      config->local_mic_tap     = false;
       #endif
    #else
-      config->local_mic     = false;
-      config->local_mic_tap = false;
+
+      config->networked_standby = false;
+      config->local_mic         = false;
+      config->local_mic_tap     = false;
    #endif
 
    return(true);
@@ -527,16 +531,18 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    sem_wait(&semaphore);
    sem_destroy(&semaphore);
 
-   g_xrsr.power_mode    = power_mode;
-   g_xrsr.privacy_mode  = privacy_mode;
-   g_xrsr.mask_pii      = mask_pii;
-   g_xrsr.local_mic     = false;
-   g_xrsr.local_mic_tap = false;
+   g_xrsr.power_mode        = power_mode;
+   g_xrsr.privacy_mode      = privacy_mode;
+   g_xrsr.mask_pii          = mask_pii;
+   g_xrsr.networked_standby = false;
+   g_xrsr.local_mic         = false;
+   g_xrsr.local_mic_tap     = false;
    
    #ifdef XRAUDIO_KWD_ENABLED
-   g_xrsr.local_mic     = true;
+   g_xrsr.networked_standby = true;
+   g_xrsr.local_mic         = true;
    #ifdef MICROPHONE_TAP_ENABLED
-   g_xrsr.local_mic_tap = true;
+   g_xrsr.local_mic_tap     = true;
    #endif
    #endif
 
