@@ -40,9 +40,7 @@
 #include "rdkversion.h"
 #include "xraudio.h"
 #include "xraudio_private.h"
-#ifdef XRAUDIO_DECODE_ADPCM
 #include "adpcm.h"
-#endif
 #ifdef XRAUDIO_DECODE_OPUS
 #include "xraudio_opus.h"
 #endif
