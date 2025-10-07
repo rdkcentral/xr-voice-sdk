@@ -45,7 +45,6 @@ set(XRSR_KEYWORD_PHRASE, "" CACHE STRING "speech router keyword phrase")
 option(XRAUDIO_RESOURCE_MGMT,   "xraudio resource management"                 OFF)
 option(XRAUDIO_DECODE_ADPCM,    "xraudio adpcm decoder"                       ON)
 option(XRAUDIO_DECODE_OPUS,     "xraudio opus decoder"                        ON)
-option(XRAUDIO_CURTAIL_ENABLED, "xraudio curtail"                             OFF)
 
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
 set(XRAUDIO_CONFIG_JSON_KWD, "" CACHE FILEPATH "xraudio config kwd")
@@ -64,8 +63,6 @@ option(XRAUDIO_SDF_ENABLED,    "xraudio sound focus"      OFF)
 option(XRAUDIO_OVC_ENABLED,    "xraudio ovc"              OFF)
 option(XRAUDIO_PPR_ENABLED,    "xraudio pre-processing"   OFF)
 option(XRAUDIO_OUTPUT_ENABLED, "xraudio output"           OFF)
-
-option(XLOG_CURTAIL_ENABLED, "xlog curtail"             OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -194,13 +191,11 @@ if(XRAUDIO_DECODE_OPUS)
    target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/opus/)
 endif()
    
-if(XRAUDIO_CURTAIL_ENABLED)
+find_library(CURTAIL_LIBRARY NAMES curtail)
+if(CURTAIL_LIBRARY)
    target_compile_definitions(xr-voice-sdk PUBLIC CURTAIL_ENABLED)
-endif()
-
-if(XLOG_CURTAIL_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XLOG_USE_CURTAIL)
-   target_link_libraries(xr-voice-sdk curtail)
+   target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
 endif()
 
 if(XRAUDIO_KWD_ENABLED)
