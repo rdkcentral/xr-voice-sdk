@@ -40,7 +40,7 @@
 #include "rdkx_logger.h"
 #include "rdkx_logger_private.h"
 #include "errno.h"
-#ifdef XLOG_USE_CURTAIL
+#ifdef VSDK_CURTAIL_ENABLED
 #include "curtail.h"
 #endif
 
@@ -65,7 +65,7 @@ static bool          g_xlog_init       = false;
 static xlog_print_t  g_xlog_print      = NULL;
 static xlog_print_t  g_xlog_print_safe = NULL;
 
-#ifdef XLOG_USE_CURTAIL
+#ifdef VSDK_CURTAIL_ENABLED
 static bool g_crtl_init = false;
 #endif
 
@@ -123,7 +123,7 @@ int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_
    XLOGD_INFO("Initializing...");
 
    if(filename != NULL) {
-      #ifndef XLOG_USE_CURTAIL
+      #ifndef VSDK_CURTAIL_ENABLED
       XLOGD_WARN("curtail is not enabled. ignoring filename parameter.");
       #else
       XLOGD_INFO("crtl_init...");
@@ -188,7 +188,7 @@ int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_
 }
 
 void xlog_term(void) {
-   #ifdef XLOG_USE_CURTAIL
+   #ifdef VSDK_CURTAIL_ENABLED
    if(g_crtl_init) {
       crtl_term();
       g_crtl_init = false;
