@@ -23,11 +23,15 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <sys/stat.h>
 #include <xr_voice_sdk.h>
 #include <vsdk_version.h>
 
+#define VSDK_VENDOR_OPTIONS_FILE  "/etc/vendor/input/vsdk_options.json"
+
 typedef struct {
    bool                    initialized;
+   bool                    curtail_xraudio;
    vsdk_thread_poll_func_t func;
    void *                  data;
 } vsdk_global_t;
@@ -35,6 +39,8 @@ typedef struct {
 static vsdk_global_t g_vsdk;
 
 static void vsdk_thread_response(void);
+static bool vsdk_file_exists(const char *filename);
+static void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio);
 
 void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty) {
    if(qty == NULL || *qty < VSDK_VERSION_QTY_MAX || version_info == NULL) {
@@ -71,7 +77,16 @@ int vsdk_init(void) {
    if(g_vsdk.initialized) {
       return(0);
    }
-   int rc = xlog_init(XLOG_MODULE_ID_VSDK, NULL, 0);
+
+   bool curtail_xlog    = false;
+   bool curtail_xraudio = false;
+
+   vsdk_parse_options(&curtail_xlog, &curtail_xraudio);
+
+   int rc = xlog_init(XLOG_MODULE_ID_VSDK, NULL, 0, curtail_xlog);
+
+   // Store the value so it can be used when xraudio is initialized
+   g_vsdk.curtail_xraudio = curtail_xraudio;
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -83,7 +98,16 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe) {
    if(g_vsdk.initialized) {
       return(0);
    }
-   int rc = xlog_init_user_print(XLOG_MODULE_ID_VSDK, print, print_safe);
+   
+   bool curtail_xlog    = false;
+   bool curtail_xraudio = false;
+
+   vsdk_parse_options(&curtail_xlog, &curtail_xraudio);
+
+   int rc = xlog_init_user_print(XLOG_MODULE_ID_VSDK, print, print_safe, curtail_xlog);
+
+   // Store the value so it can be used when xraudio is initialized
+   g_vsdk.curtail_xraudio = curtail_xraudio;
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -133,5 +157,67 @@ void vsdk_thread_poll(vsdk_thread_poll_func_t func, void *data) {
 void vsdk_thread_response(void) {
    if(g_vsdk.initialized && g_vsdk.func != NULL) {
       (*g_vsdk.func)(g_vsdk.data);
+   }
+}
+
+bool vsdk_curtail_xraudio_enabled(void) {
+   return(g_vsdk.curtail_xraudio);
+}
+
+bool vsdk_file_exists(const char *filename) {
+   if(filename == NULL) {
+      return false;
+   }
+   struct stat buffer;
+   if(stat(filename, &buffer) == 0) {
+      return true;
+   }
+   return false;
+}
+
+void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio) {
+   bool crtl_xlog    = false;
+   bool crtl_xraudio = false;
+   // If the vendor supplied options are provided, use them.  Otherwise use the default values.
+   const char *vendor_options_file = VSDK_VENDOR_OPTIONS_FILE;
+
+   if(vsdk_file_exists(vendor_options_file)) {
+      XLOGD_INFO("Using vendor options file: %s", vendor_options_file);
+
+      json_t *json_obj_vendor_options = json_load_file(vendor_options_file, JSON_REJECT_DUPLICATES, NULL);
+
+      if(json_obj_vendor_options == NULL || !json_is_object(json_obj_vendor_options)) {
+         XLOGD_ERROR("invalid vendor options file format");
+      } else {
+         json_t *option = json_object_get(json_obj_vendor_options, "curtail_xlog");
+         if(option == NULL) {
+            // Not present
+         } else if(!json_is_boolean(option)) {
+            XLOGD_ERROR("invalid vendor option format - curtail_xlog");
+         } else {
+            crtl_xlog = json_boolean_value(option);
+            XLOGD_INFO("curtail xlog is <%s>", crtl_xlog ? "enabled" : "disabled");
+         }
+         option = json_object_get(json_obj_vendor_options, "curtail_xraudio");
+         if(option == NULL) {
+            // Not present
+         } else if(!json_is_boolean(option)) {
+            XLOGD_ERROR("invalid vendor option format - curtail_xraudio");
+         } else {
+            crtl_xraudio = json_boolean_value(option);
+            XLOGD_INFO("curtail xraudio is <%s>", crtl_xraudio ? "enabled" : "disabled");
+         }
+      }
+      if(json_obj_vendor_options != NULL) {
+         json_decref(json_obj_vendor_options);
+         json_obj_vendor_options = NULL;
+      }
+
+      if(curtail_xlog != NULL) {
+         *curtail_xlog = crtl_xlog;
+      }
+      if(curtail_xraudio != NULL) {
+         *curtail_xraudio = crtl_xraudio;
+      }
    }
 }

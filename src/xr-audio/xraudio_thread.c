@@ -2246,8 +2246,7 @@ void xraudio_msg_capture_params_set(xraudio_thread_state_t *state, void *msg) {
    if(capture_params->enable) {
       XLOGD_INFO("internal capture dir path <%s> file qty max <%u> file size max <%u> curtail <%s>", capture_params->dir_path, capture_params->file_qty_max, capture_params->file_size_max, capture_params->use_curtail ? "YES" : "NO");
       state->record.capture_internal.enabled                 = capture_params->enable;
-      // TODO
-      if(true) { // Only allow curtail if enabled by config
+      if(!capture_params_set->curtail_enabled) { // Only allow curtail if enabled by config
          state->record.capture_internal.use_curtail          = false;
       } else {
          state->record.capture_internal.use_curtail          = capture_params->use_curtail;

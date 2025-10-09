@@ -62,6 +62,7 @@
 xlog_level_t  g_xlog_modules[XLOG_MODULE_QTY_MAX];
 
 static bool          g_xlog_init       = false;
+static bool          g_xlog_curtail    = false;
 static xlog_print_t  g_xlog_print      = NULL;
 static xlog_print_t  g_xlog_print_safe = NULL;
 
@@ -81,7 +82,7 @@ static const xlog_args_t g_xlog_args_default = {
 
 extern const char * const g_xlog_module_id_to_str[];
 
-static int      xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe);
+static int      xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool use_curtail);
 static uint32_t xlog_date_time(const xlog_args_t *args, char *buffer);
 static int      xlog_prefix(const xlog_args_t *args, char *str, size_t size);
 static int      xlog_postfix(const xlog_args_t *args, char *str, size_t size);
@@ -106,32 +107,37 @@ static bool             xlog_file_get_contents(const char *file, char **contents
 #error XLOG_PREFIX_SIZE is too small
 #endif
 
-int xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max) {
-   return(xlog_init_int(id, filename, file_size_max, NULL, NULL));
+int xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool use_curtail) {
+   return(xlog_init_int(id, filename, file_size_max, NULL, NULL, use_curtail));
 }
 
-int xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe) {
-   return(xlog_init_int(id, NULL, 0, print, print_safe));
+int xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, bool use_curtail) {
+   return(xlog_init_int(id, NULL, 0, print, print_safe, use_curtail));
 }
 
-int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe) {
+int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool use_curtail) {
    if(g_xlog_init) {
       XLOGD_WARN("Already initialized");
       return(-1);
    }
-   g_xlog_init = true;
+   g_xlog_init    = true;
+   g_xlog_curtail = use_curtail;
    XLOGD_INFO("Initializing...");
 
    if(filename != NULL) {
       #ifndef VSDK_CURTAIL_ENABLED
-      XLOGD_WARN("curtail is not enabled. ignoring filename parameter.");
+      XLOGD_WARN("curtail is not enabled (compile time). ignoring filename parameter.");
       #else
-      XLOGD_INFO("crtl_init...");
-      g_crtl_init = crtl_init(filename, file_size_max, CRTL_LEVEL_WARN, false);
-      if(!g_crtl_init) {
-         int errsv = errno;
-         XLOGD_WARN("curtail init error <%s>", strerror(errsv));
-         return(-1);
+      if(!g_xlog_curtail) {
+         XLOGD_WARN("curtail is not enabled (run time). ignoring filename parameter.");
+      } else {
+         XLOGD_INFO("crtl_init...");
+         g_crtl_init = crtl_init(filename, file_size_max, CRTL_LEVEL_WARN, false);
+         if(!g_crtl_init) {
+            int errsv = errno;
+            XLOGD_WARN("curtail init error <%s>", strerror(errsv));
+            return(-1);
+         }
       }
       #endif
    }
