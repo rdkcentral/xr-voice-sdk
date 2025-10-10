@@ -111,8 +111,8 @@ int xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max,
    return(xlog_init_int(id, filename, file_size_max, NULL, NULL, use_curtail));
 }
 
-int xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, bool use_curtail) {
-   return(xlog_init_int(id, NULL, 0, print, print_safe, use_curtail));
+int xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool use_curtail) {
+   return(xlog_init_int(id, filename, file_size_max, print, print_safe, use_curtail));
 }
 
 int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool use_curtail) {
@@ -131,7 +131,7 @@ int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_
       if(!g_xlog_curtail) {
          XLOGD_WARN("curtail is not enabled (run time). ignoring filename parameter.");
       } else {
-         XLOGD_INFO("crtl_init...");
+         XLOGD_INFO("crtl_init... filename <%s> max size <%u>", filename, file_size_max);
          g_crtl_init = crtl_init(filename, file_size_max, CRTL_LEVEL_WARN, false);
          if(!g_crtl_init) {
             int errsv = errno;
