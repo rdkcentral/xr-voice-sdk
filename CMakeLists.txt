@@ -193,7 +193,7 @@ endif()
    
 find_library(CURTAIL_LIBRARY NAMES curtail)
 if(CURTAIL_LIBRARY)
-   target_compile_definitions(xr-voice-sdk PUBLIC CURTAIL_ENABLED)
+   target_compile_definitions(xr-voice-sdk PUBLIC VSDK_CURTAIL_ENABLED)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
 endif()
 
