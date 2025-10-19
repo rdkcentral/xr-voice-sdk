@@ -206,7 +206,7 @@ endif()
 if(XRAUDIO_KWD_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_KWD_ENABLED)
    target_link_libraries(xr-voice-sdk xraudio-ffv-hal)
-   target_link_libraries(xr-voice-sdk xraudio-kwd)
+   target_link_libraries(xr-voice-sdk xraudio-ffv-kwd)
 endif()
 
 if(XRAUDIO_EOS_ENABLED OR XRAUDIO_DGA_ENABLED OR XRAUDIO_PPR_ENABLED) 
