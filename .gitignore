@@ -6,3 +6,6 @@ CMakeUserPresets.json
 
 # documentation output files
 src/doxygen/output/
+
+# clion files
+.idea
