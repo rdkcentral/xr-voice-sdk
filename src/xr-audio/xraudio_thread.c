@@ -875,6 +875,7 @@ void *xraudio_main_thread(void *param) {
    sem_post(state->params.semaphore);
 
    XLOGD_INFO("Enter main loop");
+   XLOGD_INFO("TID <%d>", (int)gettid());
    do {
 
       int src;

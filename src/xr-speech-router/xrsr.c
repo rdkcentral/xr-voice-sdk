@@ -1149,7 +1149,7 @@ void *xrsr_thread_main(void *param) {
    params.semaphore = NULL;
 
    XLOGD_INFO("Enter main loop");
-
+   XLOGD_INFO("TID <%d>", (int)gettid());
    do {
       int src;
       int nfds = params.msgq_id + 1;
