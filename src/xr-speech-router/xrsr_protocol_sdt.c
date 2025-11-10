@@ -315,6 +315,7 @@ void xrsr_sdt_speech_stream_end(xrsr_state_sdt_t *sdt, xrsr_stream_end_reason_t 
    xrsr_speech_stream_end(sdt->uuid, sdt->audio_src, sdt->dst_index, reason, detect_resume, &sdt->audio_stats);
 
    if(sdt->audio_pipe_fd_read >= 0) {
+      XLOGD_INFO("closing fd <%d>", sdt->audio_pipe_fd_read);
       close(sdt->audio_pipe_fd_read);
       sdt->audio_pipe_fd_read = -1;
    }
@@ -399,6 +400,7 @@ void xrsr_sdt_reset(xrsr_state_sdt_t *sdt) {
       sdt->on_close              = false;
       sdt->retry_cnt             = 1;
       if(sdt->audio_pipe_fd_read > -1) {
+         XLOGD_INFO("closing fd <%d>", sdt->audio_pipe_fd_read);
          close(sdt->audio_pipe_fd_read);
          sdt->audio_pipe_fd_read = -1;
       }

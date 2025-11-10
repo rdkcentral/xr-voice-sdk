@@ -288,11 +288,13 @@ bool xlog_file_get_contents(const char *file, char **contents) {
          }
          int errsv = errno;
          XLOGD_ERROR("unable to seek end of file <%s>", strerror(errsv));
+         XLOGD_INFO("closing fd <%d>", fd);
          close(fd);
          return(false);
       }
       if(file_size == 0) {
          XLOGD_ERROR("empty file");
+         XLOGD_INFO("closing fd <%d>", fd);
          close(fd);
          return(false);
       }
@@ -307,6 +309,7 @@ bool xlog_file_get_contents(const char *file, char **contents) {
          }
          int errsv = errno;
          XLOGD_ERROR("unable to seek start of file <%s>", strerror(errsv));
+         XLOGD_INFO("closing fd <%d>", fd);
          close(fd);
          return(false);
       }
@@ -318,6 +321,7 @@ bool xlog_file_get_contents(const char *file, char **contents) {
 
    if(*contents == NULL) {
       XLOGD_ERROR("out of memory <%u>", file_size);
+      XLOGD_INFO("closing fd <%d>", fd);
       close(fd);
       return(false);
    }
@@ -344,7 +348,7 @@ bool xlog_file_get_contents(const char *file, char **contents) {
       result = true;
       break;
    } while(1);
-
+   XLOGD_INFO("closing fd <%d>", fd);
    close(fd);
 
    if(!result) {

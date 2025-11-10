@@ -1021,10 +1021,12 @@ void xraudio_input_sound_intensity_fifo_close(xraudio_input_obj_t *obj) {
    if(session->fifo_sound_intensity >= 0) {
       errno = 0;
       int rc = close(session->fifo_sound_intensity);
+      
       if(rc != 0) {
          int errsv = errno;
          XLOGD_ERROR("unable to close fifo %d <%s>", rc, strerror(errsv));
       }
+      XLOGD_INFO("closing fd <%d>", session->fifo_sound_intensity);
       session->fifo_sound_intensity = -1;
    }
 }
@@ -1077,6 +1079,7 @@ xraudio_result_t xraudio_input_sound_intensity_transfer(xraudio_input_object_t o
          int errsv = errno;
          XLOGD_ERROR("unable to close fifo %d <%s>", rc, strerror(errsv));
       }
+      XLOGD_INFO("closing fd <%d>", session->fifo_sound_intensity);
       session->fifo_sound_intensity = -1;
    }
    
@@ -1446,6 +1449,7 @@ xraudio_result_t xraudio_input_stop_locked(xraudio_input_obj_t *obj, xraudio_dev
    xraudio_input_dispatch_stop(obj, source, index, NULL, NULL);
 
    if(session->fd >= 0) {
+      XLOGD_INFO("closing fd <%d>", session->fd);
       close(session->fd);
       session->fd = -1;
    }

@@ -613,6 +613,7 @@ void resource_request_grant_inform(xraudio_resource_params_t *params, xraudio_re
          XLOGD_INFO("Notify OTHER process %d fifo name <%s> id %d", entry->pid, name, entry->msgq);
          #endif
          write(fifo, &msg, sizeof(msg));
+         XLOGD_INFO("closing fd <%d>", fifo);
          close(fifo);
       }
    }
@@ -643,6 +644,7 @@ void resource_request_revoke_inform(xraudio_resource_params_t *params, xraudio_r
          XLOGD_ERROR("unable to open fifo <%s> <%s>", name, strerror(errsv));
       } else {
          write(fifo, &msg, sizeof(msg));
+         XLOGD_INFO("closing fd <%d>", fifo);
          close(fifo);
       }
    }

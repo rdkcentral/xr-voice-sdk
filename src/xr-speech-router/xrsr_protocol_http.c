@@ -124,12 +124,14 @@ size_t _xrsr_http_read_function(char *ptr, size_t size, size_t nmemb, void *user
                 } else {
                    XLOGD_ERROR("pipe read error <%s>", strerror(errsv));
                 }
+                XLOGD_INFO("closing fd <%d>", http->audio_pipe_fd_read);
                 close(http->audio_pipe_fd_read);
                 http->audio_pipe_fd_read = -1;
                 rc = 0;
                 xrsr_http_event(http, SM_EVENT_PIPE_EOS, false);
             } else if(rc == 0) { // EOF
                 XLOGD_INFO("pipe read EOF");
+                XLOGD_INFO("closing fd <%d>", http->audio_pipe_fd_read);
                 close(http->audio_pipe_fd_read);
                 http->audio_pipe_fd_read = -1;
                 xrsr_http_event(http, SM_EVENT_PIPE_EOS, false);
@@ -719,6 +721,7 @@ void xrsr_http_handle_speech_event(xrsr_state_http_t *http, xrsr_speech_event_t 
 void xrsr_http_reset(xrsr_state_http_t *http) {
     if(http) {
         if(http->audio_pipe_fd_read >= 0) {
+            XLOGD_INFO("closing fd <%d>", http->audio_pipe_fd_read);
             close(http->audio_pipe_fd_read);
             http->audio_pipe_fd_read = -1;
         }
