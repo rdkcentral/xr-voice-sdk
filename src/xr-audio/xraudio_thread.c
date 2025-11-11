@@ -1607,6 +1607,7 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
 
       errno = 0;
       capture_file->fd = open(filename, XRAUDIO_CAPTURE_FILE_FLAGS, XRAUDIO_CAPTURE_FILE_MODE);
+      XLOGD_INFO("opening fd <%d>", capture_file->fd);
       if(capture_file->fd < 0) {
          int errsv = errno;
          XLOGD_ERROR("Unable to open file <%s> <%s>", filename, strerror(errsv));
@@ -1641,6 +1642,7 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
 
          errno = 0;
          capture_file->fd = open(filename, XRAUDIO_CAPTURE_FILE_FLAGS, XRAUDIO_CAPTURE_FILE_MODE);
+         XLOGD_INFO("opening fd <%d>", capture_file->fd);
          if(capture_file->fd < 0) {
             int errsv = errno;
             XLOGD_ERROR("Unable to open file <%s> <%s>", filename, strerror(errsv));
@@ -1671,6 +1673,7 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
 
          errno = 0;
          capture_file->fd = open(filename, XRAUDIO_CAPTURE_FILE_FLAGS, XRAUDIO_CAPTURE_FILE_MODE);
+         XLOGD_INFO("opening fd <%d>", capture_file->fd);
          if(capture_file->fd < 0) {
             int errsv = errno;
             XLOGD_ERROR("Unable to open file <%s> <%s>", filename, strerror(errsv));
@@ -1705,6 +1708,7 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
 
          errno = 0;
          capture_file->fd = open(filename, XRAUDIO_CAPTURE_FILE_FLAGS, XRAUDIO_CAPTURE_FILE_MODE);
+         XLOGD_INFO("opening fd <%d>", capture_file->fd);
          if(capture_file->fd < 0) {
             int errsv = errno;
             XLOGD_ERROR("Unable to open file <%s> <%s>", filename, strerror(errsv));
@@ -3089,6 +3093,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
                capture_point.pcm_range.min        = PCM_24_BIT_MAX;
                capture_point.file.audio_data_size = 0;
                capture_point.file.fd              = open(filename, XRAUDIO_CAPTURE_FILE_FLAGS, XRAUDIO_CAPTURE_FILE_MODE);
+               XLOGD_INFO("opening fd <%d>", capture_point.file.fd);
                if(capture_point.file.fd >= 0) {
                   xraudio_record_container_process_begin(&capture_point.file);
                   xraudio_in_capture_session_to_file_float(&capture_point, samples[0], sample_qty[0]);
@@ -3104,6 +3109,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
                capture_point.pcm_range.min        = PCM_24_BIT_MAX;
                capture_point.file.audio_data_size = 0;
                capture_point.file.fd              = open(filename, XRAUDIO_CAPTURE_FILE_FLAGS, XRAUDIO_CAPTURE_FILE_MODE);
+               XLOGD_INFO("opening fd <%d>", capture_point.file.fd);
                if(capture_point.file.fd >= 0) {
                   xraudio_record_container_process_begin(&capture_point.file);
                   xraudio_in_capture_session_to_file_float(&capture_point, samples[1], sample_qty[1]);
@@ -4480,6 +4486,7 @@ void xraudio_in_capture_internal_input_begin(xraudio_input_format_t *native, xra
 
       errno = 0;
       capture->fd = open(filename, XRAUDIO_CAPTURE_FILE_FLAGS, XRAUDIO_CAPTURE_FILE_MODE);
+      XLOGD_INFO("opening fd <%d>", capture->fd);
       if(capture->fd < 0) {
          int errsv = errno;
          XLOGD_ERROR("Unable to open file <%s> <%s>", filename, strerror(errsv));
@@ -4807,6 +4814,7 @@ bool xraudio_capture_file_index_in_use(const char *dir_path, uint32_t index) {
       // Check if the file is still in use
       errno = 0;
       int fd = open(filename, O_RDONLY);
+      XLOGD_INFO("opening fd <%d>", fd);
       if(fd < 0) {
          int errsv = errno;
          XLOGD_WARN("unable to open file <%s> <%s>", filename, strerror(errsv));

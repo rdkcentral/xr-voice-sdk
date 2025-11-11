@@ -922,6 +922,7 @@ xraudio_result_t xraudio_fifo_open(const char *name, int *fifo) {
 
    errno = 0;
    *fifo = open(name, O_RDWR);
+   XLOGD_INFO("opening fd <%d>", *fifo);
    if(*fifo < 0) {
       int errsv = errno;
       XLOGD_ERROR("unable to open fifo <%s> <%s>", name, strerror(errsv));
@@ -952,6 +953,7 @@ void xraudio_fifo_resource_close(xraudio_obj_t *obj) {
 xraudio_result_t xraudio_shared_mem_open(xraudio_obj_t *obj) {
    errno = 0;
    obj->shared_mem_fd = open("/tmp/.xraudio_lockfile", O_CREAT | O_WRONLY, S_IRUSR | S_IWUSR);
+   XLOGD_INFO("opening fd <%d>", obj->shared_mem_fd);
    if(obj->shared_mem_fd == -1) {
        int err = errno;
        XLOGD_FATAL("open() failed <%s>", strerror(err));

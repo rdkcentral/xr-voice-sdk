@@ -605,6 +605,7 @@ void resource_request_grant_inform(xraudio_resource_params_t *params, xraudio_re
       
       errno = 0;
       int fifo = open(name, O_WRONLY);
+      XLOGD_INFO("opening fd <%d>", fifo);
       if(fifo < 0) {
          int errsv = errno;
          XLOGD_ERROR("unable to open fifo <%s> <%s>", name, strerror(errsv));
@@ -639,6 +640,7 @@ void resource_request_revoke_inform(xraudio_resource_params_t *params, xraudio_r
 
       errno = 0;
       int fifo = open(name, O_RDWR);
+      XLOGD_INFO("opening fd <%d>", fifo);
       if(fifo < 0) {
          int errsv = errno;
          XLOGD_ERROR("unable to open fifo <%s> <%s>", name, strerror(errsv));

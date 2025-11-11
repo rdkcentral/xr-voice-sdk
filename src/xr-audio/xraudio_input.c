@@ -541,6 +541,7 @@ xraudio_result_t xraudio_input_record_to_file(xraudio_input_object_t object, xra
 
    errno = 0;
    session->fd = open(audio_file_path, XRAUDIO_CAPTURE_FILE_FLAGS, XRAUDIO_CAPTURE_FILE_MODE);
+   XLOGD_INFO("opening fd <%d>", session->fd);
    if(session->fd < 0) {
       int errsv = errno;
       XLOGD_ERROR("Unable to open file <%s> <%s>", audio_file_path, strerror(errsv));
@@ -767,6 +768,7 @@ xraudio_result_t xraudio_input_stream_to_fifo(xraudio_input_object_t object, xra
    // Open fifo
    errno = 0;
    int fd = open(fifo_name, O_RDWR | O_NONBLOCK);
+   XLOGD_INFO("opening fd <%d>", fd);
    if(fd < 0) {
       int errsv = errno;
       XLOGD_ERROR("unable to open fifo %d <%s>", fd, strerror(errsv));
@@ -1005,6 +1007,7 @@ void xraudio_input_sound_intensity_fifo_open(xraudio_input_obj_t *obj) {
       // Open fifo
       errno = 0;
       int fd = open(obj->fifo_name, O_RDWR | O_NONBLOCK);
+      XLOGD_INFO("opening fd <%d>", fd);
       if(fd < 0) {
          int errsv = errno;
          XLOGD_ERROR("unable to open fifo %d <%s>", fd, strerror(errsv));

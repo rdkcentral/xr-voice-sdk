@@ -2948,6 +2948,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
          // open the audio input file
          errno = 0;
          int fd = open(audio_file_in, O_RDONLY);
+         XLOGD_INFO("opening fd <%d>", fd);
          if(fd < 0) {
             int errsv = errno;
             XLOGD_ERROR("Unable to open file <%s> <%s>", audio_file_in, strerror(errsv));

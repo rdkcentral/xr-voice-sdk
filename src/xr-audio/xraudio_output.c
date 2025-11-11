@@ -293,6 +293,7 @@ xraudio_result_t xraudio_output_play_from_file(xraudio_output_object_t object, c
    // Open  input file
    errno = 0;
    obj->fd = open(audio_file_path, O_RDONLY);
+   XLOGD_INFO("opening fd <%d>", obj->fd);
    if(obj->fd < 0) {
       int errsv = errno;
       XLOGD_ERROR("Unable to open file <%s> <%s>", audio_file_path, strerror(errsv));
@@ -923,6 +924,7 @@ void xraudio_output_sound_intensity_fifo_open(xraudio_output_obj_t *obj) {
       // Open fifo
       errno = 0;
       int fd = open(obj->fifo_name, O_RDWR);
+      XLOGD_INFO("opening fd <%d>", fd);
       if(fd < 0) {
          int errsv = errno;
          XLOGD_ERROR("unable to open fifo %d <%s>", fd, strerror(errsv));

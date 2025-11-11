@@ -267,6 +267,7 @@ bool xlog_file_get_contents(const char *file, char **contents) {
    do {
       errno = 0;
       fd = open(file, O_RDONLY, 0444);
+      XLOGD_INFO("opening fd <%d>", fd);
       if(fd < 0) {
          if(errno == EINTR) {
             continue;
