@@ -303,6 +303,7 @@ xraudio_result_t xraudio_output_play_from_file(xraudio_output_object_t object, c
    long data_offset = xraudio_output_container_header_parse(obj, obj->format.container, obj->fd, NULL, 0, &data_length);
    if(data_offset < 0) {
       XLOGD_ERROR("Error parsing wave header");
+      XLOGD_INFO("closing fd <%d>", obj->fd);
       close(obj->fd);
       obj->fd = -1;
       XRAUDIO_PLAY_MUTEX_UNLOCK();
@@ -312,6 +313,7 @@ xraudio_result_t xraudio_output_play_from_file(xraudio_output_object_t object, c
    if(lseek(obj->fd, data_offset, SEEK_SET) < 0) {
       int errsv = errno;
       XLOGD_ERROR("Unable to set file pointer to offset %ld <%s>", data_offset, strerror(errsv));
+      XLOGD_INFO("closing fd <%d>", obj->fd);
       close(obj->fd);
       obj->fd = -1;
       XRAUDIO_PLAY_MUTEX_UNLOCK();
@@ -320,6 +322,7 @@ xraudio_result_t xraudio_output_play_from_file(xraudio_output_object_t object, c
    
    if(!xraudio_output_audio_hal_open(obj)) {
       XLOGD_ERROR("Unable to open speaker interface");
+      XLOGD_INFO("closing fd <%d>", obj->fd);
       close(obj->fd);
       obj->fd = -1;
       XRAUDIO_PLAY_MUTEX_UNLOCK();
@@ -582,10 +585,12 @@ xraudio_result_t xraudio_output_stop_locked(xraudio_output_obj_t *obj) {
    xraudio_output_dispatch_stop(obj, NULL, NULL);
 
    if(obj->fd >= 0) {
+      XLOGD_INFO("closing fd <%d>", obj->fd);
       close(obj->fd);
       obj->fd = -1;
    }
    if(obj->pipe_audio_data >= 0) {
+      XLOGD_INFO("closing fd <%d>", obj->pipe_audio_data);
       close(obj->pipe_audio_data);
       obj->pipe_audio_data = -1;
    }
@@ -936,6 +941,7 @@ void xraudio_output_sound_intensity_fifo_close(xraudio_output_obj_t *obj) {
          int errsv = errno;
          XLOGD_ERROR("unable to close fifo %d <%s>", rc, strerror(errsv));
       }
+      XLOGD_INFO("closing fd <%d>", obj->fifo_sound_intensity);
       obj->fifo_sound_intensity = -1;
    }
 }
@@ -954,6 +960,7 @@ xraudio_result_t xraudio_output_sound_intensity_transfer(xraudio_output_object_t
          int errsv = errno;
          XLOGD_ERROR("unable to close fifo %d <%s>", rc, strerror(errsv));
       }
+      XLOGD_INFO("closing fd <%d>", obj->fifo_sound_intensity);
       obj->fifo_sound_intensity = -1;
    }
 

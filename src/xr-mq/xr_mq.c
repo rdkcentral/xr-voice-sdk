@@ -86,6 +86,7 @@ xr_mq_t xr_mq_create(xr_mq_attr_t *attr) {
     }
     if(pthread_mutex_init(&node->mq.mq_mutex, NULL)) {
         XLOGD_ERROR("failed to init mutex for mq");
+        XLOGD_INFO("closing fd <%d>", node->mq.fd);
         close(node->mq.fd);
         free(node->mq.msg_queue);
         free(node);
@@ -244,6 +245,7 @@ void xr_mq_destroy(xr_mq_t mq) {
         previous->next = node->next;
     }
     g_mq_list.mq_count--;
+    XLOGD_INFO("closing fd <%d>", node->mq.fd);
     close(node->mq.fd);
     pthread_mutex_unlock(&node->mq.mq_mutex);
     pthread_mutex_destroy(&node->mq.mq_mutex);

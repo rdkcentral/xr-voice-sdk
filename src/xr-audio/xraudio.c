@@ -933,6 +933,7 @@ xraudio_result_t xraudio_fifo_open(const char *name, int *fifo) {
 
 void xraudio_fifo_resource_close(xraudio_obj_t *obj) {
    if(obj->fifo_resource >= 0) {
+      XLOGD_INFO("closing fd <%d>", obj->fifo_resource);
       close(obj->fifo_resource);
       obj->fifo_resource = -1;
 
