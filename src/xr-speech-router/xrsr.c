@@ -562,6 +562,7 @@ bool xrsr_threads_init(bool is_prod) {
          XLOGD_ERROR("unable to launch thread");
          return(false);
       }
+      XLOGD_INFO("created TID <%d>", (int)info->id);
 
       // Block until initialization is complete or a timeout occurs
       XLOGD_INFO("Waiting for %s thread initialization...", info->name);

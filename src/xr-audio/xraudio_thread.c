@@ -4059,6 +4059,8 @@ void *xraudio_thread_first_read(void *param) {
    uint8_t chan_qty_mic   = (device_input_local == XRAUDIO_DEVICE_INPUT_QUAD) ? 4 : (device_input_local == XRAUDIO_DEVICE_INPUT_TRI) ? 3 : 1;
    uint8_t chan_qty_ecref = (device_input_ecref == XRAUDIO_DEVICE_INPUT_EC_REF_5_1) ? 6 : (device_input_ecref == XRAUDIO_DEVICE_INPUT_EC_REF_STEREO) ? 2 : (device_input_ecref == XRAUDIO_DEVICE_INPUT_EC_REF_MONO) ? 1 : 0;
 
+   XLOGD_INFO("TID <%d>", (int)gettid());
+
    mic_frame_size = (chan_qty_mic + chan_qty_ecref) * params.session->frame_size_in;  // normal frame @ 16kHz = 640 bytes. compressed frame @ 48kHz = 2560 bytes
 
    xraudio_hal_input_read(params.params->hal_input_obj, mic_frame_data, mic_frame_size, NULL);
