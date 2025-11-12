@@ -63,6 +63,9 @@
 #define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_SNR         "signalNoiseRatio"
 #define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_NONLINEAR   "keywordConfidenceNonLinear"
 #define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_LINEAR      "keywordConfidenceLinear"
+#define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_START       "detectorSowuw"
+#define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_END         "detectorEowuw"
+#define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_VERSION     "detectorVersion"
 #define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_DEVICE_SW_VERSION        "deviceSwVersion"
 #define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_STB_SW_VERSION           "stbSwVersion"
 #define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_TIMEOUT                  "timeout"
@@ -665,6 +668,9 @@ void xrsv_ws_nextgen_handler_ws_session_begin(void *data, const uuid_t uuid, xrs
       stream_params.push_to_talk                       = false;
       stream_params.detector_name                      = (detector_result->detector_name) ? detector_result->detector_name : "unknown";
       stream_params.dsp_name                           = (detector_result->dsp_name)      ? detector_result->dsp_name      : "unknown";
+      stream_params.detector_sowuw                     = detector_result->detector_sowuw;
+      stream_params.detector_eowuw                     = detector_result->detector_eowuw;
+      stream_params.detector_model_version             = (detector_result->detector_model_version) ? detector_result->detector_model_version : "unknown";
    }
 
    obj->user_initiated       = config_out->user_initiated;
@@ -766,6 +772,9 @@ void xrsv_ws_nextgen_handler_ws_session_config(void *data, const uuid_t uuid, xr
       if(stream_params->linear_confidence > 0) {
          rc |= json_object_set_new_nocheck(obj_detector, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_LINEAR, json_real(stream_params->linear_confidence));
       }
+      rc |= json_object_set_new_nocheck(obj_detector, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_START, json_integer(stream_params->detector_sowuw));
+      rc |= json_object_set_new_nocheck(obj_detector, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_END, json_integer(stream_params->detector_eowuw));
+      rc |= json_object_set_new_nocheck(obj_detector, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_VERSION, json_string(stream_params->detector_model_version));
       // End Detector Object
       // End WUW Object
    }

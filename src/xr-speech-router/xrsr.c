@@ -1833,18 +1833,21 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
       if(begin->detector_result.chan_selected >= XRAUDIO_INPUT_MAX_CHANNEL_QTY) {
          XLOGD_ERROR("invalid selected channel <%u>", begin->detector_result.chan_selected);
       } else {
-         detector_result.score                = begin->detector_result.channels[begin->detector_result.chan_selected].score;
-         detector_result.snr                  = begin->detector_result.channels[begin->detector_result.chan_selected].snr;
-         detector_result.doa                  = begin->detector_result.channels[begin->detector_result.chan_selected].doa;
-         detector_result.offset_buf_begin     = begin->detector_result.endpoints.pre;
-         detector_result.offset_kwd_begin     = begin->detector_result.endpoints.begin;
-         detector_result.offset_kwd_end       = begin->detector_result.endpoints.end;
-         detector_result.kwd_gain             = begin->detector_result.endpoints.kwd_gain;
-         detector_result.detector_name        = begin->detector_result.detector_name;
-         detector_result.dsp_name             = begin->detector_result.dsp_name;
-         detector_result.dynamic_gain         = begin->detector_result.channels[begin->detector_result.chan_selected].dynamic_gain;
-         detector_result.dynamic_gain_update  = begin->detector_result.dynamic_gain_update;
-         detector_result.sensitivity          = begin->detector_result.sensitivity;
+         detector_result.score                  = begin->detector_result.channels[begin->detector_result.chan_selected].score;
+         detector_result.snr                    = begin->detector_result.channels[begin->detector_result.chan_selected].snr;
+         detector_result.doa                    = begin->detector_result.channels[begin->detector_result.chan_selected].doa;
+         detector_result.offset_buf_begin       = begin->detector_result.endpoints.pre;
+         detector_result.offset_kwd_begin       = begin->detector_result.endpoints.begin;
+         detector_result.offset_kwd_end         = begin->detector_result.endpoints.end;
+         detector_result.kwd_gain               = begin->detector_result.endpoints.kwd_gain;
+         detector_result.detector_name          = begin->detector_result.detector_name;
+         detector_result.dsp_name               = begin->detector_result.dsp_name;
+         detector_result.dynamic_gain           = begin->detector_result.channels[begin->detector_result.chan_selected].dynamic_gain;
+         detector_result.dynamic_gain_update    = begin->detector_result.dynamic_gain_update;
+         detector_result.sensitivity            = begin->detector_result.sensitivity;
+         detector_result.detector_sowuw         = begin->detector_result.endpoints.detector_sowuw;
+         detector_result.detector_eowuw         = begin->detector_result.endpoints.detector_eowuw;
+         detector_result.detector_model_version = begin->detector_result.endpoints.detector_model_version;
 
          detector_result_ptr   = &detector_result;
 
@@ -2331,6 +2334,7 @@ void xrsr_msg_session_config_in(const xrsr_thread_params_t *params, xrsr_thread_
                   int pipe_fd_read = -1;
                   const char *audio_file_in = (ws->is_session_by_file) ? ws->audio_file_in : NULL;
 
+                  XLOGD_INFO("");
                   if(!xrsr_speech_stream_begin(ws->uuid, session->src, ws->dst_index, ws->input_format, ws->xraudio_format, ws->session_config_out.user_initiated, ws->low_latency, ws->low_cpu_util, create_stream, false, audio_file_in, &pipe_fd_read)) {
                      XLOGD_ERROR("xrsr_speech_stream_begin failed");
                      // perform clean up of the session
@@ -2807,6 +2811,7 @@ xrsr_result_t xrsr_conn_send(void *param, const uint8_t *buffer, uint32_t length
 bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_index, xrsr_session_request_t input_format, xraudio_input_format_t output_format, bool user_initiated, bool low_latency, bool low_cpu_util, bool create_stream, bool subsequent, const char *audio_file_in, int *pipe_fd_read) {
    xrsr_session_t *session = &g_xrsr.sessions[xrsr_source_to_group(src)];
 
+   XLOGD_INFO("");
    if(create_stream) { // New audio stream setup (create pipe, set initial state)
       xraudio_dst_pipe_t dsts[XRSR_DST_QTY_MAX];
 
