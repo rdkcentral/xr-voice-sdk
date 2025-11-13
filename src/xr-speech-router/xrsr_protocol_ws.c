@@ -27,6 +27,10 @@
 #include <openssl/ocsp.h>
 #include "xrsr_private.h"
 #include "xrsr_protocol_ws_sm.h"
+#include <openssl/engine.h>
+#include <openssl/evp.h>
+#include <openssl/x509.h>
+#include <stdio.h>
 
 #define XRSR_WS_CIPHER_LIST "AES256-SHA256:AES128-GCM-SHA256:AES128-SHA256"
 
@@ -1533,10 +1537,58 @@ noPollPtr xrsr_ws_ssl_ctx_creator(noPollCtx * ctx, noPollConn * conn, noPollConn
             break;
          }
 
-         if(1 != PKCS12_parse(p12_cert, cert_p12->passphrase, &pkey, &x509_cert, &additional_certs)) {
+        /* if(1 != PKCS12_parse(p12_cert, cert_p12->passphrase, &pkey, &x509_cert, &additional_certs)) {
             XLOGD_ERROR("unable to parse P12 certificate <%s>", cert_p12->filename);
             break;
-         }
+         } */
+
+    ENGINE *e = NULL;
+    const char *pkcs11_uri = "pkcs11:id=%2c;type=private";
+    #define PKCS11_MODULE_PATH "/usr/lib/libckteec.so"
+    //EVP_PKEY *pkey = NULL;       
+    // Load the PKCS#11 engine
+    ENGINE_load_dynamic();
+    e = ENGINE_by_id("pkcs11");
+    if (!e) {
+        fprintf(stderr, "Failed to get PKCS#11 engine\n");
+        //return NULL;
+    }
+     // Set the PKCS#11 module path
+    if (!ENGINE_ctrl_cmd_string(e, "MODULE_PATH", PKCS11_MODULE_PATH, 0)) {
+       fprintf(stderr, "Error setting PKCS#11 module path\n");
+      // ERR_print_errors_fp(stderr);
+      // ENGINE_free(e);
+    }
+         
+    if (!ENGINE_init(e)) {
+        fprintf(stderr, "Failed to initialize PKCS#11 engine\n");
+        ENGINE_free(e);
+        //return NULL;
+    }
+
+    // Set the PKCS#11 URI as the key identifier
+    pkey = ENGINE_load_private_key(e, pkcs11_uri, NULL, NULL);
+    if (!pkey) {
+        fprintf(stderr, "Failed to load private key from PKCS#11 URI: %s\n", pkcs11_uri);
+    }
+
+ struct {
+    const char* cert_id;
+    X509* cert;
+} certparams = { 0 };
+  certparams.cert_id = "pkcs11:id=%2c;type=cert";
+        if (!ENGINE_ctrl_cmd(e, "LOAD_CERT_CTRL", 0, &certparams, NULL, 1)) {
+            fprintf(stderr, "Could not get certificate \n");
+        }
+       if(x509_cert != NULL )
+       {
+          if(*x509_cert != NULL)
+             X509_free(*x509_cert);
+          *x509_cert = certparams.cert;
+        } 
+         
+    ENGINE_finish(e);
+    ENGINE_free(e);
 
          if(!xrsr_ws_ssl_cert_set(ssl_ctx, x509_cert, pkey, additional_certs)) {
             XLOGD_ERROR("Failed to set cert and key");
