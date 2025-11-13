@@ -1580,12 +1580,10 @@ noPollPtr xrsr_ws_ssl_ctx_creator(noPollCtx * ctx, noPollConn * conn, noPollConn
         if (!ENGINE_ctrl_cmd(e, "LOAD_CERT_CTRL", 0, &certparams, NULL, 1)) {
             fprintf(stderr, "Could not get certificate \n");
         }
-       if(x509_cert != NULL )
-       {
-          if(*x509_cert != NULL)
-             X509_free(*x509_cert);
-          *x509_cert = certparams.cert;
-        } 
+       if(x509_cert != NULL) {
+       X509_free(x509_cert);
+       }
+       x509_cert = certparams.cert;
          
     ENGINE_finish(e);
     ENGINE_free(e);
