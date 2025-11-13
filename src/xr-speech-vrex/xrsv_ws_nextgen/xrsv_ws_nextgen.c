@@ -888,7 +888,7 @@ bool xrsv_ws_nextgen_handler_ws_connected(void *data, const uuid_t uuid, xrsr_ha
       XLOGD_ERROR("invalid message");
       return false;
    }
-   XLOGD_INFO("msg init <%s>", obj->mask_pii ? "***" : (char *)buffer);
+   XLOGD_AUTOMATION_INFO("msg init <%s>", obj->mask_pii ? "***" : (char *)buffer);
    
    xrsr_result_t result = (*send)(param, buffer, length);
    free(buffer);
@@ -1076,7 +1076,7 @@ bool xrsv_ws_nextgen_msgtype_asr(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json) {
       final = false;
    }
 
-   XLOGD_INFO("transcription <%s>", (str_tran == NULL) ? "NULL" : obj->mask_pii ? "***" : str_tran);
+   XLOGD_AUTOMATION_INFO("transcription <%s>", (str_tran == NULL) ? "NULL" : obj->mask_pii ? "***" : str_tran);
    if(obj->handlers.asr != NULL) {
       (*obj->handlers.asr)(str_tran, final, obj->user_data);
    }
@@ -1084,7 +1084,7 @@ bool xrsv_ws_nextgen_msgtype_asr(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json) {
 }
 
 bool xrsv_ws_nextgen_msgtype_listening(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json) {
-   XLOGD_INFO("");
+   XLOGD_AUTOMATION_INFO("");
    if(obj->handlers.listening != NULL) {
       (*obj->handlers.listening)(obj->user_data);
    }
