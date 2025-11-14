@@ -120,7 +120,8 @@ typedef struct {
    uint16_t     par_eos_timeout;                    ///< Press-and-release end-of-speech timeout
    int32_t      detector_sowuw;                     ///< The detector raw start of wakeup word
    int32_t      detector_eowuw;                     ///< The detector raw end of wakeup word
-   char *       detector_model_version;             ///< The detector model version string
+   const char * detector_model_version;             ///< The detector model version string
+   const char * detector_model_name;                ///< The detector model name string
 } xrsv_ws_nextgen_stream_params_t;
 
 /// @}
