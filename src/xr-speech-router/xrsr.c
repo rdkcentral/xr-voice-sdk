@@ -1848,6 +1848,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
          detector_result.detector_sowuw         = begin->detector_result.endpoints.detector_sowuw;
          detector_result.detector_eowuw         = begin->detector_result.endpoints.detector_eowuw;
          detector_result.detector_model_version = begin->detector_result.endpoints.detector_model_version;
+         detector_result.detector_model_name    = begin->detector_result.endpoints.detector_model_name;
 
          detector_result_ptr   = &detector_result;
 

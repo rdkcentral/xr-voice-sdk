@@ -2925,6 +2925,11 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
                detector->result.detector_model_version = detector_chan->endpoints.detector_model_version;
             }
 
+            //if kwd detector provided model name information, use it
+            if(detector_chan->endpoints.detector_model_name != NULL) {
+               detector->result.detector_model_name = detector_chan->endpoints.detector_model_name;
+            }
+
             // update channel's results
             detector->result.channels[chan].score = detector_chan->score;
             detector->result.channels[chan].snr   = detector_chan->snr;
@@ -2999,6 +3004,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
                detector->result.endpoints.detector_sowuw = start_wuw;   // "raw" detector sowuw if available
                detector->result.endpoints.detector_eowuw = end_wuw;     // "raw" detector eowuw if available
                //detector->result.endpoints.detector_model_version =
+               //detector->result.endpoints.detector_model_name =
 
             }
             XLOGD_INFO("begin <%d>, end <%d>, start_wuw <%d>, end_wuw <%d>, eos_eowuw <%d>", detector->result.endpoints.begin, detector->result.endpoints.end,
