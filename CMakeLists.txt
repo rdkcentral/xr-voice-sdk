@@ -43,8 +43,6 @@ option(XRSR_ALLOW_INPUT_FAILURE,  "speech router allow input failure"         OF
 set(XRSR_KEYWORD_PHRASE, "" CACHE STRING "speech router keyword phrase")
 
 option(XRAUDIO_RESOURCE_MGMT,   "xraudio resource management"                 OFF)
-option(XRAUDIO_DECODE_ADPCM,    "xraudio adpcm decoder"                       ON)
-option(XRAUDIO_DECODE_OPUS,     "xraudio opus decoder"                        ON)
 option(XRAUDIO_CURTAIL_ENABLED, "xraudio curtail"                             OFF)
 
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
@@ -181,16 +179,15 @@ if(XRAUDIO_RESOURCE_MGMT)
    target_link_libraries(xr-voice-sdk rt)
 endif()
    
-if(XRAUDIO_DECODE_ADPCM)
-   target_sources(xr-voice-sdk PUBLIC src/xr-audio/adpcm/adpcm_decode.c)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_ADPCM)
-   target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/adpcm/)
-endif()
+target_sources(xr-voice-sdk PUBLIC src/xr-audio/adpcm/adpcm_decode.c)
+target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_ADPCM)
+target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/adpcm/)
    
-if(XRAUDIO_DECODE_OPUS)
+find_library(OPUS_LIBRARY NAMES opus)
+if(OPUS_LIBRARY)
    target_sources(xr-voice-sdk PUBLIC src/xr-audio/opus/xraudio_opus.c)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_OPUS)
-   target_link_libraries(xr-voice-sdk opus)
+   target_link_libraries(xr-voice-sdk ${OPUS_LIBRARY})
    target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/opus/)
 endif()
    

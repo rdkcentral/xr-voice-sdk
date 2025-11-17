@@ -36,9 +36,7 @@
 #include "xraudio.h"
 #include "xraudio_private.h"
 #include "xraudio_atomic.h"
-#ifdef XRAUDIO_DECODE_ADPCM
 #include "adpcm.h"
-#endif
 #ifdef XRAUDIO_DECODE_OPUS
 #include "xraudio_opus.h"
 #endif
@@ -359,9 +357,7 @@ typedef struct {
 #endif
 
 typedef struct {
-   #ifdef XRAUDIO_DECODE_ADPCM
    adpcm_dec_t *             adpcm;
-   #endif
    #ifdef XRAUDIO_DECODE_OPUS
    xraudio_opus_object_t     opus;
    #endif
@@ -857,10 +853,8 @@ void *xraudio_main_thread(void *param) {
    state->timer_obj      = rdkx_timer_create(4, true, true);
    state->timer_id_frame = RDXK_TIMER_ID_INVALID;
 
-   #ifdef XRAUDIO_DECODE_ADPCM
    // Create ADPCM decoder
    state->decoders.adpcm = adpcm_decode_create();
-   #endif
    #ifdef XRAUDIO_DECODE_OPUS
    state->decoders.opus = xraudio_opus_create();
    if(state->decoders.opus == NULL) {
@@ -989,9 +983,7 @@ void *xraudio_main_thread(void *param) {
    }
    #endif
 
-   #ifdef XRAUDIO_DECODE_ADPCM
    adpcm_decode_destroy(state->decoders.adpcm);
-   #endif
    #ifdef XRAUDIO_DECODE_OPUS
    if(state->decoders.opus != NULL) {
       xraudio_opus_destroy(state->decoders.opus);
@@ -1409,11 +1401,9 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       instance->record_callback = xraudio_in_write_to_user;
    }
 
-   #ifdef XRAUDIO_DECODE_ADPCM
    if(!adpcm_decode_reset(state->decoders.adpcm)) {
       XLOGD_ERROR("unable to reset adpcm decoder state");
    }
-   #endif
    #ifdef XRAUDIO_DECODE_OPUS
    if(state->decoders.opus != NULL) {
       if(!xraudio_opus_reset(state->decoders.opus)) {
@@ -4978,17 +4968,11 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
    xraudio_encoding_type_t enc_output = instance->format_out.encoding.type;
    uint8_t *inbuf = &session->external_frame_buffer[session->external_frame_group_index * session->external_frame_size_out];
    uint32_t inlen = session->external_frame_size_in;
-   #ifdef XRAUDIO_DECODE_ADPCM
    xraudio_adpcm_frame_t *adpcm_frame = &session->external_format.encoding.value.adpcm_frame;
-   #endif
 
    switch(enc_input) {
       case XRAUDIO_ENCODING_ADPCM_FRAME: {
          if(enc_output == XRAUDIO_ENCODING_PCM) {
-            #ifndef XRAUDIO_DECODE_ADPCM
-            XLOGD_ERROR("ADPCM decode is not supported");
-            return;
-            #else
             if(adpcm_frame->size_packet > XRAUDIO_INPUT_ADPCM_BUFFER_SIZE) {
                XLOGD_ERROR("ADPCM packet size is too big <%u>", adpcm_frame->size_packet);
                return;
@@ -5010,14 +4994,11 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   bytes_read *= sizeof(pcm_t);
                }
             }
-            #endif
          } else if(enc_output == XRAUDIO_ENCODING_ADPCM_FRAME) {
             bytes_read = xraudio_external_fd_read(session, inbuf, inlen);
-            #ifdef XRAUDIO_DECODE_ADPCM
             if(bytes_read > 0) {
                adpcm_analyze(decoders->adpcm, inbuf, inlen, adpcm_frame);
             }
-            #endif
          } else {
             XLOGD_ERROR("unsupported conversion <%s> to <%s>", xraudio_encoding_str(enc_input), xraudio_encoding_str(enc_output));
             return;
@@ -5207,7 +5188,6 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
             }
          } else if(instance->callback != NULL){
             switch(enc_input) {
-            #ifdef XRAUDIO_DECODE_ADPCM
                case XRAUDIO_ENCODING_ADPCM_FRAME: {
                   xraudio_audio_stats_t stats;
                   adpcm_decode_stats_t adpcm_stats;
@@ -5224,7 +5204,6 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, &stats, instance->param);
                   break;
                }
-            #endif
                default: {
                   (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, NULL, instance->param);
                   break;
