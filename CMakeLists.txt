@@ -287,7 +287,7 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT rdkx_logger.json
-   COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger.json
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json -a ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_global.json -o rdkx_logger.json
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
 
