@@ -65,6 +65,7 @@ static bool          g_xlog_init       = false;
 static bool          g_xlog_curtail    = false;
 static xlog_print_t  g_xlog_print      = NULL;
 static xlog_print_t  g_xlog_print_safe = NULL;
+static bool          g_xlog_ansi_color = false;
 
 #ifdef VSDK_CURTAIL_ENABLED
 static bool g_crtl_init = false;
@@ -82,7 +83,7 @@ static const xlog_args_t g_xlog_args_default = {
 
 extern const char * const g_xlog_module_id_to_str[];
 
-static int      xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool use_curtail);
+static int      xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool ansi_color, bool use_curtail);
 static uint32_t xlog_date_time(const xlog_args_t *args, char *buffer);
 static int      xlog_prefix(const xlog_args_t *args, char *str, size_t size);
 static int      xlog_postfix(const xlog_args_t *args, char *str, size_t size);
@@ -107,15 +108,15 @@ static bool             xlog_file_get_contents(const char *file, char **contents
 #error XLOG_PREFIX_SIZE is too small
 #endif
 
-int xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool use_curtail) {
-   return(xlog_init_int(id, filename, file_size_max, NULL, NULL, use_curtail));
+int xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail) {
+   return(xlog_init_int(id, filename, file_size_max, NULL, NULL, ansi_color, use_curtail));
 }
 
-int xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool use_curtail) {
-   return(xlog_init_int(id, filename, file_size_max, print, print_safe, use_curtail));
+int xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail) {
+   return(xlog_init_int(id, filename, file_size_max, print, print_safe, ansi_color, use_curtail));
 }
 
-int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool use_curtail) {
+int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool ansi_color, bool use_curtail) {
    if(g_xlog_init) {
       XLOGD_WARN("Already initialized");
       return(-1);
@@ -143,6 +144,7 @@ int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_
    }
    g_xlog_print_safe = print_safe;
    g_xlog_print      = print;
+   g_xlog_ansi_color = ansi_color;
 
    // First, initialize to INFO level
    for(uint32_t index = 0; index < XLOG_MODULE_QTY_MAX; index++) {
@@ -164,6 +166,15 @@ int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_
    json_t *value;
 
    json_object_foreach(obj, module, value) {
+       if(json_is_boolean(value)) { // Handle boolean values
+          if(strcmp(module, "ANSI_COLOR") == 0) {
+             g_xlog_ansi_color = json_is_true(value);
+             XLOGD_INFO("ANSI Color <%s>", g_xlog_ansi_color ? "TRUE" : "FALSE");
+          } else {
+             XLOGD_WARN("module <%s> is not a valid boolean", module);
+          }
+          continue;
+       }
        if(!json_is_string(value)) {
           XLOGD_WARN("module <%s> value is not a string", module);
           continue;
@@ -489,7 +500,7 @@ uint32_t xlog_date_time(const xlog_args_t *args, char *buffer) {
 int xlog_prefix(const xlog_args_t *args, char *str, size_t size) {
    int used = 0;
    // Color Begin (copy direct to destination)
-   if((args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size >= (sizeof(XLOG_COLOR_NRM) + 1))) {
+   if(g_xlog_ansi_color && (args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size >= (sizeof(XLOG_COLOR_NRM) + 1))) {
       size_t len = strlen(args->color);
       if(len < 4 || len > 5) {
          return(-1);
@@ -606,7 +617,7 @@ int xlog_prefix(const xlog_args_t *args, char *str, size_t size) {
 int xlog_postfix(const xlog_args_t *args, char *str, size_t size) {
    int used = 0;
    // Color End (copy direct to destination)
-   if((args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size_t)(used + sizeof(XLOG_COLOR_NRM) - 1) < size) {
+   if(g_xlog_ansi_color && (args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size_t)(used + sizeof(XLOG_COLOR_NRM) - 1) < size) {
       memcpy(&str[used], XLOG_COLOR_NRM, sizeof(XLOG_COLOR_NRM));
       used += sizeof(XLOG_COLOR_NRM) - 1;
    }

@@ -138,8 +138,8 @@ extern xlog_level_t  g_xlog_modules[];
 extern "C" {
 #endif
 
-int          xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool use_curtail);
-int          xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool use_curtail);
+int          xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail);
+int          xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail);
 void         xlog_term(void);
 xlog_level_t xlog_level_get(xlog_module_id_t id);
 void         xlog_level_set(xlog_module_id_t id, xlog_level_t level);

@@ -73,7 +73,7 @@ void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty) {
    *qty -= qty_avail;
 }
 
-int vsdk_init(const char *filename, uint32_t file_size_max) {
+int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
    if(g_vsdk.initialized) {
       return(0);
    }
@@ -83,7 +83,7 @@ int vsdk_init(const char *filename, uint32_t file_size_max) {
 
    vsdk_parse_options(&curtail_xlog, &curtail_xraudio);
 
-   int rc = xlog_init(XLOG_MODULE_ID_VSDK, filename, file_size_max, curtail_xlog);
+   int rc = xlog_init(XLOG_MODULE_ID_VSDK, filename, file_size_max, ansi_color, curtail_xlog);
 
    // Store the value so it can be used when xraudio is initialized
    g_vsdk.curtail_xraudio = curtail_xraudio;
@@ -94,7 +94,7 @@ int vsdk_init(const char *filename, uint32_t file_size_max) {
    return(rc);
 }
 
-int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max) {
+int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_color, const char *filename, uint32_t file_size_max) {
    if(g_vsdk.initialized) {
       return(0);
    }
@@ -104,7 +104,7 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, const char
 
    vsdk_parse_options(&curtail_xlog, &curtail_xraudio);
 
-   int rc = xlog_init_user_print(XLOG_MODULE_ID_VSDK, print, print_safe, filename, file_size_max, curtail_xlog);
+   int rc = xlog_init_user_print(XLOG_MODULE_ID_VSDK, print, print_safe, filename, file_size_max, ansi_color, curtail_xlog);
 
    // Store the value so it can be used when xraudio is initialized
    g_vsdk.curtail_xraudio = curtail_xraudio;

@@ -141,6 +141,10 @@ typedef struct {
    #ifdef HTTP_ENABLED
    xrsr_http_json_config_t        http_json_config;
    #endif
+   
+   bool                           networked_standby;
+   bool                           local_mic;
+   bool                           local_mic_tap;
 } xrsr_global_t;
 
 static void xrsr_session_stream_kwd(const uuid_t uuid, const char *uuid_str, xrsr_src_t src, uint32_t dst_index);
@@ -239,6 +243,29 @@ void xrsr_version(xrsr_version_info_t *version_info, uint32_t *qty) {
       qty_avail--;
    }
    *qty -= qty_avail;
+}
+
+bool xrsr_config_get(xrsr_config_t *config) {
+   if(config == NULL) {
+      return(false);
+   }
+
+   #ifdef XRAUDIO_KWD_ENABLED
+      config->networked_standby = true;
+      config->local_mic         = true;
+      #ifdef MICROPHONE_TAP_ENABLED
+      config->local_mic_tap     = true;
+      #else
+      config->local_mic_tap     = false;
+      #endif
+   #else
+
+      config->networked_standby = false;
+      config->local_mic         = false;
+      config->local_mic_tap     = false;
+   #endif
+
+   return(true);
 }
 
 bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, const json_t *json_obj_vsdk) {
@@ -504,9 +531,21 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    sem_wait(&semaphore);
    sem_destroy(&semaphore);
 
-   g_xrsr.power_mode   = power_mode;
-   g_xrsr.privacy_mode = privacy_mode;
-   g_xrsr.mask_pii     = mask_pii;
+   g_xrsr.power_mode        = power_mode;
+   g_xrsr.privacy_mode      = privacy_mode;
+   g_xrsr.mask_pii          = mask_pii;
+   g_xrsr.networked_standby = false;
+   g_xrsr.local_mic         = false;
+   g_xrsr.local_mic_tap     = false;
+   
+   #ifdef XRAUDIO_KWD_ENABLED
+   g_xrsr.networked_standby = true;
+   g_xrsr.local_mic         = true;
+   #ifdef MICROPHONE_TAP_ENABLED
+   g_xrsr.local_mic_tap     = true;
+   #endif
+   #endif
+
    g_xrsr.opened       = true;
    return(true);
 }

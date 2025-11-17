@@ -43,8 +43,6 @@ option(XRSR_ALLOW_INPUT_FAILURE,  "speech router allow input failure"         OF
 set(XRSR_KEYWORD_PHRASE, "" CACHE STRING "speech router keyword phrase")
 
 option(XRAUDIO_RESOURCE_MGMT,   "xraudio resource management"                 OFF)
-option(XRAUDIO_DECODE_ADPCM,    "xraudio adpcm decoder"                       ON)
-option(XRAUDIO_DECODE_OPUS,     "xraudio opus decoder"                        ON)
 
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
 set(XRAUDIO_CONFIG_JSON_KWD, "" CACHE FILEPATH "xraudio config kwd")
@@ -178,16 +176,15 @@ if(XRAUDIO_RESOURCE_MGMT)
    target_link_libraries(xr-voice-sdk rt)
 endif()
    
-if(XRAUDIO_DECODE_ADPCM)
-   target_sources(xr-voice-sdk PUBLIC src/xr-audio/adpcm/adpcm_decode.c)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_ADPCM)
-   target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/adpcm/)
-endif()
+target_sources(xr-voice-sdk PUBLIC src/xr-audio/adpcm/adpcm_decode.c)
+target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_ADPCM)
+target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/adpcm/)
    
-if(XRAUDIO_DECODE_OPUS)
+find_library(OPUS_LIBRARY NAMES opus)
+if(OPUS_LIBRARY)
    target_sources(xr-voice-sdk PUBLIC src/xr-audio/opus/xraudio_opus.c)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_OPUS)
-   target_link_libraries(xr-voice-sdk opus)
+   target_link_libraries(xr-voice-sdk ${OPUS_LIBRARY})
    target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/opus/)
 endif()
    
@@ -200,17 +197,20 @@ endif()
 if(XRAUDIO_KWD_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_KWD_ENABLED)
    target_link_libraries(xr-voice-sdk xraudio-ffv-hal)
-   target_link_libraries(xr-voice-sdk xraudio-kwd)
+   target_link_libraries(xr-voice-sdk xraudio-ffv-kwd)
 endif()
 
+if(XRAUDIO_EOS_ENABLED OR XRAUDIO_DGA_ENABLED OR XRAUDIO_PPR_ENABLED) 
 if(XRAUDIO_EOS_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_EOS_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-eos)
 endif()
-
 if(XRAUDIO_DGA_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DGA_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-dga)
+endif()
+if(XRAUDIO_PPR_ENABLED)
+   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_PPR_ENABLED)
+endif()
+   target_link_libraries(xr-voice-sdk xraudio-ffv-algorithms)
 endif()
 
 if(XRAUDIO_SDF_ENABLED)
@@ -221,11 +221,6 @@ endif()
 if(XRAUDIO_OVC_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_OVC_ENABLED)
    target_link_libraries(xr-voice-sdk xraudio-ovc)
-endif()
-
-if(XRAUDIO_PPR_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_PPR_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-ppr)
 endif()
 
 if(XRAUDIO_OUTPUT_ENABLED)
@@ -283,7 +278,7 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT rdkx_logger.json
-   COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger.json
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json -a ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_global.json -o rdkx_logger.json
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
 
