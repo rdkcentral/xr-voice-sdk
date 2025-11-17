@@ -875,6 +875,7 @@ void *xraudio_main_thread(void *param) {
    sem_post(state->params.semaphore);
 
    XLOGD_INFO("Enter main loop");
+   XLOGD_INFO("TID <%d>", (int)gettid());
    do {
 
       int src;
@@ -1120,6 +1121,7 @@ void xraudio_msg_record_idle_stop(xraudio_thread_state_t *state, void *msg) {
    
    #ifdef XRAUDIO_KWD_ENABLED
    if(state->record.fd >= 0) {
+      XLOGD_INFO("closing fd <%d>", state->record.fd);
       close(state->record.fd);
       state->record.fd = -1;
    }
@@ -1435,6 +1437,7 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
 
    if(stop->index >= 0 && stop->index < XRAUDIO_FIFO_QTY_MAX) {
       if(instance->fifo_audio_data[stop->index] >= 0) {
+         XLOGD_INFO("closing fd <%d>", instance->fifo_audio_data[stop->index]);
          close(instance->fifo_audio_data[stop->index]);
          instance->fifo_audio_data[stop->index] = -1;
       }
@@ -1552,16 +1555,19 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
    // Set fd to NULL in case they weren't closed
    for(uint8_t chan = 0; chan < XRAUDIO_INPUT_SUPERFRAME_MAX_CHANNEL_QTY; chan++) {
       if(state->record.capture_session.input[chan].file.fd >= 0) {
+         XLOGD_INFO("closing fd <%d>", state->record.capture_session.input[chan].file.fd);
          close(state->record.capture_session.input[chan].file.fd);
          state->record.capture_session.input[chan].file.fd = -1;
       }
 
       if(chan < XRAUDIO_INPUT_MAX_CHANNEL_QTY) {
          if(state->record.capture_session.kwd[chan].file.fd >= 0) {
+            XLOGD_INFO("closing fd <%d>", state->record.capture_session.kwd[chan].file.fd);
             close(state->record.capture_session.kwd[chan].file.fd);
             state->record.capture_session.kwd[chan].file.fd = -1;
          }
          if(state->record.capture_session.eos[chan].file.fd >= 0) {
+            XLOGD_INFO("closing fd <%d>", state->record.capture_session.eos[chan].file.fd);
             close(state->record.capture_session.eos[chan].file.fd);
             state->record.capture_session.eos[chan].file.fd = -1;
          }
@@ -1569,6 +1575,7 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
    }
    for(uint8_t index = 0; index < XRAUDIO_INPUT_SESSION_GROUP_QTY; index++) {
       if(state->record.capture_session.output[index].file.fd >= 0) {
+         XLOGD_INFO("closing fd <%d>", state->record.capture_session.output[index].file.fd);
          close(state->record.capture_session.output[index].file.fd);
          state->record.capture_session.output[index].file.fd = -1;
       }
@@ -1754,6 +1761,7 @@ void xraudio_msg_capture_stop(xraudio_thread_state_t *state, void *msg) {
 
       if(input->file.fd >= 0) {
          xraudio_record_container_process_end(input->file.fd, input->file.format, input->file.audio_data_size, false);
+         XLOGD_INFO("closing fd <%d>", input->file.fd);
          close(input->file.fd);
          input->file.fd = -1;
       }
@@ -1763,12 +1771,14 @@ void xraudio_msg_capture_stop(xraudio_thread_state_t *state, void *msg) {
          xraudio_capture_point_t *eos   = &state->record.capture_session.eos[chan];
          if(kwd->file.fd >= 0) {
             xraudio_record_container_process_end(kwd->file.fd, kwd->file.format, kwd->file.audio_data_size, false);
+            XLOGD_INFO("closing fd <%d>", kwd->file.fd);
             close(kwd->file.fd);
             kwd->file.fd = -1;
          }
 
          if(eos->file.fd >= 0) {
             xraudio_record_container_process_end(eos->file.fd, eos->file.format, eos->file.audio_data_size, false);
+            XLOGD_INFO("closing fd <%d>", eos->file.fd);
             close(eos->file.fd);
             eos->file.fd = -1;
          }
@@ -1783,6 +1793,7 @@ void xraudio_msg_capture_stop(xraudio_thread_state_t *state, void *msg) {
       xraudio_capture_point_t *output = &state->record.capture_session.output[index];
       if(output->file.fd >= 0) {
          xraudio_record_container_process_end(output->file.fd, output->file.format, output->file.audio_data_size, false);
+         XLOGD_INFO("closing fd <%d>", output->file.fd);
          close(output->file.fd);
          output->file.fd = -1;
       }
@@ -1930,6 +1941,7 @@ void xraudio_msg_play_stop(xraudio_thread_state_t *state, void *msg) {
 
 
    if(state->playback.pipe_audio_data >= 0) { // Close the read side of the pipe
+      XLOGD_INFO("closing fd <%d>", state->playback.pipe_audio_data);
       close(state->playback.pipe_audio_data);
       state->playback.pipe_audio_data = -1;
    }
@@ -2619,6 +2631,7 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
       for(uint32_t index = 0; index < XRAUDIO_FIFO_QTY_MAX; index++) {
          if(instance->fifo_audio_data[index] >= 0) { // Close the write side of the pipe so the read side gets EOF
             XLOGD_DEBUG("Close write side of pipe to send EOF to read side");
+            XLOGD_INFO("closing fd <%d>", instance->fifo_audio_data[index]);
             close(instance->fifo_audio_data[index]);
             instance->fifo_audio_data[index] = -1;
          }
@@ -3080,6 +3093,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
                   xraudio_record_container_process_begin(&capture_point.file);
                   xraudio_in_capture_session_to_file_float(&capture_point, samples[0], sample_qty[0]);
                   xraudio_record_container_process_end(capture_point.file.fd, capture_point.file.format, capture_point.file.audio_data_size, false);
+                  XLOGD_INFO("closing fd <%d>", capture_point.file.fd);
                   close(capture_point.file.fd);
                   XLOGD_INFO("keyword chunk 0 - pcm max <%d> min <%d>", capture_point.pcm_range.max, capture_point.pcm_range.min);
                }
@@ -3094,6 +3108,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
                   xraudio_record_container_process_begin(&capture_point.file);
                   xraudio_in_capture_session_to_file_float(&capture_point, samples[1], sample_qty[1]);
                   xraudio_record_container_process_end(capture_point.file.fd, capture_point.file.format, capture_point.file.audio_data_size, false);
+                  XLOGD_INFO("closing fd <%d>", capture_point.file.fd);
                   close(capture_point.file.fd);
                   XLOGD_INFO("keyword chunk 1 - pcm max <%d> min <%d>", capture_point.pcm_range.max, capture_point.pcm_range.min);
                }
@@ -3535,6 +3550,7 @@ int xraudio_in_write_to_pipe(xraudio_devices_input_t source, xraudio_main_thread
             } else if(flush_audio_data && instance->stream_until[index] == XRAUDIO_INPUT_RECORD_UNTIL_END_OF_KEYWORD) {
                if(instance->fifo_audio_data[index] >= 0) { // Close the write side of the pipe so the read side gets EOF
                   XLOGD_DEBUG("Close write side of pipe to send EOF to read side");
+                  XLOGD_INFO("closing fd <%d>", instance->fifo_audio_data[index]);
                   close(instance->fifo_audio_data[index]);
                   instance->fifo_audio_data[index] = -1;
                }
@@ -4476,6 +4492,7 @@ void xraudio_in_capture_internal_input_begin(xraudio_input_format_t *native, xra
          int errsv = errno;
          XLOGD_ERROR("unable to flock file <%s>", strerror(errsv));
          capture_instance->active = false;
+         XLOGD_INFO("closing fd <%d>", capture->fd);
          close(capture->fd);
          capture->fd = -1;
          break;
@@ -4489,6 +4506,7 @@ void xraudio_in_capture_internal_input_begin(xraudio_input_format_t *native, xra
          int errsv = errno;
          XLOGD_ERROR("unable to stat file <%s>", strerror(errsv));
          capture_instance->active = false;
+         XLOGD_INFO("closing fd <%d>", capture->fd);
          close(capture->fd);
          capture->fd = -1;
          break;
@@ -4513,6 +4531,7 @@ void xraudio_in_capture_internal_input_begin(xraudio_input_format_t *native, xra
             continue;
          }
          if(capture->fd >= 0) {
+            XLOGD_INFO("closing fd <%d>", capture->fd);
             close(capture->fd);
             capture->fd = -1;
          }
@@ -4539,6 +4558,7 @@ void xraudio_in_capture_internal_end(xraudio_capture_instance_t *capture_instanc
          bool header_truncated = false;
          #endif
          xraudio_record_container_process_end(capture->fd, capture->format, capture->audio_data_size, header_truncated);
+         XLOGD_INFO("closing fd <%d>", capture->fd);
          close(capture->fd);
          capture->fd = -1;
       }
@@ -4803,6 +4823,7 @@ bool xraudio_capture_file_index_in_use(const char *dir_path, uint32_t index) {
             XLOGD_WARN("unable to flock file <%s> <%s>", filename, strerror(errsv));
          }
       }
+      XLOGD_INFO("closing fd <%d>", fd);
       close(fd);
       free(namelist[entry_qty]);
    }
@@ -5190,6 +5211,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                break;
             }
             if(instance->fifo_audio_data[index] >= 0) { // Close the write side of the pipe so the read side gets EOF
+               XLOGD_INFO("closing fd <%d>", instance->fifo_audio_data[index]);
                close(instance->fifo_audio_data[index]);
                instance->fifo_audio_data[index] = -1;
             }
@@ -5239,6 +5261,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
 
          if(session->external_fd >= 0) {
             XLOGD_DEBUG("close external fd <%d>", session->external_fd);
+            XLOGD_INFO("closing fd <%d>", session->external_fd);
             close(session->external_fd);
          }
          session->external_fd                = -1;

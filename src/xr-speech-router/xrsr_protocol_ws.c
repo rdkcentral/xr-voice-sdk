@@ -742,6 +742,7 @@ void xrsr_ws_speech_stream_end(xrsr_state_ws_t *ws, xrsr_stream_end_reason_t rea
    xrsr_speech_stream_end(ws->uuid, ws->audio_src, ws->dst_index, reason, detect_resume, &ws->audio_stats);
 
    if(ws->audio_pipe_fd_read >= 0) {
+      XLOGD_INFO("closing fd <%d>", ws->audio_pipe_fd_read);
       close(ws->audio_pipe_fd_read);
       ws->audio_pipe_fd_read = -1;
    }
@@ -877,6 +878,7 @@ void xrsr_ws_reset(xrsr_state_ws_t *ws) {
       ws->is_session_by_text    = false;
       ws->is_session_by_file    = false;
       if(ws->audio_pipe_fd_read > -1) {
+         XLOGD_INFO("closing fd <%d>", ws->audio_pipe_fd_read);
          close(ws->audio_pipe_fd_read);
          ws->audio_pipe_fd_read = -1;
       }

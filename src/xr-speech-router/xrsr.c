@@ -1149,7 +1149,7 @@ void *xrsr_thread_main(void *param) {
    params.semaphore = NULL;
 
    XLOGD_INFO("Enter main loop");
-
+   XLOGD_INFO("TID <%d>", (int)gettid());
    do {
       int src;
       int nfds = params.msgq_id + 1;
@@ -3095,10 +3095,12 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                   if(dst->handler == NULL) {
                      continue;
                   }
+                  XLOGD_INFO("closing fd <%d>", dsts[index].pipe);
                   close(dsts[index].pipe);
                   dsts[index].pipe = -1;
                }
             }
+            XLOGD_INFO("closing fd <%d>", fd);
             close(fd);
             if(obj_opus == NULL) {
                opus_decoder_destroy(obj_opus);
@@ -3109,9 +3111,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
       if(stream_begin_failure) {
          for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
             if(dsts[index].pipe >= 0) {
+               XLOGD_INFO("closing fd <%d>", dsts[index].pipe);
                close(dsts[index].pipe);
             }
             if(session->pipe_fds_rd[index] >= 0) {
+               XLOGD_INFO("closing fd <%d>", session->pipe_fds_rd[index]);
                close(session->pipe_fds_rd[index]);
                session->pipe_fds_rd[index] = -1;
             }
