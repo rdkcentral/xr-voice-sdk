@@ -203,17 +203,20 @@ endif()
 if(XRAUDIO_KWD_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_KWD_ENABLED)
    target_link_libraries(xr-voice-sdk xraudio-ffv-hal)
-   target_link_libraries(xr-voice-sdk xraudio-kwd)
+   target_link_libraries(xr-voice-sdk xraudio-ffv-kwd)
 endif()
 
+if(XRAUDIO_EOS_ENABLED OR XRAUDIO_DGA_ENABLED OR XRAUDIO_PPR_ENABLED) 
 if(XRAUDIO_EOS_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_EOS_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-eos)
 endif()
-
 if(XRAUDIO_DGA_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DGA_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-dga)
+endif()
+if(XRAUDIO_PPR_ENABLED)
+   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_PPR_ENABLED)
+endif()
+   target_link_libraries(xr-voice-sdk xraudio-ffv-algorithms)
 endif()
 
 if(XRAUDIO_SDF_ENABLED)
@@ -224,11 +227,6 @@ endif()
 if(XRAUDIO_OVC_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_OVC_ENABLED)
    target_link_libraries(xr-voice-sdk xraudio-ovc)
-endif()
-
-if(XRAUDIO_PPR_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_PPR_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-ppr)
 endif()
 
 if(XRAUDIO_OUTPUT_ENABLED)
@@ -286,7 +284,7 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT rdkx_logger.json
-   COMMAND cp ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger.json
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json -a ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_global.json -o rdkx_logger.json
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
 
