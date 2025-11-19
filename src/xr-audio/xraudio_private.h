@@ -403,6 +403,7 @@ typedef struct {
 typedef struct {
    xraudio_main_queue_msg_header_t   header;
    xraudio_internal_capture_params_t capture_params;
+   bool                              curtail_enabled;
    sem_t *                           semaphore;
    xraudio_result_t *                result;
 } xraudio_main_queue_msg_capture_params_set_t;

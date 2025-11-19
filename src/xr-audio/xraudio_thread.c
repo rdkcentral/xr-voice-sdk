@@ -152,10 +152,8 @@ typedef struct {
    uint32_t                audio_data_size;
    xraudio_input_format_t  format;
    bool                    has_header;
-   #ifdef CURTAIL_ENABLED
    bool                    header_truncated;
    uint32_t                logical_block_size;
-   #endif
 } xraudio_capture_file_t;
 
 typedef struct {
@@ -532,9 +530,7 @@ static void xraudio_encoding_parameters_get(xraudio_input_format_t *format, uint
 #ifdef XRAUDIO_KWD_ENABLED
 static bool xraudio_in_aop_adjust_apply(int32_t *buffer, uint32_t sample_qty_frame, int8_t input_aop_adjust_shift);
 #endif
-#ifdef CURTAIL_ENABLED
 static void xraudio_capture_file_size_max_verify(uint32_t *file_size_max);
-#endif
 
 static const xraudio_msg_handler_t g_xraudio_msg_handlers[XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID] = {
    xraudio_msg_record_idle_start,
@@ -777,9 +773,9 @@ void *xraudio_main_thread(void *param) {
       state->record.capture_internal.file_size_max           = state->params.internal_capture_params.file_size_max;
       state->record.capture_internal.file_index              = xraudio_capture_next_file_index(state->params.internal_capture_params.dir_path, state->params.internal_capture_params.file_qty_max);
 
-      #ifdef CURTAIL_ENABLED
-      xraudio_capture_file_size_max_verify(&state->record.capture_internal.file_size_max);
-      #endif
+      if(state->record.capture_internal.use_curtail) {
+         xraudio_capture_file_size_max_verify(&state->record.capture_internal.file_size_max);
+      }
    } else {
       XLOGD_INFO("internal capture disabled");
       state->record.capture_internal.enabled                 = false;
@@ -2240,15 +2236,19 @@ void xraudio_msg_capture_params_set(xraudio_thread_state_t *state, void *msg) {
    if(capture_params->enable) {
       XLOGD_INFO("internal capture dir path <%s> file qty max <%u> file size max <%u> curtail <%s>", capture_params->dir_path, capture_params->file_qty_max, capture_params->file_size_max, capture_params->use_curtail ? "YES" : "NO");
       state->record.capture_internal.enabled                 = capture_params->enable;
-      state->record.capture_internal.use_curtail             = capture_params->use_curtail;
+      if(!capture_params_set->curtail_enabled) { // Only allow curtail if enabled by config
+         state->record.capture_internal.use_curtail          = false;
+      } else {
+         state->record.capture_internal.use_curtail          = capture_params->use_curtail;
+      }
       state->record.capture_internal.dir_path                = strdup(capture_params->dir_path);
       state->record.capture_internal.file_qty_max            = capture_params->file_qty_max;
       state->record.capture_internal.file_size_max           = capture_params->file_size_max;
       state->record.capture_internal.file_index              = xraudio_capture_next_file_index(capture_params->dir_path, capture_params->file_qty_max);
 
-      #ifdef CURTAIL_ENABLED
-      xraudio_capture_file_size_max_verify(&state->record.capture_internal.file_size_max);
-      #endif
+      if(state->record.capture_internal.use_curtail) {
+         xraudio_capture_file_size_max_verify(&state->record.capture_internal.file_size_max);
+      }
    } else {
       XLOGD_INFO("internal capture disabled");
       state->record.capture_internal.enabled                 = false;
@@ -4471,22 +4471,25 @@ void xraudio_in_capture_internal_input_begin(xraudio_input_format_t *native, xra
          break;
       }
 
-      #ifdef CURTAIL_ENABLED
-      struct stat statbuf;
+      if(capture_internal->use_curtail) {
+         struct stat statbuf;
 
-      rc = fstat(capture->fd, &statbuf);
-      if(rc != 0) {
-         int errsv = errno;
-         XLOGD_ERROR("unable to stat file <%s>", strerror(errsv));
-         capture_instance->active = false;
-         close(capture->fd);
-         capture->fd = -1;
-         break;
+         rc = fstat(capture->fd, &statbuf);
+         if(rc != 0) {
+            int errsv = errno;
+            XLOGD_ERROR("unable to stat file <%s>", strerror(errsv));
+            capture_instance->active = false;
+            close(capture->fd);
+            capture->fd = -1;
+            break;
+         }
+
+         capture->header_truncated   = false;
+         capture->logical_block_size = statbuf.st_blksize;
+      } else {
+         capture->header_truncated   = false;
+         capture->logical_block_size = 0;
       }
-
-      capture->header_truncated   = false;
-      capture->logical_block_size = statbuf.st_blksize;
-      #endif
 
       xraudio_record_container_process_begin(capture);
 
@@ -4510,10 +4513,10 @@ void xraudio_in_capture_internal_input_begin(xraudio_input_format_t *native, xra
    }
 }
 
-void xraudio_in_capture_internal_end(xraudio_capture_instance_t *capture_instancce) {
+void xraudio_in_capture_internal_end(xraudio_capture_instance_t *capture_instance) {
    xraudio_capture_file_t *captures[2];
-   captures[0] = &capture_instancce->native;
-   captures[1] = (capture_instancce->decoded.format.encoding.type != XRAUDIO_ENCODING_INVALID) ? &capture_instancce->decoded : NULL;
+   captures[0] = &capture_instance->native;
+   captures[1] = (capture_instance->decoded.format.encoding.type != XRAUDIO_ENCODING_INVALID) ? &capture_instance->decoded : NULL;
 
    for(uint32_t index = 0; index < 2; index++) {
       xraudio_capture_file_t *capture = captures[index];
@@ -4523,12 +4526,7 @@ void xraudio_in_capture_internal_end(xraudio_capture_instance_t *capture_instanc
 
       // Update container
       if(capture->fd >= 0) {
-         #ifdef CURTAIL_ENABLED
-         bool header_truncated = capture->header_truncated;
-         #else
-         bool header_truncated = false;
-         #endif
-         xraudio_record_container_process_end(capture->fd, capture->format, capture->audio_data_size, header_truncated);
+         xraudio_record_container_process_end(capture->fd, capture->format, capture->audio_data_size, capture->header_truncated);
          close(capture->fd);
          capture->fd = -1;
       }
@@ -4539,7 +4537,7 @@ void xraudio_in_capture_internal_end(xraudio_capture_instance_t *capture_instanc
                                                    .sample_size   = XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE,
                                                    .channel_qty   = XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY };
    }
-   capture_instancce->active = false;
+   capture_instance->active = false;
 }
 
 void reorder_samples(uint8_t *dst_buf, uint8_t *src_buf, uint32_t data_size, uint32_t src_buf_align) {
@@ -4564,11 +4562,6 @@ int xraudio_in_capture_internal_to_file(xraudio_session_record_t *session, uint8
       file_size += data_size;
    }
 
-   #ifndef CURTAIL_ENABLED
-   if(file_size > session->capture_internal.file_size_max) {
-      return(-1);
-   }
-   #else
    if(capture_file->header_truncated) { // Header was truncated so remove it from file size calculation
       file_size -= WAVE_HEADER_SIZE_MIN;
    }
@@ -4605,7 +4598,6 @@ int xraudio_in_capture_internal_to_file(xraudio_session_record_t *session, uint8
          }
       }
    }
-   #endif
 
    if(capture_file->format.encoding.type == XRAUDIO_ENCODING_OPUS_XVP || capture_file->format.encoding.type == XRAUDIO_ENCODING_OPUS) {
       // OPUS packets aren't self delimiting so add the packet size to indicate the size of the next packet
@@ -5658,7 +5650,6 @@ bool xraudio_in_aop_adjust_apply(int32_t *buffer, uint32_t sample_qty_frame, int
 }
 #endif
 
-#ifdef CURTAIL_ENABLED
 #define DEFAULT_SECTOR_SIZE (4096)
 void xraudio_capture_file_size_max_verify(uint32_t *file_size_max) {
    if(*file_size_max % DEFAULT_SECTOR_SIZE) {
@@ -5670,7 +5661,6 @@ void xraudio_capture_file_size_max_verify(uint32_t *file_size_max) {
       XLOGD_WARN("file size max must be greater than 2x block size (%u bytes) updated to <%u>", DEFAULT_SECTOR_SIZE, *file_size_max);
    }
 }
-#endif
 
 void xraudio_cpu_util_mode_enter(xraudio_thread_state_t *state, xraudio_session_record_inst_t *instance) {
    #ifdef XRAUDIO_KWD_ENABLED
