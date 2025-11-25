@@ -87,7 +87,7 @@ xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_sensitivity_t keyword_
    obj->xraudio_state        = XRSR_XRAUDIO_STATE_CREATED;
    obj->xraudio_power_mode   = power_mode;
    obj->xraudio_privacy_mode = privacy_mode;
-   obj->allow_input_failure  = vsdk_allow_input_failure();
+   obj->allow_input_failure  = vsdk_xraudio_allow_input_failure();
    obj->device_input         = XRAUDIO_DEVICE_INPUT_NONE;
    obj->device_output        = XRAUDIO_DEVICE_OUTPUT_NONE;
    obj->detect_active        = true;

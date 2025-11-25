@@ -27,7 +27,7 @@ extern "C" {
 #endif
 
 bool vsdk_curtail_xraudio_enabled(void);
-bool vsdk_allow_input_failure(void);
+bool vsdk_xraudio_allow_input_failure(void);
 
 #ifdef __cplusplus
 }

@@ -32,7 +32,7 @@
 typedef struct {
    bool                    initialized;
    bool                    curtail_xraudio;
-   bool                    allow_input_failure;
+   bool                    xraudio_allow_input_failure;
    vsdk_thread_poll_func_t func;
    void *                  data;
 } vsdk_global_t;
@@ -41,7 +41,7 @@ static vsdk_global_t g_vsdk;
 
 static void vsdk_thread_response(void);
 static bool vsdk_file_exists(const char *filename);
-static void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *allow_input_failure);
+static void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio_allow_input_failure);
 
 void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty) {
    if(qty == NULL || *qty < VSDK_VERSION_QTY_MAX || version_info == NULL) {
@@ -87,8 +87,8 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
    int rc = xlog_init(XLOG_MODULE_ID_VSDK, filename, file_size_max, ansi_color, curtail_xlog);
 
    // Store the value so it can be used when xraudio is initialized
-   g_vsdk.curtail_xraudio     = curtail_xraudio;
-   g_vsdk.allow_input_failure = allow_input_failure;
+   g_vsdk.curtail_xraudio             = curtail_xraudio;
+   g_vsdk.xraudio_allow_input_failure = allow_input_failure;
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -110,8 +110,8 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
    int rc = xlog_init_user_print(XLOG_MODULE_ID_VSDK, print, print_safe, filename, file_size_max, ansi_color, curtail_xlog);
 
    // Store the value so it can be used when xraudio is initialized
-   g_vsdk.curtail_xraudio     = curtail_xraudio;
-   g_vsdk.allow_input_failure = allow_input_failure;
+   g_vsdk.curtail_xraudio             = curtail_xraudio;
+   g_vsdk.xraudio_allow_input_failure = allow_input_failure;
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -168,8 +168,8 @@ bool vsdk_curtail_xraudio_enabled(void) {
    return(g_vsdk.curtail_xraudio);
 }
 
-bool vsdk_allow_input_failure(void) {
-   return(g_vsdk.allow_input_failure);
+bool vsdk_xraudio_allow_input_failure(void) {
+   return(g_vsdk.xraudio_allow_input_failure);
 }
 
 bool vsdk_file_exists(const char *filename) {
@@ -183,7 +183,7 @@ bool vsdk_file_exists(const char *filename) {
    return false;
 }
 
-void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *allow_input_failure) {
+void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio_allow_input_failure) {
    bool crtl_xlog           = false;
    bool crtl_xraudio        = false;
    bool allow_input_failure = false;
@@ -238,8 +238,8 @@ void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *allow_i
       if(curtail_xraudio != NULL) {
          *curtail_xraudio = crtl_xraudio;
       }
-      if(allow_input_failure != NULL) {
-         *allow_input_failure = allow_input_failure;
+      if(xraudio_allow_input_failure != NULL) {
+         *xraudio_allow_input_failure = allow_input_failure;
       }
    }
 }
