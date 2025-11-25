@@ -32,8 +32,7 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 #include "jansson.h"
-#define XLOG_RDK_PLATFORM 
-#ifdef XLOG_RDK_PLATFORM
+#ifdef VSDK_RDK_VERSION
 #include "rdkversion.h"
 #endif
 #define XLOG_MODULE_ID XLOG_MODULE_ID_XLOG
@@ -224,7 +223,7 @@ json_t *xlog_config_load(xlog_module_id_t id) {
    char config_fn_prd_mod[128] = { '\0' };
    char *contents = NULL;
 
-   #ifdef XLOG_RDK_PLATFORM
+   #ifdef VSDK_RDK_VERSION
    // Get production flag
    rdk_version_info_t info;
    memset(&info, 0, sizeof(info));
