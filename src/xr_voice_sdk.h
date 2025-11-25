@@ -89,15 +89,17 @@ void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty);
 
 /// @brief Initialize the voice SDK
 /// @details Initializes the voice SDK component.
+/// @param[in] ansi_color Set to true to enable ANSI color codes in the log output.
 /// @return The function returns 0 for success.  All other values indicate a failure.
-int  vsdk_init(void);
+int  vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max);
 
 /// @brief Initialize the voice SDK
 /// @details Initializes the voice SDK component with external logging functions.
 /// @param[in] print      Pointer to a print function
 /// @param[in] print_safe Pointer to a print function which is safe to use in a signal handler
+/// @param[in] ansi_color Set to true to enable ANSI color codes in the log output.
 /// @return The function returns 0 for success.  All other values indicate a failure.
-int  vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe);
+int  vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_color, const char *filename, uint32_t file_size_max);
 
 /// @brief Terminates the voice SDK
 /// @details Terminates the voice SDK components and frees all associated resources.

@@ -38,11 +38,10 @@
 #include <errno.h>
 #include <jansson.h>
 #include "rdkversion.h"
+#include "vsdk_private.h"
 #include "xraudio.h"
 #include "xraudio_private.h"
-#ifdef XRAUDIO_DECODE_ADPCM
 #include "adpcm.h"
-#endif
 #ifdef XRAUDIO_DECODE_OPUS
 #include "xraudio_opus.h"
 #endif
@@ -86,6 +85,7 @@ typedef struct {
    int                               shared_mem_fd;
    #endif
    bool                              production_build;
+   bool                              curtail_enabled;
    xraudio_internal_capture_params_t internal_capture_params;
 } xraudio_obj_t;
 
@@ -234,6 +234,7 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->shared_mem_fd         = -1;
    #endif
 
+   obj->curtail_enabled                       = vsdk_curtail_xraudio_enabled();
    obj->internal_capture_params.enable        = false;
    obj->internal_capture_params.use_curtail   = false;
    obj->internal_capture_params.file_qty_max  = 0;
@@ -777,10 +778,11 @@ xraudio_result_t xraudio_internal_capture_params_set(xraudio_object_t object, xr
       sem_init(&semaphore, 0, 0);
 
       xraudio_main_queue_msg_capture_params_set_t msg;
-      msg.header.type    = XRAUDIO_MAIN_QUEUE_MSG_TYPE_CAPTURE_PARAMS_SET;
-      msg.capture_params = obj->internal_capture_params;
-      msg.semaphore      = &semaphore;
-      msg.result         = &result;
+      msg.header.type     = XRAUDIO_MAIN_QUEUE_MSG_TYPE_CAPTURE_PARAMS_SET;
+      msg.capture_params  = obj->internal_capture_params;
+      msg.curtail_enabled = obj->curtail_enabled;
+      msg.semaphore       = &semaphore;
+      msg.result          = &result;
 
       queue_msg_push(obj->msgq_main, (const char*)&msg, sizeof(msg));
 
