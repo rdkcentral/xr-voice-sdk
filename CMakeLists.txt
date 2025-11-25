@@ -32,6 +32,8 @@ project(xr-voice-sdk VERSION ${CMAKE_PROJECT_VERSION})
 
 set(STAGING_BINDIR_NATIVE,     "invalid" CACHE PATH "staging bin dir native")
 
+option(VSDK_VENDOR_XLOG,        "vendor layer logging"                        OFF)
+
 option(HTTP_ENABLED,            "speech router http protocol"                 OFF)
 option(WS_ENABLED,              "speech router websocket protocol"            OFF)
 option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
@@ -61,6 +63,43 @@ option(XRAUDIO_SDF_ENABLED,    "xraudio sound focus"      OFF)
 option(XRAUDIO_OVC_ENABLED,    "xraudio ovc"              OFF)
 option(XRAUDIO_PPR_ENABLED,    "xraudio pre-processing"   OFF)
 option(XRAUDIO_OUTPUT_ENABLED, "xraudio output"           OFF)
+
+if(VSDK_VENDOR_XLOG)
+add_library(xr-voice-sdk-xlog SHARED)
+set_target_properties(xr-voice-sdk-xlog PROPERTIES
+    SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR} # Major version number
+    VERSION   ${CMAKE_PROJECT_VERSION}       # Full version number (major.minor.patch)
+)
+
+target_include_directories(xr-voice-sdk-xlog PUBLIC 
+                           ${CMAKE_CURRENT_BINARY_DIR}
+                           ./
+                           ./src/
+                           ./src/xr-logger/
+                          )
+
+target_sources(xr-voice-sdk-xlog PUBLIC
+               vsdk_version.h
+               rdkx_logger_modules.c
+               rdkx_logger_level.c
+               rdkx_logger_modules_lookup.c
+               src/xr-logger/rdkx_logger.c)
+
+target_compile_options(xr-voice-sdk-xlog PUBLIC -fPIC -rdynamic -Wall -Werror)
+
+target_compile_definitions(xr-voice-sdk-xlog PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE VSDK_VENDOR_XLOG)
+
+target_link_libraries(xr-voice-sdk-xlog c jansson)
+
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
+
+# HEADER FILES
+install(FILES src/xr-logger/rdkx_logger_vendor.h TYPE INCLUDE)
+
+# LIBRARY FILES
+install(TARGETS xr-voice-sdk-xlog LIBRARY DESTINATION lib)
+
+else()
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -243,6 +282,7 @@ install(FILES src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE)
 # LIBRARY FILES
 install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
 
+endif()
 
 # GENERATED FILES
 

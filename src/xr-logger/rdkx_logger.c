@@ -37,7 +37,11 @@
 #include "rdkversion.h"
 #endif
 #define XLOG_MODULE_ID XLOG_MODULE_ID_XLOG
+#ifdef VSDK_VENDOR_XLOG
+#include "rdkx_logger_vendor.h"
+#else
 #include "rdkx_logger.h"
+#endif
 #include "rdkx_logger_private.h"
 #include "errno.h"
 #ifdef VSDK_CURTAIL_ENABLED
