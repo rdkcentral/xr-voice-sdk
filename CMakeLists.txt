@@ -79,20 +79,19 @@ target_include_directories(xr-voice-sdk-xlog PUBLIC
                           )
 
 target_sources(xr-voice-sdk-xlog PUBLIC
-               vsdk_version.h
                rdkx_logger_vendor.h
-               rdkx_logger_modules.c
-               rdkx_logger_level.c
-               rdkx_logger_modules_lookup.c
+               rdkx_logger_vendor_modules.c
+               rdkx_logger_vendor_level.c
+               rdkx_logger_vendor_modules_lookup.c
                rdkx_logger_vendor.c)
 
 target_compile_options(xr-voice-sdk-xlog PUBLIC -fPIC -rdynamic -Wall -Werror)
 
-target_compile_definitions(xr-voice-sdk-xlog PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE VSDK_VENDOR_XLOG)
+target_compile_definitions(xr-voice-sdk-xlog PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE)
 
 target_link_libraries(xr-voice-sdk-xlog c jansson)
 
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_vendor.json TYPE SYSCONF)
 
 # HEADER FILES
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_vendor.h TYPE INCLUDE)
@@ -103,13 +102,37 @@ install(TARGETS xr-voice-sdk-xlog LIBRARY DESTINATION lib)
 add_custom_command(
    OUTPUT rdkx_logger_vendor.h
    COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/rdkx_logger_to_vendor.py" ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger.h rdkx_logger_vendor.h
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger.h
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger.h ${CMAKE_CURRENT_SOURCE_DIR}/scripts/rdkx_logger_to_vendor.py
    VERBATIM)
 
 add_custom_command(
    OUTPUT rdkx_logger_vendor.c
    COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/rdkx_logger_to_vendor.py" ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger.c rdkx_logger_vendor.c
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger.c
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger.c ${CMAKE_CURRENT_SOURCE_DIR}/scripts/rdkx_logger_to_vendor.py
+   VERBATIM)
+
+add_custom_command(
+   OUTPUT rdkx_logger_vendor_modules.hash rdkx_logger_vendor_modules_lookup.c
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/rdkx_logger_modules_to_c.py" ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger_vendor_modules
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json
+   VERBATIM)
+
+add_custom_command(
+   OUTPUT rdkx_logger_vendor_modules.c
+   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=rdkx_logger_vendor_modules.c rdkx_logger_vendor_modules.hash
+   DEPENDS rdkx_logger_vendor_modules.hash rdkx_logger_vendor.json
+   VERBATIM)
+
+add_custom_command(
+   OUTPUT rdkx_logger_vendor_level.c
+   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=rdkx_logger_vendor_level.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger_level.hash
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger_level.hash
+   VERBATIM)
+
+add_custom_command(
+   OUTPUT rdkx_logger_vendor.json
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json -a ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_global.json -o rdkx_logger_vendor.json
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
 
 else()
@@ -295,8 +318,6 @@ install(FILES src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE)
 # LIBRARY FILES
 install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
 
-endif()
-
 # GENERATED FILES
 
 add_custom_command(
@@ -370,3 +391,5 @@ add_custom_command(
    COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=xrsv_ws_nextgen_tv_control.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_tv_control.hash
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_tv_control.hash
    VERBATIM)
+
+endif()

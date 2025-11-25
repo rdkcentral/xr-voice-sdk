@@ -27,17 +27,27 @@ file_hdr_out = sys.argv[2]
 
 
 replacements = {
-   'xlog_modules':   'xlog_vendor_modules',
-   'xlog_init':      'xlog_vendor_init',
-   'xlog_term':      'xlog_vendor_term',
-   'xlog_level':     'xlog_vendor_level',
-   'xlog_printf':    'xlog_vendor_printf',
-   'xlog_fprintf':   'xlog_vendor_fprintf',
-   'xlog_dprintf':   'xlog_vendor_dprintf',
-   'xlog_snprintf':  'xlog_vendor_snprintf',
-   'xlog_vfprintf':  'xlog_vendor_vfprintf',
-   'xlog_vdprintf':  'xlog_vendor_vdprintf',
-   'xlog_vsnprintf': 'xlog_vendor_vsnprintf',
+   'rdkx_logger.h':         'rdkx_logger_vendor.h',
+   'rdkx_logger_modules.h': 'rdkx_logger_vendor_modules.h',
+   'g_xlog_':               'g_xlog_vendor_',
+   'xlog_init':             'xlog_vendor_init',
+   'xlog_term':             'xlog_vendor_term',
+   'xlog_level':            'xlog_vendor_level',
+   'xlog_printf':           'xlog_vendor_printf',
+   'xlog_fprintf':          'xlog_vendor_fprintf',
+   'xlog_dprintf':          'xlog_vendor_dprintf',
+   'xlog_snprintf':         'xlog_vendor_snprintf',
+   'xlog_vfprintf':         'xlog_vendor_vfprintf',
+   'xlog_vdprintf':         'xlog_vendor_vdprintf',
+   'xlog_vsnprintf':        'xlog_vendor_vsnprintf',
+   '/rdkx_logger':          '/rdkx_logger_vendor',
+   'g_crtl_init':           'g_crtl_vendor_init',
+   'xlog_date_time':        'xlog_vendor_date_time',
+   'xlog_prefix':           'xlog_vendor_prefix',
+   'xlog_postfix':          'xlog_vendor_postfix',
+   'xlog_module_to_id':     'xlog_vendor_module_to_id',
+   'xlog_config_load':      'xlog_vendor_config_load',
+   'xlog_file_get':         'xlog_vendor_file_get',
 }
 
 # Read input file and write to output file with replacements
