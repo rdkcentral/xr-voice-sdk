@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <xrsr_private.h>
+#include <vsdk_private.h>
 #include <xraudio.h>
 
 #define XRSR_XRAUDIO_IDENTIFIER (0x93482578)
