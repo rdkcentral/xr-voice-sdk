@@ -344,7 +344,7 @@ void xrsr_xraudio_device_granted(xrsr_xraudio_object_t object) {
             continue;
          }
          break;
-      }while(1);
+      } while(1);
    } else {
       result = xraudio_open(obj->xraudio_obj, obj->xraudio_power_mode, obj->xraudio_privacy_mode, obj->device_input, obj->device_output, &format);
    }
