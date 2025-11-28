@@ -81,7 +81,7 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
 
    bool curtail_xlog        = false;
    bool curtail_xraudio     = false;
-   bool allow_input_failure = false;
+   bool allow_input_failure = true;
 
    vsdk_parse_options(&curtail_xlog, &curtail_xraudio, &allow_input_failure);
    int rc = xlog_init(XLOG_MODULE_ID_VSDK, filename, file_size_max, ansi_color, curtail_xlog);
