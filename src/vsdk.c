@@ -103,7 +103,7 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
    
    bool curtail_xlog        = false;
    bool curtail_xraudio     = false;
-   bool allow_input_failure = false;
+   bool allow_input_failure = true;
 
    vsdk_parse_options(&curtail_xlog, &curtail_xraudio, &allow_input_failure);
 
@@ -186,7 +186,7 @@ bool vsdk_file_exists(const char *filename) {
 void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio_allow_input_failure) {
    bool crtl_xlog           = false;
    bool crtl_xraudio        = false;
-   bool allow_input_failure = false;
+   bool allow_input_failure = true;
 
    // If the vendor supplied options are provided, use them.  Otherwise use the default values.
    const char *vendor_options_file = VSDK_VENDOR_OPTIONS_FILE;
