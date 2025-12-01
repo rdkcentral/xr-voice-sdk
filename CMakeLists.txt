@@ -36,7 +36,6 @@ option(HTTP_ENABLED,            "speech router http protocol"                 OF
 option(WS_ENABLED,              "speech router websocket protocol"            OFF)
 option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
-option(MICROPHONE_TAP_ENABLED,  "speech router microphone tap"                OFF)
 
 option(XRSR_ALLOW_INPUT_FAILURE,  "speech router allow input failure"         OFF)
 
@@ -154,10 +153,6 @@ endif()
 if(SDT_ENABLED)
    target_sources(xr-voice-sdk PUBLIC src/xr-speech-router/xrsr_protocol_sdt.c)
    target_compile_definitions(xr-voice-sdk PUBLIC SDT_ENABLED)
-endif()
-
-if(MICROPHONE_TAP_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC MICROPHONE_TAP_ENABLED)
 endif()
 
 if(XRSR_ALLOW_INPUT_FAILURE)

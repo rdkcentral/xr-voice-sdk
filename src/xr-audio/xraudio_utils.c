@@ -694,9 +694,7 @@ const char *xraudio_keyword_criterion_str(xraudio_kwd_criterion_t criterion) {
 const char *xraudio_input_session_group_str(xraudio_input_session_group_t group) {
    switch(group) {
       case XRAUDIO_INPUT_SESSION_GROUP_DEFAULT: return("DEFAULT");
-      #ifdef MICROPHONE_TAP_ENABLED
       case XRAUDIO_INPUT_SESSION_GROUP_MIC_TAP: return("MIC_TAP");
-      #endif
       case XRAUDIO_INPUT_SESSION_GROUP_QTY:     return("INVALID");
    }
    return(xraudio_invalid_return(group));

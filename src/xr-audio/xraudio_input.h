@@ -23,12 +23,8 @@
 
 typedef enum {
    XRAUDIO_INPUT_SESSION_GROUP_DEFAULT = 0, // Session index for regular voice sessions (PTT, FFV)
-   #ifdef MICROPHONE_TAP_ENABLED
    XRAUDIO_INPUT_SESSION_GROUP_MIC_TAP = 1, // Session index for microphone tap voice sessions
    XRAUDIO_INPUT_SESSION_GROUP_QTY     = 2
-   #else
-   XRAUDIO_INPUT_SESSION_GROUP_QTY     = 1
-   #endif
 } xraudio_input_session_group_t;
 
 typedef enum {

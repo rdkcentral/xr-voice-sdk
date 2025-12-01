@@ -81,12 +81,8 @@ typedef enum {
 
 typedef enum {
    XRSR_SESSION_GROUP_DEFAULT = 0, // Session index for regular voice sessions (PTT, FFV)
-   #ifdef MICROPHONE_TAP_ENABLED
    XRSR_SESSION_GROUP_MIC_TAP = 1, // Session index for microphone tap voice sessions
    XRSR_SESSION_GROUP_QTY     = 2
-   #else
-   XRSR_SESSION_GROUP_QTY     = 1
-   #endif
 } xrsr_session_group_t;
 
 typedef struct {

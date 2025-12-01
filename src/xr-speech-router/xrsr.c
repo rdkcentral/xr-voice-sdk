@@ -253,11 +253,7 @@ bool xrsr_config_get(xrsr_config_t *config) {
    #ifdef XRAUDIO_KWD_ENABLED
       config->networked_standby = true;
       config->local_mic         = true;
-      #ifdef MICROPHONE_TAP_ENABLED
       config->local_mic_tap     = true;
-      #else
-      config->local_mic_tap     = false;
-      #endif
    #else
 
       config->networked_standby = false;
@@ -541,9 +537,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    #ifdef XRAUDIO_KWD_ENABLED
    g_xrsr.networked_standby = true;
    g_xrsr.local_mic         = true;
-   #ifdef MICROPHONE_TAP_ENABLED
    g_xrsr.local_mic_tap     = true;
-   #endif
    #endif
 
    g_xrsr.opened       = true;
@@ -1804,7 +1798,6 @@ void xrsr_msg_keyword_detect_error(const xrsr_thread_params_t *params, xrsr_thre
       xrsr_msg_session_terminate(params, state, &terminate);
    }
 
-   #ifdef MICROPHONE_TAP_ENABLED
    if(keyword_detected->source == XRSR_SRC_MICROPHONE && xrsr_is_source_active(XRSR_SRC_MICROPHONE_TAP)) { // Terminate active session on this source since an error occurred
       XLOGD_INFO("terminate source <%s>", xrsr_src_str(XRSR_SRC_MICROPHONE_TAP));
       xrsr_queue_msg_session_terminate_t terminate;
@@ -1813,7 +1806,6 @@ void xrsr_msg_keyword_detect_error(const xrsr_thread_params_t *params, xrsr_thre
       terminate.src         = XRSR_SRC_MICROPHONE_TAP;
       xrsr_msg_session_terminate(params, state, &terminate);
    }
-   #endif
 }
 
 void xrsr_msg_keyword_detect_sensitivity_limits_get(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg) {
@@ -3279,19 +3271,15 @@ bool xrsr_is_group_active(uint32_t group) {
 }
 
 uint32_t xrsr_source_to_group(xrsr_src_t src) {
-   #ifdef MICROPHONE_TAP_ENABLED
    if(src == XRSR_SRC_MICROPHONE_TAP) {
       return(1);
    }
-   #endif
    return(0);
 }
 
 bool xrsr_has_keyword_detector(xrsr_src_t src) {
-   #ifdef MICROPHONE_TAP_ENABLED
    if(src == XRSR_SRC_MICROPHONE_TAP) {
       return(false);
    }
-   #endif
    return(true);
 }
