@@ -1623,7 +1623,7 @@ void xrsr_msg_capture_config_update(const xrsr_thread_params_t *params, xrsr_thr
 void xrsr_msg_power_mode_update(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg) {
    xrsr_queue_msg_power_mode_update_t *power_mode_update = (xrsr_queue_msg_power_mode_update_t *)msg;
 
-   XLOGD_INFO("power mode <%s>", xrsr_power_mode_str(power_mode_update->power_mode));
+   XLOGD_AUTOMATION_INFO("power mode <%s>", xrsr_power_mode_str(power_mode_update->power_mode));
 
    if(power_mode_update->power_mode != XRSR_POWER_MODE_FULL) { // Terminate active sessions
       for(uint32_t group = 0; group < XRSR_SESSION_GROUP_QTY; group++) {
@@ -1939,7 +1939,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             session_config->user_initiated    = begin->user_initiated;
             session_config->cb_session_config = xrsr_callback_session_config_in_http;
 
-            XLOGD_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
+            XLOGD_AUTOMATION_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
 
             // Set the handlers based on source
             http->handlers       = dst->handlers;
@@ -2008,7 +2008,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                session_config->user_initiated    = begin->user_initiated;
                session_config->cb_session_config = xrsr_callback_session_config_in_ws;
 
-               XLOGD_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
+               XLOGD_AUTOMATION_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
 
                // Set the handlers based on source
                ws->handlers       = dst->handlers;
@@ -2072,7 +2072,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                session_config->format            = xrsr_audio_format_get(dst->formats, begin->xraudio_format);
                session_config->cb_session_config = NULL;
 
-               XLOGD_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
+               XLOGD_AUTOMATION_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
 
                // Set the handlers based on source
                sdt->handlers       = dst->handlers;
