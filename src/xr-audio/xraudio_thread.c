@@ -1162,10 +1162,12 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
    xraudio_input_record_from_t stream_from = record->stream_from[0];
    XLOGD_DEBUG("<%s> active chan <%u> samples avail <%u> kwd begin <%d> end <%d> offset <%d>\n", xraudio_input_record_from_str(stream_from), active_chan, pre_detection_samples_avail, kwd_begin, kwd_end, offset);
 
+   #ifdef XRAUDIO_DGA_ENABLED
    if(record->subsequent && XRAUDIO_DEVICE_INPUT_LOCAL_GET(instance->source) != XRAUDIO_DEVICE_INPUT_NONE) { // Use same input beam and dynamic gain from last stream
       instance->dynamic_gain_set = true;
       XLOGD_DEBUG("dynamic gain bit qty <%u> chan <%u>", instance->dynamic_gain_pcm_bit_qty, active_chan);
    }
+   #endif
 
    switch(stream_from) {
       case XRAUDIO_INPUT_RECORD_FROM_BEGINNING: {

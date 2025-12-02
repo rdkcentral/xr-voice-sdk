@@ -23,6 +23,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
+#include <dlfcn.h>
 #include <sys/stat.h>
 #include <xr_voice_sdk.h>
 #include <vsdk_version.h>
@@ -32,6 +33,7 @@
 typedef struct {
    bool                    initialized;
    bool                    curtail_xraudio;
+   void *                  ffv_hal_handle;
    vsdk_thread_poll_func_t func;
    void *                  data;
 } vsdk_global_t;
@@ -41,6 +43,7 @@ static vsdk_global_t g_vsdk;
 static void vsdk_thread_response(void);
 static bool vsdk_file_exists(const char *filename);
 static void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio);
+static void *vsdk_load_plugin_ffv_hal(void);
 
 void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty) {
    if(qty == NULL || *qty < VSDK_VERSION_QTY_MAX || version_info == NULL) {
@@ -87,6 +90,7 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
 
    // Store the value so it can be used when xraudio is initialized
    g_vsdk.curtail_xraudio = curtail_xraudio;
+   g_vsdk.ffv_hal_handle  = vsdk_load_plugin_ffv_hal();
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -108,6 +112,7 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
 
    // Store the value so it can be used when xraudio is initialized
    g_vsdk.curtail_xraudio = curtail_xraudio;
+   g_vsdk.ffv_hal_handle  = vsdk_load_plugin_ffv_hal();
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -120,6 +125,13 @@ void vsdk_term(void) {
       return;
    }
    xlog_term();
+
+   if(g_vsdk.ffv_hal_handle != NULL) {
+      XLOGD_INFO("unload FFV hal");
+      dlclose(g_vsdk.ffv_hal_handle);
+      g_vsdk.ffv_hal_handle = NULL;
+   }
+
    g_vsdk.initialized = false;
 }
 
@@ -162,6 +174,10 @@ void vsdk_thread_response(void) {
 
 bool vsdk_curtail_xraudio_enabled(void) {
    return(g_vsdk.curtail_xraudio);
+}
+
+bool vsdk_ffv_enabled(void) {
+   return((g_vsdk.ffv_hal_handle == NULL) ? false : true);
 }
 
 bool vsdk_file_exists(const char *filename) {
@@ -220,4 +236,38 @@ void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio) {
          *curtail_xraudio = crtl_xraudio;
       }
    }
+}
+
+void *vsdk_load_plugin_ffv_hal(void) {
+   void *handle = NULL;
+   const char *so_path_vd = "/vendor/lib/libxraudio-ffv-algorithms.so";
+   const char *so_path_mw = "/usr/lib/libxraudio-ffv-algorithms.so";
+   if(vsdk_file_exists(so_path_vd)) {
+      handle = dlopen(so_path_vd, RTLD_NOW);
+   } else if(vsdk_file_exists(so_path_mw)) {
+      handle = dlopen(so_path_mw, RTLD_NOW);
+   } else {
+      XLOGD_INFO("FFV HAL plugin is not present.");
+      return(NULL);
+   }
+
+   if(NULL == handle) {
+      XLOGD_ERROR("Failed to load FFV HAL plugin <%s>", dlerror());
+      return(NULL);
+   }
+
+   dlerror();  // Clear any existing error
+
+   //g_ctrlm.rf4ce_hal_main = (ctrlm_hal_rf4ce_main_t)dlsym(handle, "ctrlm_hal_rf4ce_main");
+   //char *error = dlerror();
+
+   //if(error != NULL) {
+   //   XLOGD_ERROR("Failed to find plugin method (ctrlm_hal_rf4ce_main), error <%s>", error);
+   //   dlclose(handle);
+   //   return(NULL);
+   //}
+
+   XLOGD_INFO("FFV HAL plugin is loaded.");
+   
+   return(handle);
 }
