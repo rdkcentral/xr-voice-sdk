@@ -21,25 +21,11 @@
 #ifndef _XRAUDIO_VERSION_H_
 #define _XRAUDIO_VERSION_H_
 
-#define XRAUDIO_VERSION_QTY_MAX (16)
-
 typedef struct {
    const char *name;
    const char *version;
    const char *branch;
    const char *commit_id;
 } xraudio_version_info_t;
-
-#ifdef __cplusplus
-extern "C" {
-#endif
-
-/// @brief Gets xraudio version
-/// @details Returns the version information for the xraudio component.
-void xraudio_version(xraudio_version_info_t *version_info, uint32_t *qty);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif

@@ -34,9 +34,7 @@
 #ifdef XRAUDIO_EOS_ENABLED
 #include "xraudio_eos.h"
 #endif
-#ifdef XRAUDIO_KWD_ENABLED
 #include "xraudio_kwd.h"
-#endif
 #ifdef XRAUDIO_DGA_ENABLED
 #include "xraudio_dga.h"
 #endif
@@ -161,11 +159,9 @@ typedef struct {
    xraudio_output_object_t           obj_output;
    json_t*                           json_obj_output;
    #endif
-   #ifdef XRAUDIO_KWD_ENABLED
    xraudio_hal_obj_t                 hal_obj;
    xraudio_hal_input_obj_t           hal_input_obj;
    xraudio_hal_dsp_config_t          dsp_config;
-   #endif
    xraudio_internal_capture_params_t internal_capture_params;
    json_t*                           json_obj_input;
 } xraudio_main_thread_params_t;

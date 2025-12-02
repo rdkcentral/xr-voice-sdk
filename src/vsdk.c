@@ -68,21 +68,6 @@ void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty) {
    version_info++;
    qty_avail--;
 
-   xrsr_version_info_t xrsr_version_info[XRSR_VERSION_QTY_MAX];
-   memset(xrsr_version_info, 0, sizeof(xrsr_version_info));
-
-   uint32_t qty_xrsr = XRSR_VERSION_QTY_MAX;
-   xrsr_version(xrsr_version_info, &qty_xrsr);
-
-   for(uint32_t index = 0; index < qty_xrsr; index++) {
-      xrsr_version_info_t *entry = &xrsr_version_info[index];
-      version_info->name      = entry->name;
-      version_info->version   = entry->version;
-      version_info->branch    = entry->branch;
-      version_info->commit_id = entry->commit_id;
-      version_info++;
-      qty_avail--;
-   }
    *qty -= qty_avail;
 }
 
@@ -317,7 +302,7 @@ void *vsdk_load_plugin_ffv_kwd(void) {
    //   return(NULL);
    //}
 
-   XLOGD_INFO("FFV KWD plugin is loaded.");
+   XLOGD_INFO("FFV KWD plugin is loaded."); // TODO Print the version info here
    
    return(handle);
 
@@ -352,7 +337,7 @@ void *vsdk_load_plugin_ffv_alg(void) {
    //   return(NULL);
    //}
 
-   XLOGD_INFO("FFV ALG plugin is loaded.");
+   XLOGD_INFO("FFV ALG plugin is loaded."); // TODO Print the version info here
    
    return(handle);
 }
@@ -386,7 +371,7 @@ void *vsdk_load_plugin_ffv_hal(void) {
    //   return(NULL);
    //}
 
-   XLOGD_INFO("FFV HAL plugin is loaded.");
+   XLOGD_INFO("FFV HAL plugin is loaded."); // TODO Print the version info here
    
    return(handle);
 }

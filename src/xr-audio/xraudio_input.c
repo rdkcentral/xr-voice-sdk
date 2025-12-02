@@ -93,10 +93,8 @@ typedef struct {
    xraudio_sample_t *             audio_buf_samples;
    unsigned long                  audio_buf_sample_qty;
    int                            fifo_sound_intensity;
-   #if defined(XRAUDIO_DGA_ENABLED) && defined(XRAUDIO_KWD_ENABLED)
    int16_t                        kwd_peak_power_dBFS;
    float *                        dynamic_gain_update;
-   #endif
 
    // Only one of these can be set at a time
    int                           fifo_audio_data[XRAUDIO_FIFO_QTY_MAX];
@@ -122,6 +120,7 @@ typedef struct {
 
    char                          fifo_name[XRAUDIO_FIFO_NAME_LENGTH_MAX];
    xraudio_input_statistics_t    statistics;
+   bool                          kwd_enabled;
    #ifdef XRAUDIO_EOS_ENABLED
    xraudio_eos_object_t          obj_eos[XRAUDIO_INPUT_MAX_CHANNEL_QTY];
    #endif
@@ -156,10 +155,8 @@ static xraudio_result_t xraudio_input_dispatch_detect_stop(xraudio_input_obj_t *
 static xraudio_result_t xraudio_input_dispatch_stop(xraudio_input_obj_t *obj, xraudio_devices_input_t source, int32_t index, audio_in_callback_t callback, void *param);
 static xraudio_result_t xraudio_input_dispatch_capture(xraudio_input_obj_t *obj, audio_in_callback_t callback, void *param);
 static xraudio_result_t xraudio_input_dispatch_capture_stop(xraudio_input_obj_t *obj);
-#ifdef XRAUDIO_KWD_ENABLED
 static bool             xraudio_input_audio_hal_open(xraudio_input_obj_t *obj, xraudio_devices_input_t device, xraudio_power_mode_t power_mode, bool privacy_mode, xraudio_input_format_t format, uint8_t *pcm_bit_qty, int *fd);
 static void             xraudio_input_audio_hal_close(xraudio_input_obj_t *obj);
-#endif
 static void             xraudio_input_sound_intensity_fifo_open(xraudio_input_obj_t *obj);
 static void             xraudio_input_sound_intensity_fifo_close(xraudio_input_obj_t *obj);
 
@@ -234,9 +231,14 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
                                                               .channel_qty   = XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY };
    obj->hal_input_obj            = NULL;
    obj->statistics               = (xraudio_input_statistics_t) { .frames_lost = 0 };
-   #ifdef XRAUDIO_KWD_ENABLED
-   obj->dsp_config               = *dsp_config;
-   #endif
+
+   if(dsp_config != NULL) {
+      obj->dsp_config            = *dsp_config;
+      obj->kwd_enabled           = true;
+   } else {
+      obj->kwd_enabled           = false;
+   }
+
    if(NULL == json_obj_input) {
       XLOGD_INFO("json_obj_input is null, using defaults");
    } else {
@@ -405,31 +407,31 @@ xraudio_result_t xraudio_input_open(xraudio_input_object_t object, xraudio_devic
    uint8_t pcm_bit_qty = 16;
    int     fd          = -1;
 
-   #ifdef XRAUDIO_KWD_ENABLED
-   xraudio_devices_input_t device_input_local = XRAUDIO_DEVICE_INPUT_LOCAL_GET(device);
-   if(device_input_local != XRAUDIO_DEVICE_INPUT_NONE) {
+   if(obj->kwd_enabled) {
+      xraudio_devices_input_t device_input_local = XRAUDIO_DEVICE_INPUT_LOCAL_GET(device);
+      if(device_input_local != XRAUDIO_DEVICE_INPUT_NONE) {
 
-      format_in.channel_qty = (device_input_local == XRAUDIO_DEVICE_INPUT_QUAD) ? 4 : (device_input_local == XRAUDIO_DEVICE_INPUT_TRI) ? 3 : 1;
+         format_in.channel_qty = (device_input_local == XRAUDIO_DEVICE_INPUT_QUAD) ? 4 : (device_input_local == XRAUDIO_DEVICE_INPUT_TRI) ? 3 : 1;
 
-      if(!xraudio_input_audio_hal_open(obj, XRAUDIO_DEVICE_INPUT_LOCAL_GET(device), power_mode, privacy_mode, format_in, &pcm_bit_qty, &fd)) {
-         XLOGD_ERROR("Unable to open microphone interface");
-         XRAUDIO_RECORD_MUTEX_UNLOCK();
-         return XRAUDIO_RESULT_ERROR_MIC_OPEN;
+         if(!xraudio_input_audio_hal_open(obj, XRAUDIO_DEVICE_INPUT_LOCAL_GET(device), power_mode, privacy_mode, format_in, &pcm_bit_qty, &fd)) {
+            XLOGD_ERROR("Unable to open microphone interface");
+            XRAUDIO_RECORD_MUTEX_UNLOCK();
+            return XRAUDIO_RESULT_ERROR_MIC_OPEN;
+         }
       }
-   }
 
-   //HAL capabilities and dsp_config might change after open(). For example when Llama loads NSM DSP image
-   #ifndef XRAUDIO_RESOURCE_MGMT
-   xraudio_hal_capabilities caps;
-   xraudio_hal_capabilities_get(&caps);
-   for(uint8_t index = 0; index < caps.input_qty; index++) { // Find the local microphone
-      if(caps.input_caps[index] & (XRAUDIO_CAPS_INPUT_LOCAL | XRAUDIO_CAPS_INPUT_LOCAL_32_BIT)) {
-          capabilities = caps.input_caps[index];
+      //HAL capabilities and dsp_config might change after open(). For example when Llama loads NSM DSP image
+      #ifndef XRAUDIO_RESOURCE_MGMT
+      xraudio_hal_capabilities caps;
+      xraudio_hal_capabilities_get(&caps);
+      for(uint8_t index = 0; index < caps.input_qty; index++) { // Find the local microphone
+         if(caps.input_caps[index] & (XRAUDIO_CAPS_INPUT_LOCAL | XRAUDIO_CAPS_INPUT_LOCAL_32_BIT)) {
+            capabilities = caps.input_caps[index];
+         }
       }
+      #endif
+      xraudio_hal_dsp_config_get(&obj->dsp_config);
    }
-   #endif
-   xraudio_hal_dsp_config_get(&obj->dsp_config);
-   #endif
 
    obj->device             = device;
    obj->resource_id        = resource_id;
@@ -481,12 +483,10 @@ void xraudio_input_close_locked(xraudio_input_obj_t *obj) {
 
    xraudio_input_sound_intensity_fifo_close(obj);
 
-   #ifdef XRAUDIO_KWD_ENABLED
    // Close the microphone interface
-   if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(obj->device) != XRAUDIO_DEVICE_INPUT_NONE) {
+   if(obj->kwd_enabled && XRAUDIO_DEVICE_INPUT_LOCAL_GET(obj->device) != XRAUDIO_DEVICE_INPUT_NONE) {
       xraudio_input_audio_hal_close(obj);
    }
-   #endif
 
    for(uint32_t group = XRAUDIO_INPUT_SESSION_GROUP_DEFAULT; group < XRAUDIO_INPUT_SESSION_GROUP_QTY; group++) {
       xraudio_input_session_t *session = &obj->sessions[group];
@@ -690,31 +690,31 @@ xraudio_result_t xraudio_input_stream_keyword_info_get(xraudio_object_t object, 
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
 
-   #ifdef XRAUDIO_KWD_ENABLED
-   xraudio_hal_stream_params_t stream_params;
-   if(!xraudio_hal_input_stream_params_get(object, &stream_params)) {
-      XLOGD_ERROR("Failed to read HAL keyword parameters");
-      return(XRAUDIO_RESULT_ERROR_INPUT);
-   }
+   if(obj->kwd_enabled) {
+      xraudio_hal_stream_params_t stream_params;
+      if(!xraudio_hal_input_stream_params_get(object, &stream_params)) {
+         XLOGD_ERROR("Failed to read HAL keyword parameters");
+         return(XRAUDIO_RESULT_ERROR_INPUT);
+      }
 
-   if(!stream_params.valid) {
-      XLOGD_ERROR("HAL reports invalid stream params");
-      return(XRAUDIO_RESULT_ERROR_INPUT);
-   }
+      if(!stream_params.valid) {
+         XLOGD_ERROR("HAL reports invalid stream params");
+         return(XRAUDIO_RESULT_ERROR_INPUT);
+      }
 
-   #ifdef XRAUDIO_DGA_ENABLED
-   xraudio_input_session_t *session = xraudio_input_source_to_session(obj, source);
-   session->kwd_peak_power_dBFS                    = stream_params.kwd_peak_power_dBFS;
-   session->dynamic_gain_update                    = keyword_detector_result->dynamic_gain_update;
-   #endif
-   keyword_detector_result->endpoints.begin        = stream_params.kwd_begin;
-   keyword_detector_result->endpoints.end          = stream_params.kwd_end;
-   keyword_detector_result->endpoints.pre          = stream_params.kwd_pre;
-   keyword_detector_result->dsp_name               = stream_params.dsp_name;
-   keyword_detector_result->sensitivity            = stream_params.sensitivity;
-   keyword_detector_result->detector_name          = stream_params.keyword_detector;
-   keyword_detector_result->endpoints.kwd_gain     = stream_params.dsp_kwd_gain;
-   #endif
+      #ifdef XRAUDIO_DGA_ENABLED
+      xraudio_input_session_t *session = xraudio_input_source_to_session(obj, source);
+      session->kwd_peak_power_dBFS                    = stream_params.kwd_peak_power_dBFS;
+      session->dynamic_gain_update                    = keyword_detector_result->dynamic_gain_update;
+      #endif
+      keyword_detector_result->endpoints.begin        = stream_params.kwd_begin;
+      keyword_detector_result->endpoints.end          = stream_params.kwd_end;
+      keyword_detector_result->endpoints.pre          = stream_params.kwd_pre;
+      keyword_detector_result->dsp_name               = stream_params.dsp_name;
+      keyword_detector_result->sensitivity            = stream_params.sensitivity;
+      keyword_detector_result->detector_name          = stream_params.keyword_detector;
+      keyword_detector_result->endpoints.kwd_gain     = stream_params.dsp_kwd_gain;
+   }
 
    return(XRAUDIO_RESULT_OK);
 }
@@ -874,16 +874,16 @@ xraudio_result_t xraudio_input_stream_to_pipe(xraudio_input_object_t object, xra
       session->offset[index]          = offset;
       session->until[index]           = until;
 
-      #ifdef XRAUDIO_KWD_ENABLED
-      if((index == 0) && (from == XRAUDIO_INPUT_RECORD_FROM_KEYWORD_BEGIN)) {
-         XLOGD_INFO("src <%s> calling xraudio_hal_input_stream-start_set with offset %d", xraudio_devices_input_str(source), session->stream_keyword_begin);
-         if(!xraudio_hal_input_stream_start_set(obj->hal_input_obj, session->stream_keyword_begin)) {
-            XLOGD_ERROR("src <%s> failed to set stream start point", xraudio_devices_input_str(source));
-            XRAUDIO_RECORD_MUTEX_UNLOCK();
-            return(XRAUDIO_RESULT_ERROR_INPUT);
+      if(obj->kwd_enabled) {
+         if((index == 0) && (from == XRAUDIO_INPUT_RECORD_FROM_KEYWORD_BEGIN)) {
+            XLOGD_INFO("src <%s> calling xraudio_hal_input_stream-start_set with offset %d", xraudio_devices_input_str(source), session->stream_keyword_begin);
+            if(!xraudio_hal_input_stream_start_set(obj->hal_input_obj, session->stream_keyword_begin)) {
+               XLOGD_ERROR("src <%s> failed to set stream start point", xraudio_devices_input_str(source));
+               XRAUDIO_RECORD_MUTEX_UNLOCK();
+               return(XRAUDIO_RESULT_ERROR_INPUT);
+            }
          }
       }
-      #endif
       XLOGD_INFO("src <%s> index <%u> pipe <%d> from <%s> offset <%d> until <%s> <%s>", xraudio_devices_input_str(source), index, pipe, xraudio_input_record_from_str(from), offset, xraudio_input_record_until_str(until), (callback == NULL) ? "sync" : "async");
    }
 
@@ -1600,11 +1600,14 @@ xraudio_result_t xraudio_input_dispatch_record(xraudio_input_obj_t *obj, xraudio
    msg.audio_buf_samples        = session->audio_buf_samples;
    msg.audio_buf_sample_qty     = session->audio_buf_sample_qty;
    msg.latency_mode             = session->latency_mode;
-   #if defined(XRAUDIO_DGA_ENABLED) && defined(XRAUDIO_KWD_ENABLED)
-   msg.kwd_peak_power_dBFS      = session->kwd_peak_power_dBFS;
-   msg.dynamic_gain_update      = session->dynamic_gain_update;
-   session->kwd_peak_power_dBFS = 0;
-   #endif
+   if(obj->kwd_enabled) {
+      msg.kwd_peak_power_dBFS      = session->kwd_peak_power_dBFS;
+      msg.dynamic_gain_update      = session->dynamic_gain_update;
+      session->kwd_peak_power_dBFS = 0;
+   } else {
+      msg.kwd_peak_power_dBFS      = 0;
+      msg.dynamic_gain_update      = 0.0;
+   }
 
    // Reset latency mode flag back to normal. Latency mode will persist until the end of the stream.
    session->latency_mode       = XRAUDIO_STREAM_LATENCY_NORMAL;
@@ -1773,7 +1776,6 @@ xraudio_result_t xraudio_input_dispatch_capture_stop(xraudio_input_obj_t *obj) {
    return(XRAUDIO_RESULT_OK);
 }
 
-#ifdef XRAUDIO_KWD_ENABLED
 bool xraudio_input_audio_hal_open(xraudio_input_obj_t *obj, xraudio_devices_input_t device, xraudio_power_mode_t power_mode, bool privacy_mode, xraudio_input_format_t format, uint8_t *pcm_bit_qty, int *fd) {
    #ifdef INPUT_TIMING_DATA
    rdkx_timestamp_get(&obj->timing_data_input_open.begin);
@@ -1818,7 +1820,6 @@ void xraudio_input_audio_hal_close(xraudio_input_obj_t *obj) {
    rdkx_timestamp_get(&obj->timing_data_input_close.end);
    #endif
 }
-#endif
 
 void xraudio_input_statistics_clear(xraudio_input_object_t object, uint32_t statistics) {
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
@@ -2054,7 +2055,6 @@ static void xraudio_input_stats_sound_focus_print(xraudio_input_obj_t *obj, uint
    #endif
 }
 
-#ifdef XRAUDIO_KWD_ENABLED
 xraudio_hal_input_obj_t xraudio_input_hal_obj_external_get(xraudio_hal_input_obj_t hal_obj_input, xraudio_devices_input_t device, xraudio_input_format_t format, xraudio_device_input_configuration_t *configuration) {
    if(!xraudio_devices_input_external_is_valid(device)) {
       XLOGD_ERROR("not a valid external device");
@@ -2063,7 +2063,6 @@ xraudio_hal_input_obj_t xraudio_input_hal_obj_external_get(xraudio_hal_input_obj
 
    return xraudio_hal_input_open(hal_obj_input, device, format, configuration);
 }
-#endif
 
 xraudio_input_session_t *xraudio_input_source_to_session(xraudio_input_obj_t *obj, xraudio_devices_input_t source) {
    return(&obj->sessions[xraudio_input_source_to_group(source)]);
