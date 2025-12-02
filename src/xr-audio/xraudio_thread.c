@@ -1160,7 +1160,7 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
    int32_t  offset                      = record->stream_begin_offset[0];
 
    xraudio_input_record_from_t stream_from = record->stream_from[0];
-   XLOGD_DEBUG("<%s> active chan <%u> samples avail <%u> kwd begin <%d> end <%d> offset <%d>\n", xraudio_input_record_from_str(stream_from), active_chan, pre_detection_samples_avail, kwd_begin, kwd_end, offset);
+   XLOGD_INFO("<%s> active chan <%u> samples avail <%u> kwd begin <%d> end <%d> offset <%d>\n", xraudio_input_record_from_str(stream_from), active_chan, pre_detection_samples_avail, kwd_begin, kwd_end, offset);
 
    if(record->subsequent && XRAUDIO_DEVICE_INPUT_LOCAL_GET(instance->source) != XRAUDIO_DEVICE_INPUT_NONE) { // Use same input beam and dynamic gain from last stream
       instance->dynamic_gain_set = true;
@@ -2477,6 +2477,10 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
 
       #if defined(XRAUDIO_KWD_ENABLED)
       uint8_t active_chan = (params->dsp_config.input_asr_max_channel_qty == 0) ? session->keyword_detector.active_chan : 0;   // kwd active ("best") channel
+      if(params->dsp_config.input_asr_max_channel_qty == 0) {
+         xraudio_hal_input_doa_beam_event(params->hal_input_obj, &active_chan);  // override with doa result
+         session->keyword_detector.active_chan = active_chan;
+      }
       #else
       uint8_t active_chan = 0;                                       // ASR channel reserved for channel 0
       #endif
