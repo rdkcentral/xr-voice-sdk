@@ -5597,7 +5597,7 @@ bool xraudio_in_session_group_semaphore_lock(xraudio_devices_input_t source) {
    uint32_t group = xraudio_input_source_to_group(source); // Select the group based on source type
 
    if(xraudio_atomic_compare_and_set(&g_voice_session.source[group], XRAUDIO_DEVICE_INPUT_NONE, source)) {
-      XLOGD_TELEMETRY("group <%s> source <%s>", xraudio_input_session_group_str(group), xraudio_devices_input_str(source));
+      XLOGD_AUTOMATION_TELEMETRY("group <%s> source <%s>", xraudio_input_session_group_str(group), xraudio_devices_input_str(source));
       return(true);
    }
    //xraudio_devices_input_str() returns the address of a static variable, so cannot use it twice in a single print
