@@ -93,6 +93,10 @@ typedef struct {
    bool         talker_thresh_enabled;    ///< true if the detector has enabled talker level threshold test before reporting wakeup word detection.
    float        talker_threshold_dBSPL;   ///< the minimum talker level (in dBSPL) allowed below which wakeup words are ignored.
    float        kwd_gain;                 ///< the gain applied to audio at input of keyword detector
+   int32_t      detector_sowuw;           ///< The detector raw start of wakeup word offset in samples (without preroll), if available
+   int32_t      detector_eowuw;           ///< The detector raw end of wakeup word offset in samples (without postroll), if available
+   const char * detector_model_version;   ///< The detector model version string, if available
+   const char * detector_model_name;      ///< The detector model name string, if available
 } xraudio_kwd_endpoints_t;
 
 /// @brief xraudio keyword result structure

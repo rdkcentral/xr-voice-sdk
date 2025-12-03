@@ -2910,6 +2910,16 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
                detector->result.detector_name = detector_chan->endpoints.detector_name;
             }
 
+            //if kwd detector provided model version information, use it
+            if(detector_chan->endpoints.detector_model_version != NULL) {
+               detector->result.detector_model_version = detector_chan->endpoints.detector_model_version;
+            }
+
+            //if kwd detector provided model name information, use it
+            if(detector_chan->endpoints.detector_model_name != NULL) {
+               detector->result.detector_model_name = detector_chan->endpoints.detector_model_name;
+            }
+
             // update channel's results
             detector->result.channels[chan].score = detector_chan->score;
             detector->result.channels[chan].snr   = detector_chan->snr;
@@ -2978,11 +2988,16 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
             int32_t start_wuw      = 0;
             int32_t end_wuw        = 0;
             if(xraudio_kwd_postprocess(detector->kwd_object, detector->active_chan, &start_wuw, &end_wuw)) {
-               detector->result.endpoints.begin -= start_wuw;
-               detector->result.endpoints.end   -= end_wuw;
+               detector->result.endpoints.begin -= start_wuw;  // start of WW including preroll
+               detector->result.endpoints.end   -= end_wuw;    // end of wuw including postroll
                detector->result.endpoints.valid = true;
+               detector->result.endpoints.detector_sowuw = start_wuw;   // "raw" detector sowuw if available
+               detector->result.endpoints.detector_eowuw = end_wuw;     // "raw" detector eowuw if available
+               //detector->result.endpoints.detector_model_version =
+               //detector->result.endpoints.detector_model_name =
+
             }
-            XLOGD_DEBUG("begin <%d>, end <%d>, start_wuw <%d>, end_wuw <%d>, eos_eowuw <%d>", detector->result.endpoints.begin, detector->result.endpoints.end,
+            XLOGD_INFO("begin <%d>, end <%d>, start_wuw <%d>, end_wuw <%d>, eos_eowuw <%d>", detector->result.endpoints.begin, detector->result.endpoints.end,
                   start_wuw, end_wuw, instance->eos_end_of_wake_word_samples);
          } else if((instance->eos_event == XRAUDIO_EOS_EVENT_ENDOFSPEECH) ||
                (instance->eos_event == XRAUDIO_EOS_EVENT_TIMEOUT_INITIAL) ||

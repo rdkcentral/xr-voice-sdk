@@ -26,6 +26,7 @@
 #include <errno.h>
 #include "safec_lib.h"
 #define XLOG_MODULE_ID XLOG_MODULE_ID_XRSR
+#define  XLOG_PRINT_LINE
 #include <rdkx_logger.h>
 #include <xr_timestamp.h>
 #include <xr_timer.h>

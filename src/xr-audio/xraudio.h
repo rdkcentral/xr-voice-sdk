@@ -230,6 +230,8 @@ typedef struct {
    const char *              dsp_name;
    float                     sensitivity;
    float *                   dynamic_gain_update;
+   const char *              detector_model_version;
+   const char *              detector_model_name;
 } xraudio_keyword_detector_result_t;
 
 typedef struct {

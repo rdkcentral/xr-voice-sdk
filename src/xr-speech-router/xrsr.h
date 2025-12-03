@@ -416,18 +416,22 @@ typedef struct {
 /// @brief XRSR keyword detector result structure
 /// @details The keyword detector result data structure returned in the session begin callback function.
 typedef struct {
-   float        score;                ///< Confidence score from the keyword detection event in percent (0-100)
-   float        snr;                  ///< Signal to noise ration in DB (from -100 to +100)
-   uint16_t     doa;                  ///< Angular direction of arrival in degrees (0-359)
-   int32_t      offset_buf_begin;     ///< Negative offset in samples to the beginning of audio buffer
-   int32_t      offset_kwd_begin;     ///< Negative offset in samples to the keyword begin point
-   int32_t      offset_kwd_end;       ///< Negative offset in samples to the keyword end point
-   float        kwd_gain;             ///< Fixed gain applied to audio input of the keyword detector
-   const char * detector_name;        ///< Name of keyword detector that triggered
-   const char * dsp_name;             ///< Name of DSP preprocessing in use
-   float        dynamic_gain;         ///< Dynamic gain value calculated after keyword detection
-   float        sensitivity;          ///< Sensitivity of the keyword detector
-   float *      dynamic_gain_update;  ///< Reporting dynamic gain recalculated by xraudio
+   float        score;                    ///< Confidence score from the keyword detection event in percent (0-100)
+   float        snr;                      ///< Signal to noise ration in DB (from -100 to +100)
+   uint16_t     doa;                      ///< Angular direction of arrival in degrees (0-359)
+   int32_t      offset_buf_begin;         ///< Negative offset in samples to the beginning of audio buffer
+   int32_t      offset_kwd_begin;         ///< Negative offset in samples to the keyword begin point
+   int32_t      offset_kwd_end;           ///< Negative offset in samples to the keyword end point
+   float        kwd_gain;                 ///< Fixed gain applied to audio input of the keyword detector
+   const char * detector_name;            ///< Name of keyword detector that triggered
+   const char * dsp_name;                 ///< Name of DSP preprocessing in use
+   float        dynamic_gain;             ///< Dynamic gain value calculated after keyword detection
+   float        sensitivity;              ///< Sensitivity of the keyword detector
+   float *      dynamic_gain_update;      ///< Reporting dynamic gain recalculated by xraudio
+   int32_t      detector_sowuw;           ///< The detector raw start of wakeup word
+   int32_t      detector_eowuw;           ///< The detector raw end of wakeup word
+   const char * detector_model_version;   ///< The detector model version string
+   const char * detector_model_name;      ///< The detector model name string
 } xrsr_keyword_detector_result_t;
 
 /// @brief XRSR destination params structure
