@@ -28,6 +28,10 @@ extern "C" {
 
 bool vsdk_curtail_xraudio_enabled(void);
 bool vsdk_ffv_enabled(void);
+bool vsdk_sdf_enabled(void);
+bool vsdk_ovc_enabled(void);
+bool vsdk_ppr_enabled(void);
+bool vsdk_out_enabled(void);
 
 #ifdef __cplusplus
 }

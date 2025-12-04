@@ -28,6 +28,7 @@
 #include <math.h>
 #include <semaphore.h>
 #include "xraudio.h"
+#include "vsdk_private.h"
 #include "xraudio_private.h"
 
 #define XRAUDIO_OUTPUT_IDENTIFIER (0x9C834920)
@@ -124,7 +125,7 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->play_bumper          = 0;
    obj->dsp_config           = *dsp_config;
    obj->eos_enabled          = false;
-   obj->ovc_enabled          = false;
+   obj->ovc_enabled          = vsdk_ovc_enabled();
    
    if(obj->eos_enabled) {
       if(NULL == json_obj_output) {

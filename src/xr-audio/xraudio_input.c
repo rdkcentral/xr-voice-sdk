@@ -31,6 +31,7 @@
 #include <semaphore.h>
 #include <jansson.h>
 #include "xraudio.h"
+#include "vsdk_private.h"
 #include "xraudio_private.h"
 
 #define POLAR_ACTIVITY_PERIOD_IN_MSEC    (50)
@@ -227,11 +228,11 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
 
    if(dsp_config != NULL) {
       obj->dsp_config            = *dsp_config;
-      obj->kwd_enabled           = true;
-      obj->dga_enabled           = true;
-      obj->eos_enabled           = true;
-      obj->sdf_enabled           = false;
-      obj->ppr_enabled           = false;
+      obj->kwd_enabled           = vsdk_sdf_enabled();
+      obj->dga_enabled           = obj->kwd_enabled;
+      obj->eos_enabled           = obj->kwd_enabled;
+      obj->sdf_enabled           = vsdk_sdf_enabled();
+      obj->ppr_enabled           = vsdk_ppr_enabled();
    } else {
       obj->kwd_enabled           = false;
       obj->dga_enabled           = false;

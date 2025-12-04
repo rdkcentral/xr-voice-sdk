@@ -37,6 +37,7 @@ typedef struct {
    void *handle_ffv_sdf;
    void *handle_ffv_ovc;
    void *handle_ffv_ppr;
+   void *handle_ffv_out;
 } vsdk_ffv_plugin_handles_t;
 
 typedef struct {
@@ -47,6 +48,7 @@ typedef struct {
    bool                      sdf_enabled;
    bool                      ovc_enabled;
    bool                      ppr_enabled;
+   bool                      out_enabled;
    vsdk_thread_poll_func_t   func;
    void *                    data;
 } vsdk_global_t;
@@ -57,7 +59,7 @@ static void  vsdk_thread_response(void);
 static bool  vsdk_file_exists(const char *filename);
 static void  vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio);
 static bool  vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles);
-static void *vsdk_load_plugin_ffv_hal(void);
+static void *vsdk_load_plugin_ffv_hal(void **handle_out);
 static void *vsdk_load_plugin_ffv_kwd(void);
 static void *vsdk_load_plugin_ffv_alg(void **handle_ppr);
 static void *vsdk_load_plugin_ffv_sdf(void);
@@ -95,8 +97,9 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
    g_vsdk.curtail_xraudio = curtail_xraudio;
    g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
    g_vsdk.sdf_enabled     = (g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) ? true : false;
-   g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;;
-   g_vsdk.ppr_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) ? true : false;;
+   g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;
+   g_vsdk.ppr_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) ? true : false;
+   g_vsdk.out_enabled     = (g_vsdk.ffv_plugins.handle_ffv_out != NULL) ? true : false;
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -120,8 +123,9 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
    g_vsdk.curtail_xraudio = curtail_xraudio;
    g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
    g_vsdk.sdf_enabled     = (g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) ? true : false;
-   g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;;
-   g_vsdk.ppr_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) ? true : false;;
+   g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;
+   g_vsdk.ppr_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) ? true : false;
+   g_vsdk.out_enabled     = (g_vsdk.ffv_plugins.handle_ffv_out != NULL) ? true : false;
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -158,6 +162,11 @@ void vsdk_term(void) {
       XLOGD_INFO("unload FFV PPR");
       dlclose(g_vsdk.ffv_plugins.handle_ffv_ppr);
       g_vsdk.ffv_plugins.handle_ffv_ppr = NULL;
+   }
+   if(g_vsdk.ffv_plugins.handle_ffv_out != NULL) {
+      XLOGD_INFO("unload FFV OUT");
+      dlclose(g_vsdk.ffv_plugins.handle_ffv_out);
+      g_vsdk.ffv_plugins.handle_ffv_out = NULL;
    }
 
    g_vsdk.initialized = false;
@@ -206,6 +215,22 @@ bool vsdk_curtail_xraudio_enabled(void) {
 
 bool vsdk_ffv_enabled(void) {
    return(g_vsdk.ffv_enabled);
+}
+
+bool vsdk_sdf_enabled(void) {
+   return(g_vsdk.sdf_enabled);
+}
+
+bool vsdk_ovc_enabled(void) {
+   return(g_vsdk.ovc_enabled);
+}
+
+bool vsdk_ppr_enabled(void) {
+   return(g_vsdk.ppr_enabled);
+}
+
+bool vsdk_out_enabled(void) {
+   return(g_vsdk.out_enabled);
 }
 
 bool vsdk_file_exists(const char *filename) {
@@ -275,7 +300,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
    memset(handles, 0, sizeof(*handles));
    do {
-      handles->handle_ffv_hal = vsdk_load_plugin_ffv_hal();
+      handles->handle_ffv_hal = vsdk_load_plugin_ffv_hal(&handles->handle_ffv_out);
 
       if(handles->handle_ffv_hal == NULL) {
          break;
@@ -284,18 +309,12 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
       handles->handle_ffv_kwd  = vsdk_load_plugin_ffv_kwd();
 
       if(handles->handle_ffv_kwd == NULL) {
-         dlclose(handles->handle_ffv_hal);
-         handles->handle_ffv_hal = NULL;
          break;
       }
 
       handles->handle_ffv_alg = vsdk_load_plugin_ffv_alg(&handles->handle_ffv_ppr);
 
       if(handles->handle_ffv_alg == NULL) {
-         dlclose(handles->handle_ffv_hal);
-         dlclose(handles->handle_ffv_kwd);
-         handles->handle_ffv_hal = NULL;
-         handles->handle_ffv_kwd = NULL;
          break;
       }
 
@@ -303,6 +322,37 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
       handles->handle_ffv_ovc = vsdk_load_plugin_ffv_ovc();
       ret = true;
    } while(0);
+
+   if(!ret) {
+      if(handles->handle_ffv_hal != NULL) {
+         dlclose(handles->handle_ffv_hal);
+         handles->handle_ffv_hal = NULL;
+      }
+      if(handles->handle_ffv_kwd != NULL) {
+         dlclose(handles->handle_ffv_kwd);
+         handles->handle_ffv_kwd = NULL;
+      }
+      if(handles->handle_ffv_alg != NULL) {
+         dlclose(handles->handle_ffv_alg);
+         handles->handle_ffv_alg = NULL;
+      }
+      if(handles->handle_ffv_sdf != NULL) {
+         dlclose(handles->handle_ffv_sdf);
+         handles->handle_ffv_sdf = NULL;
+      }
+      if(handles->handle_ffv_ovc != NULL) {
+         dlclose(handles->handle_ffv_ovc);
+         handles->handle_ffv_ovc = NULL;
+      }
+      if(handles->handle_ffv_ppr != NULL) {
+         dlclose(handles->handle_ffv_ppr);
+         handles->handle_ffv_ppr = NULL;
+      }
+      if(handles->handle_ffv_out != NULL) {
+         dlclose(handles->handle_ffv_out);
+         handles->handle_ffv_out = NULL;
+      }
+   }
 
    return(ret);
 }
@@ -376,7 +426,7 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    return(handle);
 }
 
-void *vsdk_load_plugin_ffv_hal(void) {
+void *vsdk_load_plugin_ffv_hal(void **handle_out) {
    void *handle = NULL;
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-hal.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-hal.so";
