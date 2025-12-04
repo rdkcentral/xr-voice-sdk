@@ -86,7 +86,6 @@ typedef struct {
    bool                              kwd_enabled;
    bool                              dga_enabled;
    bool                              eos_enabled;
-   bool                              sdf_enabled;
    bool                              ppr_enabled;
    bool                              out_enabled;
    bool                              curtail_enabled;
@@ -187,7 +186,6 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->kwd_enabled                           = vsdk_ffv_enabled();
    obj->dga_enabled                           = obj->kwd_enabled;
    obj->eos_enabled                           = obj->kwd_enabled;
-   obj->sdf_enabled                           = vsdk_sdf_enabled();
    obj->ppr_enabled                           = (vsdk_ppr_plugin_get() == NULL) ? false : true;
    obj->out_enabled                           = vsdk_out_enabled();
 

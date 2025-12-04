@@ -124,7 +124,7 @@ typedef struct {
    bool                          kwd_enabled;
    bool                          dga_enabled;
    bool                          eos_enabled;
-   bool                          sdf_enabled;
+   xraudio_sdf_plugin_api_t *    sdf_plugin;
    xraudio_ppr_plugin_api_t *    ppr_plugin;
    
    xraudio_eos_object_t          obj_eos[XRAUDIO_INPUT_MAX_CHANNEL_QTY];
@@ -228,16 +228,16 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
 
    if(dsp_config != NULL) {
       obj->dsp_config            = *dsp_config;
-      obj->kwd_enabled           = vsdk_sdf_enabled();
+      obj->kwd_enabled           = vsdk_ffv_enabled();
       obj->dga_enabled           = obj->kwd_enabled;
       obj->eos_enabled           = obj->kwd_enabled;
-      obj->sdf_enabled           = vsdk_sdf_enabled();
+      obj->sdf_plugin            = vsdk_sdf_plugin_get();
       obj->ppr_plugin            = vsdk_ppr_plugin_get();
    } else {
       obj->kwd_enabled           = false;
       obj->dga_enabled           = false;
       obj->eos_enabled           = false;
-      obj->sdf_enabled           = false;
+      obj->sdf_plugin            = NULL;
       obj->ppr_plugin            = NULL;
    }
 
@@ -269,8 +269,8 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
          obj->obj_eos[i] = xraudio_eos_object_create(false, jeos_config);
       }
    }
-   if(obj->sdf_enabled) {
-      obj->obj_sdf                  = xraudio_sdf_object_create(hal_obj);
+   if(obj->sdf_plugin != NULL) {
+      obj->obj_sdf                  = obj->sdf_plugin->object_create(hal_obj);
       obj->sound_focus_sample_count = 0;
    }
    
@@ -332,8 +332,8 @@ void xraudio_input_object_destroy(xraudio_input_object_t object) {
             }
          }
       }
-      if(obj->sdf_enabled && obj->obj_sdf != NULL) {
-         xraudio_sdf_object_destroy(obj->obj_sdf);
+      if(obj->sdf_plugin != NULL && obj->obj_sdf != NULL) {
+         obj->sdf_plugin->object_destroy(obj->obj_sdf);
          obj->obj_sdf = NULL;
       }
       #ifdef INPUT_TIMING_DATA
@@ -1234,8 +1234,8 @@ void xraudio_input_sound_focus_set(xraudio_input_object_t object, xraudio_sdf_mo
       XLOGD_ERROR("Invalid object.");
       return;
    }
-   if(obj->sdf_enabled) {
-      xraudio_sdf_focus_set(obj->obj_sdf, mode);
+   if(obj->sdf_plugin != NULL) {
+      obj->sdf_plugin->focus_set(obj->obj_sdf, mode);
    }
 }
 
@@ -1268,11 +1268,11 @@ uint16_t xraudio_input_signal_direction_get(xraudio_input_object_t object) {
       return(0);
    }
 
-   if(obj->sdf_enabled) {
+   if(obj->sdf_plugin != NULL) {
       xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
 
       if(session->state == XRAUDIO_INPUT_STATE_DETECTING || session->state == XRAUDIO_INPUT_STATE_RECORDING || session->state == XRAUDIO_INPUT_STATE_STREAMING) {
-         return(xraudio_sdf_signal_direction_get(obj->obj_sdf));
+         return(obj->sdf_plugin->signal_direction_get(obj->obj_sdf));
       }
    }
    return(0);
@@ -1358,7 +1358,7 @@ void xraudio_input_sound_focus_update(xraudio_input_object_t object, uint32_t sa
       XLOGD_ERROR("Invalid object.");
       return;
    }
-   if(obj->sdf_enabled) {
+   if(obj->sdf_plugin != NULL) {
       if(obj->device != XRAUDIO_DEVICE_INPUT_TRI && obj->device != XRAUDIO_DEVICE_INPUT_QUAD) {
          XLOGD_DEBUG("Sound focus not valid for single microphone");
          return;
@@ -2033,19 +2033,19 @@ static void xraudio_input_stats_timing_print(xraudio_input_obj_t *obj) {
 }
 
 static void xraudio_input_stats_sound_focus_clear(xraudio_input_obj_t *obj, uint32_t statistics) {
-   if(!obj->sdf_enabled) {
+   if(obj->sdf_plugin == NULL) {
       XLOGD_INFO("sound focus is disabled");
       return;
    }
-   xraudio_sdf_statistics_clear(obj->obj_sdf, statistics);
+   obj->sdf_plugin->statistics_clear(obj->obj_sdf, statistics);
 }
 
 static void xraudio_input_stats_sound_focus_print(xraudio_input_obj_t *obj, uint32_t statistics) {
-   if(!obj->sdf_enabled) {
+   if(obj->sdf_plugin == NULL) {
       XLOGD_INFO("sound focus is disabled");
       return;
    }
-   xraudio_sdf_statistics_print(obj->obj_sdf, statistics);
+   obj->sdf_plugin->statistics_print(obj->obj_sdf, statistics);
 }
 
 xraudio_hal_input_obj_t xraudio_input_hal_obj_external_get(xraudio_hal_input_obj_t hal_obj_input, xraudio_devices_input_t device, xraudio_input_format_t format, xraudio_device_input_configuration_t *configuration) {
