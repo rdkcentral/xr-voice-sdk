@@ -195,11 +195,9 @@ typedef struct {
    int16_t samples[XRAUDIO_INPUT_FRAME_SAMPLE_QTY];
 } xraudio_audio_frame_int16_t;
 
-#ifdef XRAUDIO_PPR_ENABLED
 typedef struct {
    int32_t samples[XRAUDIO_INPUT_FRAME_SAMPLE_QTY];
 } xraudio_audio_frame_int32_t;
-#endif
 
 typedef struct {
    xraudio_audio_frame_int16_t frames[XRAUDIO_INPUT_MAX_FRAME_GROUP_QTY];
@@ -432,12 +430,10 @@ static int  xraudio_in_capture_internal_to_file(xraudio_session_record_t *sessio
 static bool xraudio_in_capture_internal_filename_get(char *filename, const char *dir_path, uint32_t filename_size, xraudio_encoding_t encoding, uint32_t file_index, const char *stream_id);
 
 static void xraudio_samples_convert_fp32_int16(int16_t *samples_int16, float *samples_fp32, uint32_t sample_qty, uint32_t bit_qty);
-#ifdef XRAUDIO_PPR_ENABLED
 static void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, xraudio_ppr_event_t *ppr_event);
 //static void xraudio_samples_convert_int16_int32(int16_t *int16buf, int32_t *int32buf, uint32_t sample_qty_frame, uint8_t sample_size);
 static void xraudio_samples_convert_int32_int16(int16_t *int16buf, int32_t *int32buf, uint32_t sample_qty_frame, uint32_t bit_qty);
 static void xraudio_samples_convert_int32_fp32(float *fp32buf, int32_t *int32buf, uint32_t sample_qty_frame, uint32_t bit_qty);
-#endif
 static void xraudio_samples_convert_fp32_int32(int32_t *int32buf, float *fp32buf, uint32_t sample_qty_frame, uint32_t bit_qty);
 
 static int      xraudio_capture_file_filter_all(const struct dirent *name);
@@ -2342,12 +2338,10 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
 
    xraudio_input_stats_timestamp_frame_read(params->obj_input);
 
-   #ifdef XRAUDIO_PPR_ENABLED
-   xraudio_ppr_event_t ppr_event;
-   if (params->dsp_config.ppr_enabled) {
+   xraudio_ppr_event_t ppr_event = XRAUDIO_PPR_EVENT_NONE;
+   if(params->ppr_enabled && params->dsp_config.ppr_enabled) {
       xraudio_preprocess_mic_data(params, session, &ppr_event);
    }
-   #endif
 
    for(uint8_t chan = 0; chan < chan_qty_mic; ++chan) {
       if(session->eos_detector.single_channel < chan_qty_mic) { // If single channel is specified, handle it accordingly
@@ -2374,27 +2368,27 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
          if(eos_event != XRAUDIO_EOS_EVENT_NONE) {
             XLOGD_DEBUG("eos event: %s", xraudio_eos_event_str(eos_event));
          }
-         #ifdef XRAUDIO_PPR_ENABLED
-         xraudio_eos_event_t eos_event_ppr = XRAUDIO_EOS_EVENT_NONE;
-         if (params->dsp_config.ppr_enabled) {
-            if(ppr_event != XRAUDIO_PPR_EVENT_NONE) {
-               XLOGD_DEBUG("ppr event: %s", xraudio_ppr_event_str(ppr_event));
+         if(params->ppr_enabled) {
+            xraudio_eos_event_t eos_event_ppr = XRAUDIO_EOS_EVENT_NONE;
+            if (params->dsp_config.ppr_enabled) {
+               if(ppr_event != XRAUDIO_PPR_EVENT_NONE) {
+                  XLOGD_DEBUG("ppr event: %s", xraudio_ppr_event_str(ppr_event));
+               }
+               switch(ppr_event) {
+                  case XRAUDIO_PPR_EVENT_ENDOFSPEECH:     eos_event_ppr = XRAUDIO_EOS_EVENT_ENDOFSPEECH;     break;
+                  case XRAUDIO_PPR_EVENT_TIMEOUT_INITIAL: eos_event_ppr = XRAUDIO_EOS_EVENT_TIMEOUT_INITIAL; break;
+                  case XRAUDIO_PPR_EVENT_TIMEOUT_END:     eos_event_ppr = XRAUDIO_EOS_EVENT_TIMEOUT_END;     break;
+                  case XRAUDIO_PPR_EVENT_NONE:
+                  case XRAUDIO_PPR_EVENT_STARTOFSPEECH:
+                  case XRAUDIO_PPR_EVENT_LOCAL_KEYWORD_DETECTED:
+                  case XRAUDIO_PPR_EVENT_REFERENCE_KEYWORD_DETECTED:
+                  case XRAUDIO_PPR_EVENT_INVALID:       break;
+               }
             }
-            switch(ppr_event) {
-               case XRAUDIO_PPR_EVENT_ENDOFSPEECH:     eos_event_ppr = XRAUDIO_EOS_EVENT_ENDOFSPEECH;     break;
-               case XRAUDIO_PPR_EVENT_TIMEOUT_INITIAL: eos_event_ppr = XRAUDIO_EOS_EVENT_TIMEOUT_INITIAL; break;
-               case XRAUDIO_PPR_EVENT_TIMEOUT_END:     eos_event_ppr = XRAUDIO_EOS_EVENT_TIMEOUT_END;     break;
-               case XRAUDIO_PPR_EVENT_NONE:
-               case XRAUDIO_PPR_EVENT_STARTOFSPEECH:
-               case XRAUDIO_PPR_EVENT_LOCAL_KEYWORD_DETECTED:
-               case XRAUDIO_PPR_EVENT_REFERENCE_KEYWORD_DETECTED:
-               case XRAUDIO_PPR_EVENT_INVALID:       break;
+            if (!params->dsp_config.eos_enabled) {
+               eos_event = eos_event_ppr;
             }
          }
-         if (!params->dsp_config.eos_enabled) {
-            eos_event = eos_event_ppr;
-         }
-         #endif
          if(instance->use_hal_eos) {
             if(eos_event_hal == XRAUDIO_EOS_EVENT_NONE) {
                eos_event = XRAUDIO_EOS_EVENT_NONE;
@@ -5186,7 +5180,6 @@ void xraudio_samples_convert_fp32_int16(int16_t *samples_int16, float *samples_f
    }
 }
 
-#ifdef XRAUDIO_PPR_ENABLED
 /*void xraudio_samples_convert_int16_int32(int16_t *int16buf, int32_t *int32buf, uint32_t sample_qty_frame, uint32_t bit_qty) {
    uint32_t sample;
    int32_t *pi32 = int32buf;
@@ -5219,7 +5212,6 @@ void xraudio_samples_convert_int32_fp32(float *fp32buf, int32_t *int32buf, uint3
       *pf32++ = *pi32++;
    }
 }
-#endif
 
 void xraudio_samples_convert_fp32_int32(int32_t *int32buf, float *fp32buf, uint32_t sample_qty_frame, uint32_t bit_qty) {
    uint32_t sample;
@@ -5517,7 +5509,6 @@ void xraudio_cpu_util_mode_exit(xraudio_session_record_t *session) {
    session->cpu_util_mode = XRAUDIO_STREAM_CPU_UTIL_NORMAL;
 }
 
-#ifdef XRAUDIO_PPR_ENABLED
 void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, xraudio_ppr_event_t *ppr_event) {
    xraudio_devices_input_t device_input_local = XRAUDIO_DEVICE_INPUT_LOCAL_GET(session->devices_input);
    xraudio_devices_input_t device_input_ecref = XRAUDIO_DEVICE_INPUT_EC_REF_GET(session->devices_input);
@@ -5603,4 +5594,3 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
       }
    }
 }
-#endif  // end #define XRAUDIO_PPR_ENABLED

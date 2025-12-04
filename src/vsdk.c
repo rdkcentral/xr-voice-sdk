@@ -34,6 +34,9 @@ typedef struct {
    void *handle_ffv_hal;
    void *handle_ffv_kwd;
    void *handle_ffv_alg;
+   void *handle_ffv_sdf;
+   void *handle_ffv_ovc;
+   void *handle_ffv_ppr;
 } vsdk_ffv_plugin_handles_t;
 
 typedef struct {
@@ -41,6 +44,9 @@ typedef struct {
    bool                      curtail_xraudio;
    vsdk_ffv_plugin_handles_t ffv_plugins;
    bool                      ffv_enabled;
+   bool                      sdf_enabled;
+   bool                      ovc_enabled;
+   bool                      ppr_enabled;
    vsdk_thread_poll_func_t   func;
    void *                    data;
 } vsdk_global_t;
@@ -53,7 +59,9 @@ static void  vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio);
 static bool  vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles);
 static void *vsdk_load_plugin_ffv_hal(void);
 static void *vsdk_load_plugin_ffv_kwd(void);
-static void *vsdk_load_plugin_ffv_alg(void);
+static void *vsdk_load_plugin_ffv_alg(void **handle_ppr);
+static void *vsdk_load_plugin_ffv_sdf(void);
+static void *vsdk_load_plugin_ffv_ovc(void);
 
 void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty) {
    if(qty == NULL || *qty < VSDK_VERSION_QTY_MAX || version_info == NULL) {
@@ -86,6 +94,9 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
    // Store the value so it can be used when xraudio is initialized
    g_vsdk.curtail_xraudio = curtail_xraudio;
    g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
+   g_vsdk.sdf_enabled     = (g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) ? true : false;
+   g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;;
+   g_vsdk.ppr_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) ? true : false;;
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -108,6 +119,9 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
    // Store the value so it can be used when xraudio is initialized
    g_vsdk.curtail_xraudio = curtail_xraudio;
    g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
+   g_vsdk.sdf_enabled     = (g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) ? true : false;
+   g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;;
+   g_vsdk.ppr_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) ? true : false;;
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -129,6 +143,21 @@ void vsdk_term(void) {
       g_vsdk.ffv_plugins.handle_ffv_hal = NULL;
       g_vsdk.ffv_plugins.handle_ffv_kwd = NULL;
       g_vsdk.ffv_plugins.handle_ffv_alg = NULL;
+   }
+   if(g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) {
+      XLOGD_INFO("unload FFV SDF");
+      dlclose(g_vsdk.ffv_plugins.handle_ffv_sdf);
+      g_vsdk.ffv_plugins.handle_ffv_sdf = NULL;
+   }
+   if(g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) {
+      XLOGD_INFO("unload FFV OVC");
+      dlclose(g_vsdk.ffv_plugins.handle_ffv_ovc);
+      g_vsdk.ffv_plugins.handle_ffv_ovc = NULL;
+   }
+   if(g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) {
+      XLOGD_INFO("unload FFV PPR");
+      dlclose(g_vsdk.ffv_plugins.handle_ffv_ppr);
+      g_vsdk.ffv_plugins.handle_ffv_ppr = NULL;
    }
 
    g_vsdk.initialized = false;
@@ -243,6 +272,8 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
    }
 
    bool ret = false;
+
+   memset(handles, 0, sizeof(*handles));
    do {
       handles->handle_ffv_hal = vsdk_load_plugin_ffv_hal();
 
@@ -258,7 +289,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
          break;
       }
 
-      handles->handle_ffv_alg = vsdk_load_plugin_ffv_alg();
+      handles->handle_ffv_alg = vsdk_load_plugin_ffv_alg(&handles->handle_ffv_ppr);
 
       if(handles->handle_ffv_alg == NULL) {
          dlclose(handles->handle_ffv_hal);
@@ -267,6 +298,9 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
          handles->handle_ffv_kwd = NULL;
          break;
       }
+
+      handles->handle_ffv_sdf = vsdk_load_plugin_ffv_sdf();
+      handles->handle_ffv_ovc = vsdk_load_plugin_ffv_ovc();
       ret = true;
    } while(0);
 
@@ -308,7 +342,7 @@ void *vsdk_load_plugin_ffv_kwd(void) {
 
 }
 
-void *vsdk_load_plugin_ffv_alg(void) {
+void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    void *handle = NULL;
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-algorithms.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-algorithms.so";
@@ -372,6 +406,74 @@ void *vsdk_load_plugin_ffv_hal(void) {
    //}
 
    XLOGD_INFO("FFV HAL plugin is loaded."); // TODO Print the version info here
+   
+   return(handle);
+}
+
+void *vsdk_load_plugin_ffv_sdf(void) {
+   void *handle = NULL;
+   const char *so_path_vd = "/vendor/lib/libxraudio-sdf.so";
+   const char *so_path_mw = "/usr/lib/libxraudio-sdf.so";
+   if(vsdk_file_exists(so_path_vd)) {
+      handle = dlopen(so_path_vd, RTLD_NOW);
+   } else if(vsdk_file_exists(so_path_mw)) {
+      handle = dlopen(so_path_mw, RTLD_NOW);
+   } else {
+      XLOGD_INFO("FFV SDF plugin is not present.");
+      return(NULL);
+   }
+
+   if(NULL == handle) {
+      XLOGD_ERROR("Failed to load FFV SDF plugin <%s>", dlerror());
+      return(NULL);
+   }
+
+   dlerror();  // Clear any existing error
+
+   //g_ctrlm.rf4ce_hal_main = (ctrlm_hal_rf4ce_main_t)dlsym(handle, "ctrlm_hal_rf4ce_main");
+   //char *error = dlerror();
+
+   //if(error != NULL) {
+   //   XLOGD_ERROR("Failed to find plugin method (ctrlm_hal_rf4ce_main), error <%s>", error);
+   //   dlclose(handle);
+   //   return(NULL);
+   //}
+
+   XLOGD_INFO("FFV SDF plugin is loaded."); // TODO Print the version info here
+   
+   return(handle);
+}
+
+void *vsdk_load_plugin_ffv_ovc(void) {
+   void *handle = NULL;
+   const char *so_path_vd = "/vendor/lib/libxraudio-ovc.so";
+   const char *so_path_mw = "/usr/lib/libxraudio-ovc.so";
+   if(vsdk_file_exists(so_path_vd)) {
+      handle = dlopen(so_path_vd, RTLD_NOW);
+   } else if(vsdk_file_exists(so_path_mw)) {
+      handle = dlopen(so_path_mw, RTLD_NOW);
+   } else {
+      XLOGD_INFO("FFV OVC plugin is not present.");
+      return(NULL);
+   }
+
+   if(NULL == handle) {
+      XLOGD_ERROR("Failed to load FFV OVC plugin <%s>", dlerror());
+      return(NULL);
+   }
+
+   dlerror();  // Clear any existing error
+
+   //g_ctrlm.rf4ce_hal_main = (ctrlm_hal_rf4ce_main_t)dlsym(handle, "ctrlm_hal_rf4ce_main");
+   //char *error = dlerror();
+
+   //if(error != NULL) {
+   //   XLOGD_ERROR("Failed to find plugin method (ctrlm_hal_rf4ce_main), error <%s>", error);
+   //   dlclose(handle);
+   //   return(NULL);
+   //}
+
+   XLOGD_INFO("FFV OVC plugin is loaded."); // TODO Print the version info here
    
    return(handle);
 }

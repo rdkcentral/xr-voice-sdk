@@ -34,15 +34,9 @@
 #include "xraudio_eos.h"
 #include "xraudio_kwd.h"
 #include "xraudio_dga.h"
-#ifdef XRAUDIO_SDF_ENABLED
 #include "xraudio_sdf.h"
-#endif
-#ifdef XRAUDIO_OVC_ENABLED
 #include "xraudio_ovc.h"
-#endif
-#ifdef XRAUDIO_PPR_ENABLED
 #include "xraudio_ppr.h"
-#endif
 #include "xraudio_output.h"
 #include "xraudio_input.h"
 
@@ -151,6 +145,7 @@ typedef struct {
    bool                              kwd_enabled;
    bool                              dga_enabled;
    bool                              eos_enabled;
+   bool                              ppr_enabled;
    bool                              out_enabled;
    xraudio_input_object_t            obj_input;
    xraudio_output_object_t           obj_output;

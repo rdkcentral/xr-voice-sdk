@@ -86,6 +86,8 @@ typedef struct {
    bool                              kwd_enabled;
    bool                              dga_enabled;
    bool                              eos_enabled;
+   bool                              sdf_enabled;
+   bool                              ppr_enabled;
    bool                              out_enabled;
    bool                              curtail_enabled;
    xraudio_internal_capture_params_t internal_capture_params;
@@ -185,6 +187,8 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->kwd_enabled                           = vsdk_ffv_enabled();
    obj->dga_enabled                           = obj->kwd_enabled;
    obj->eos_enabled                           = obj->kwd_enabled;
+   obj->sdf_enabled                           = false;
+   obj->ppr_enabled                           = false;
    obj->out_enabled                           = false;
 
    obj->curtail_enabled                       = vsdk_curtail_xraudio_enabled();
@@ -1159,6 +1163,7 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
    params.kwd_enabled                    = obj->kwd_enabled;
    params.dga_enabled                    = obj->dga_enabled;
    params.eos_enabled                    = obj->eos_enabled;
+   params.ppr_enabled                    = obj->ppr_enabled;
    params.out_enabled                    = obj->out_enabled;
    if(obj->out_enabled) {
       params.obj_output                     = obj->obj_output;

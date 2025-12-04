@@ -106,6 +106,7 @@ target_sources(xr-voice-sdk PUBLIC
                xrsv_ws_nextgen_tv_control.c
                src/xr-audio/xraudio.c
                src/xr-audio/xraudio_input.c
+               src/xr-audio/xraudio_output.c
                src/xr-audio/xraudio_thread.c
                src/xr-audio/xraudio_utils.c
                src/xr-audio/xraudio_atomic.c)
@@ -186,40 +187,6 @@ find_library(CURTAIL_LIBRARY NAMES curtail)
 if(CURTAIL_LIBRARY)
    target_compile_definitions(xr-voice-sdk PUBLIC VSDK_CURTAIL_ENABLED)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
-endif()
-
-if(XRAUDIO_KWD_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_KWD_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-ffv-hal)
-   target_link_libraries(xr-voice-sdk xraudio-ffv-kwd)
-endif()
-
-#if(XRAUDIO_EOS_ENABLED OR XRAUDIO_DGA_ENABLED OR XRAUDIO_PPR_ENABLED) 
-#if(XRAUDIO_EOS_ENABLED)
-#   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_EOS_ENABLED)
-#endif()
-#if(XRAUDIO_DGA_ENABLED)
-#   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DGA_ENABLED)
-#endif()
-#if(XRAUDIO_PPR_ENABLED)
-#   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_PPR_ENABLED)
-#endif()
-#   target_link_libraries(xr-voice-sdk xraudio-ffv-algorithms)
-#endif()
-
-#if(XRAUDIO_SDF_ENABLED)
-#   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_SDF_ENABLED)
-#   target_link_libraries(xr-voice-sdk xraudio-sdf)
-#endif()
-
-#if(XRAUDIO_OVC_ENABLED)
-#   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_OVC_ENABLED)
-#   target_link_libraries(xr-voice-sdk xraudio-ovc)
-#endif()
-
-if(XRAUDIO_OUTPUT_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_OUTPUT_ENABLED)
-   target_sources(xr-voice-sdk PUBLIC src/xr-audio/xraudio_output.c)
 endif()
 
 # CONFIG FILES

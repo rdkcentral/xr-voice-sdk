@@ -61,10 +61,10 @@ typedef struct {
    int8_t                         ramp_enable;
    int8_t                         use_external_gain; // set to 1 to use hal api for volume control or 0 to use volume control library
    xraudio_eos_object_t           obj_eos;
-   #ifdef XRAUDIO_OVC_ENABLED
    xraudio_ovc_object_t           obj_ovc;
-   #endif
    xraudio_hal_dsp_config_t       dsp_config;
+   bool                           eos_enabled;
+   bool                           ovc_enabled;
 } xraudio_output_obj_t;
 
 static bool             xraudio_output_object_is_valid(xraudio_output_obj_t *obj);
@@ -106,11 +106,11 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->device               = XRAUDIO_DEVICE_OUTPUT_INVALID;
    obj->resource_id          = XRAUDIO_RESOURCE_ID_OUTPUT_INVALID;
    obj->capabilities         = XRAUDIO_CAPS_OUTPUT_NONE;
-   obj->format               = (xraudio_output_format_t) { .container   = XRAUDIO_CONTAINER_INVALID,
-                                                             .encoding    = XRAUDIO_ENCODING_INVALID,
-                                                             .sample_rate = XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE,
-                                                             .sample_size = XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE,
-                                                             .channel_qty = XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY };
+   obj->format               = (xraudio_output_format_t) { .container     = XRAUDIO_CONTAINER_INVALID,
+                                                           .encoding.type = XRAUDIO_ENCODING_INVALID,
+                                                           .sample_rate   = XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE,
+                                                           .sample_size   = XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE,
+                                                           .channel_qty   = XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY };
    obj->fd                   = -1;
    obj->audio_buf            = NULL;
    obj->audio_buf_size       = 0;
@@ -124,6 +124,7 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->play_bumper          = 0;
    obj->dsp_config           = *dsp_config;
    obj->eos_enabled          = false;
+   obj->ovc_enabled          = false;
    
    if(obj->eos_enabled) {
       if(NULL == json_obj_output) {
@@ -147,13 +148,13 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->use_external_gain    = (capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL) ? 1 : 0;
    obj->ramp_enable          = 1;
 
-   #ifdef XRAUDIO_OVC_ENABLED
-   obj->obj_ovc = xraudio_ovc_object_create(obj->ramp_enable, obj->use_external_gain);
-   if(obj->obj_ovc == NULL) {
-       XLOGD_ERROR("Unable to allocate ovc memory");
-       return(NULL);
+   if(obj->ovc_enabled) {
+      obj->obj_ovc = xraudio_ovc_object_create(obj->ramp_enable, obj->use_external_gain);
+      if(obj->obj_ovc == NULL) {
+         XLOGD_ERROR("Unable to allocate ovc memory");
+         return(NULL);
+      }
    }
-   #endif
 
    memset(obj->fifo_name, 0, sizeof(obj->fifo_name));
 
@@ -172,12 +173,10 @@ void xraudio_output_object_destroy(xraudio_output_object_t object) {
          xraudio_eos_object_destroy(obj->obj_eos);
          obj->obj_eos = NULL;
       }
-      #ifdef XRAUDIO_OVC_ENABLED
-      if(obj->obj_ovc != NULL) {
+      if(obj->ovc_enabled && obj->obj_ovc != NULL) {
          xraudio_ovc_object_destroy(obj->obj_ovc);
          obj->obj_ovc = NULL;
       }
-      #endif
       obj->identifier = 0;
       obj->state      = XRAUDIO_OUTPUT_STATE_INVALID;
       XRAUDIO_PLAY_MUTEX_UNLOCK();
@@ -355,8 +354,8 @@ xraudio_result_t xraudio_output_play_from_memory(xraudio_output_object_t object,
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
    if(format->container == XRAUDIO_CONTAINER_NONE) {
-      if(format->encoding != XRAUDIO_ENCODING_PCM) {
-         XLOGD_ERROR("unsupported encoding <%s>", xraudio_encoding_str(format->encoding));
+      if(format->encoding.type != XRAUDIO_ENCODING_PCM) {
+         XLOGD_ERROR("unsupported encoding <%s>", xraudio_encoding_str(format->encoding.type));
          XRAUDIO_PLAY_MUTEX_UNLOCK();
          return(XRAUDIO_RESULT_ERROR_ENCODING);
       }
@@ -426,8 +425,8 @@ xraudio_result_t xraudio_output_play_from_pipe(xraudio_output_object_t object, x
       XRAUDIO_PLAY_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
-   if(format->container != XRAUDIO_CONTAINER_NONE || format->encoding != XRAUDIO_ENCODING_PCM) {
-      XLOGD_ERROR("unsupported container <%s> encoding <%s>", xraudio_container_str(format->container), xraudio_encoding_str(format->encoding));
+   if(format->container != XRAUDIO_CONTAINER_NONE || format->encoding.type != XRAUDIO_ENCODING_PCM) {
+      XLOGD_ERROR("unsupported container <%s> encoding <%s>", xraudio_container_str(format->container), xraudio_encoding_str(format->encoding.type));
       XRAUDIO_PLAY_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_CONTAINER);
    }
@@ -493,8 +492,8 @@ xraudio_result_t xraudio_output_play_from_user(xraudio_output_object_t object, x
       XRAUDIO_PLAY_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
-   if(format->container != XRAUDIO_CONTAINER_NONE || format->encoding != XRAUDIO_ENCODING_PCM) {
-      XLOGD_ERROR("unsupported container <%s> encoding <%s>", xraudio_container_str(format->container), xraudio_encoding_str(format->encoding));
+   if(format->container != XRAUDIO_CONTAINER_NONE || format->encoding.type != XRAUDIO_ENCODING_PCM) {
+      XLOGD_ERROR("unsupported container <%s> encoding <%s>", xraudio_container_str(format->container), xraudio_encoding_str(format->encoding.type));
       XRAUDIO_PLAY_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_CONTAINER);
    }
@@ -790,66 +789,65 @@ xraudio_result_t xraudio_output_volume_gain_apply(xraudio_output_object_t object
 
       if(obj->ramp_enable == 0) {
          obj->volume_mono_cur = obj->volume_right;
-         #ifdef XRAUDIO_OVC_ENABLED
-         float gain = obj->volume_mono_cur * vol_step_dB;
-         xraudio_ovc_set_gain(obj->obj_ovc, gain);
-         #endif
+         if(obj->ovc_enabled) {
+            float gain = obj->volume_mono_cur * vol_step_dB;
+            xraudio_ovc_set_gain(obj->obj_ovc, gain);
+         }
          XLOGD_DEBUG("right <%d> left <%d> cur <%d> NO RAMP", obj->volume_right,  obj->volume_left,  obj->volume_mono_cur);
       } else {
          bool ramp_is_active = false;
-         #ifdef XRAUDIO_OVC_ENABLED
-         ramp_is_active = xraudio_ovc_is_ramp_active(obj->obj_ovc);
-         #endif
+         if(obj->ovc_enabled) {
+            ramp_is_active = xraudio_ovc_is_ramp_active(obj->obj_ovc);
+         }
          if(!ramp_is_active) {
             if(obj->volume_mono_cur < obj->volume_right) {
                obj->volume_mono_cur++;
                if(obj->volume_mono_cur > max_volume) {
                   obj->volume_mono_cur = max_volume;
                }
-               #ifdef XRAUDIO_OVC_ENABLED
-               xraudio_ovc_increase(obj->obj_ovc);
-               #endif
+               if(obj->ovc_enabled) {
+                  xraudio_ovc_increase(obj->obj_ovc);
+               }
             } else if(obj->volume_mono_cur > obj->volume_right) {
                obj->volume_mono_cur--;
                if(obj->volume_mono_cur < min_volume) {
                   obj->volume_mono_cur = min_volume;
                }
-               #ifdef XRAUDIO_OVC_ENABLED
-               xraudio_ovc_decrease(obj->obj_ovc);
-               #endif
+               if(obj->ovc_enabled) {
+                  xraudio_ovc_decrease(obj->obj_ovc);
+               }
             }
             XLOGD_DEBUG("right <%d> left <%d> cur <%d> RAMP", obj->volume_right,  obj->volume_left, obj->volume_mono_cur);
          }
       }
    } else if(obj->play_bumper) {
       XLOGD_INFO("PLAY BUMPER");
-      #ifdef XRAUDIO_OVC_ENABLED
-      if(obj->volume_mono_cur == XRAUDIO_VOLUME_MAX) {
-         xraudio_ovc_increase(obj->obj_ovc);
-      } else if(obj->volume_mono_cur == XRAUDIO_VOLUME_MIN) {
-         xraudio_ovc_decrease(obj->obj_ovc);
+      if(obj->ovc_enabled) {
+         if(obj->volume_mono_cur == XRAUDIO_VOLUME_MAX) {
+            xraudio_ovc_increase(obj->obj_ovc);
+         } else if(obj->volume_mono_cur == XRAUDIO_VOLUME_MIN) {
+            xraudio_ovc_decrease(obj->obj_ovc);
+         }
       }
-      #endif
       obj->play_bumper = 0;
    }
 
    //XLOGD_DEBUG("right <%d> cur <%d> ramp <%d> ramp_act <%s>", obj->volume_right, obj->volume_mono_cur, obj->ramp_enable, ramp_is_active ? "YES" : "NO");
-   #ifdef XRAUDIO_OVC_ENABLED
-   uint32_t sample_qty = (bytes / sizeof(int16_t));
-   if(!xraudio_ovc_apply_gain_multichannel(obj->obj_ovc, (int16_t *)buffer, (int16_t *)buffer, chans, sample_qty)) {
-      XLOGD_ERROR("error applying gain");
-      result = XRAUDIO_RESULT_ERROR_OUTPUT_VOLUME;
+   if(obj->ovc_enabled) {
+      uint32_t sample_qty = (bytes / sizeof(int16_t));
+      if(!xraudio_ovc_apply_gain_multichannel(obj->obj_ovc, (int16_t *)buffer, (int16_t *)buffer, chans, sample_qty)) {
+         XLOGD_ERROR("error applying gain");
+         result = XRAUDIO_RESULT_ERROR_OUTPUT_VOLUME;
+      }
    }
-   #endif
    if(obj->hal_output_obj != NULL && (obj->capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL)) {
       float vol_left_scale  = 1.0;
       float vol_right_scale = 1.0;
-      #ifdef XRAUDIO_OVC_ENABLED
-      if(obj->use_external_gain != 0) {
+      
+      if(obj->ovc_enabled && obj->use_external_gain != 0) {
          vol_left_scale  = xraudio_ovc_get_scale(obj->obj_ovc);
          vol_right_scale = xraudio_ovc_get_scale(obj->obj_ovc);
       }
-      #endif
 
       if(!xraudio_hal_output_volume_set_float(obj->hal_output_obj, obj->device, vol_left_scale, vol_right_scale)) {
          XLOGD_ERROR("unable to set volume");
@@ -878,13 +876,13 @@ xraudio_result_t xraudio_output_volume_config_set(xraudio_output_object_t object
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
 
-   #ifdef XRAUDIO_OVC_ENABLED
-   xraudio_volume_step_t volume_step;
-   xraudio_ovc_config_set(obj->obj_ovc, obj->format, max_volume, min_volume, volume_step_dB, use_ext_gain, &volume_step);
+   if(obj->ovc_enabled) {
+      xraudio_volume_step_t volume_step;
+      xraudio_ovc_config_set(obj->obj_ovc, obj->format, max_volume, min_volume, volume_step_dB, use_ext_gain, &volume_step);
 
-   obj->volume_right = volume_step;
-   obj->volume_left  = obj->volume_right;
-   #endif
+      obj->volume_right = volume_step;
+      obj->volume_left  = obj->volume_right;
+   }
 
    obj->use_external_gain = (use_ext_gain > 0) ? 1 : 0;
 
@@ -898,9 +896,9 @@ xraudio_result_t xraudio_output_volume_config_get(xraudio_output_object_t object
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
 
-   #ifdef XRAUDIO_OVC_ENABLED
-   xraudio_ovc_config_get(obj, max_volume, min_volume, volume_step_dB);
-   #endif
+   if(obj->ovc_enabled) {
+      xraudio_ovc_config_get(obj, max_volume, min_volume, volume_step_dB);
+   }
 
    if(use_ext_gain != NULL) {
       *use_ext_gain = obj->use_external_gain;
