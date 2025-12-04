@@ -188,7 +188,7 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->dga_enabled                           = obj->kwd_enabled;
    obj->eos_enabled                           = obj->kwd_enabled;
    obj->sdf_enabled                           = vsdk_sdf_enabled();
-   obj->ppr_enabled                           = vsdk_ppr_enabled();
+   obj->ppr_enabled                           = (vsdk_ppr_plugin_get() == NULL) ? false : true;
    obj->out_enabled                           = vsdk_out_enabled();
 
    obj->curtail_enabled                       = vsdk_curtail_xraudio_enabled();

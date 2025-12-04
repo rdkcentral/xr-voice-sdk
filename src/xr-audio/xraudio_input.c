@@ -125,7 +125,7 @@ typedef struct {
    bool                          dga_enabled;
    bool                          eos_enabled;
    bool                          sdf_enabled;
-   bool                          ppr_enabled;
+   xraudio_ppr_plugin_api_t *    ppr_plugin;
    
    xraudio_eos_object_t          obj_eos[XRAUDIO_INPUT_MAX_CHANNEL_QTY];
    xraudio_sdf_object_t          obj_sdf;
@@ -232,13 +232,13 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       obj->dga_enabled           = obj->kwd_enabled;
       obj->eos_enabled           = obj->kwd_enabled;
       obj->sdf_enabled           = vsdk_sdf_enabled();
-      obj->ppr_enabled           = vsdk_ppr_enabled();
+      obj->ppr_plugin            = vsdk_ppr_plugin_get();
    } else {
       obj->kwd_enabled           = false;
       obj->dga_enabled           = false;
       obj->eos_enabled           = false;
       obj->sdf_enabled           = false;
-      obj->ppr_enabled           = false;
+      obj->ppr_plugin            = NULL;
    }
 
    if(NULL == json_obj_input) {
@@ -253,7 +253,7 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
             jeos_config = NULL;
          }
       }
-      if(obj->ppr_enabled) {
+      if(obj->ppr_plugin != NULL) {
          jppr_config = json_object_get(json_obj_input, JSON_OBJ_NAME_INPUT_PPR);
          if(NULL == jppr_config) {
             XLOGD_INFO("PPR config not found, using defaults");
@@ -274,20 +274,20 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       obj->sound_focus_sample_count = 0;
    }
    
-   if(obj->ppr_enabled) {
-      obj->obj_ppr                  = xraudio_ppr_object_create(jppr_config);
+   if(obj->ppr_plugin != NULL) {
+      obj->obj_ppr                  = (obj->ppr_plugin->object_create)(jppr_config);
 
-      if(!xraudio_ppr_init(obj->obj_ppr)) {
+      if(!(obj->ppr_plugin->init)(obj->obj_ppr)) {
          XLOGD_ERROR("Preprocess init failed");
          if(obj->obj_ppr != NULL) {
-            xraudio_ppr_object_destroy(obj->obj_ppr);
+            (obj->ppr_plugin->object_destroy)(obj->obj_ppr);
          }
          free(obj);
          return(NULL);
       }
 
       xraudio_ppr_status_t ppr_status;
-      xraudio_ppr_get_status(obj->obj_ppr, &ppr_status);
+      (obj->ppr_plugin->get_status)(obj->obj_ppr, &ppr_status);
       obj->dsp_name = ppr_status.dsp_name;
    }
 
@@ -342,8 +342,8 @@ void xraudio_input_object_destroy(xraudio_input_object_t object) {
          obj->timing_data_begin = NULL;
       }
       #endif
-      if(obj->ppr_enabled && obj->obj_ppr != NULL) {
-         xraudio_ppr_object_destroy(obj->obj_ppr);
+      if(obj->ppr_plugin != NULL && obj->obj_ppr != NULL) {
+         (obj->ppr_plugin->object_destroy)(obj->obj_ppr);
          obj->obj_ppr = NULL;
       }
       obj->identifier = 0;
@@ -1223,8 +1223,8 @@ void xraudio_input_keyword_detected(xraudio_input_object_t object) {
       }
    }
 
-   if(obj->ppr_enabled && session->state == XRAUDIO_INPUT_STATE_DETECTING && obj->dsp_config.ppr_enabled) {
-      xraudio_ppr_command(obj->obj_ppr, XRAUDIO_PPR_COMMAND_KEYWORD_DETECT);
+   if(obj->ppr_plugin != NULL && session->state == XRAUDIO_INPUT_STATE_DETECTING && obj->dsp_config.ppr_enabled) {
+      (obj->ppr_plugin->command)(obj->obj_ppr, XRAUDIO_PPR_COMMAND_KEYWORD_DETECT);
    }
 }
 
@@ -1317,13 +1317,13 @@ xraudio_ppr_event_t xraudio_input_ppr_run(xraudio_input_object_t object, uint16_
 
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
 
-   if(obj->ppr_enabled) {
+   if(obj->ppr_plugin != NULL) {
       if(!xraudio_input_object_is_valid(obj)) {
          XLOGD_ERROR("Invalid object.");
          return(XRAUDIO_PPR_EVENT_NONE);
       }
       if(obj->dsp_config.ppr_enabled) {
-         event = xraudio_ppr_run(
+         event = (obj->ppr_plugin->run)(
                      obj->obj_ppr,
                      frame_size_in_samples,
                      ppmic_input_buffers,
@@ -1341,13 +1341,13 @@ void xraudio_input_ppr_state_set_speech_begin(xraudio_input_object_t object) {
    // Tell ppr that keyword was detected and begin streaming speech and look for end of speech
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
 
-   if(obj->ppr_enabled) {
+   if(obj->ppr_plugin != NULL) {
       if(!xraudio_input_object_is_valid(obj)) {
          XLOGD_ERROR("Invalid object.");
          return;
       }
       if(obj->dsp_config.ppr_enabled && !obj->dsp_config.eos_enabled) {
-         xraudio_ppr_command(obj->obj_ppr, XRAUDIO_PPR_COMMAND_KEYWORD_DETECT);
+         (obj->ppr_plugin->command)(obj->obj_ppr, XRAUDIO_PPR_COMMAND_KEYWORD_DETECT);
       }
    }
 }
@@ -1933,7 +1933,7 @@ void xraudio_input_stats_playback_status(xraudio_input_object_t object, bool is_
 
 void xraudio_input_ppr_info_get(xraudio_input_object_t object, char **dsp_name) {
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
-   if(obj->ppr_enabled) {
+   if(obj->ppr_plugin != NULL) {
       if(!xraudio_input_object_is_valid(obj)) {
          XLOGD_ERROR("Invalid object.");
          return;

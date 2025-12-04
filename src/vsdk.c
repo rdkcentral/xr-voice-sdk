@@ -27,6 +27,7 @@
 #include <sys/stat.h>
 #include <xr_voice_sdk.h>
 #include <vsdk_version.h>
+#include <vsdk_private.h>
 
 #define VSDK_VENDOR_OPTIONS_FILE  "/etc/vendor/input/vsdk_options.json"
 
@@ -47,8 +48,8 @@ typedef struct {
    bool                      ffv_enabled;
    bool                      sdf_enabled;
    bool                      ovc_enabled;
-   bool                      ppr_enabled;
    bool                      out_enabled;
+   xraudio_ppr_plugin_api_t *ppr_plugin;
    vsdk_thread_poll_func_t   func;
    void *                    data;
 } vsdk_global_t;
@@ -98,7 +99,6 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
    g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
    g_vsdk.sdf_enabled     = (g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) ? true : false;
    g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;
-   g_vsdk.ppr_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) ? true : false;
    g_vsdk.out_enabled     = (g_vsdk.ffv_plugins.handle_ffv_out != NULL) ? true : false;
 
    if(rc == 0) {
@@ -124,7 +124,6 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
    g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
    g_vsdk.sdf_enabled     = (g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) ? true : false;
    g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;
-   g_vsdk.ppr_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) ? true : false;
    g_vsdk.out_enabled     = (g_vsdk.ffv_plugins.handle_ffv_out != NULL) ? true : false;
 
    if(rc == 0) {
@@ -225,8 +224,8 @@ bool vsdk_ovc_enabled(void) {
    return(g_vsdk.ovc_enabled);
 }
 
-bool vsdk_ppr_enabled(void) {
-   return(g_vsdk.ppr_enabled);
+xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void) {
+   return(g_vsdk.ppr_plugin);
 }
 
 bool vsdk_out_enabled(void) {
@@ -412,14 +411,35 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
    dlerror();  // Clear any existing error
 
-   //g_ctrlm.rf4ce_hal_main = (ctrlm_hal_rf4ce_main_t)dlsym(handle, "ctrlm_hal_rf4ce_main");
-   //char *error = dlerror();
+   xraudio_ppr_plugin_api_get_t plugin_api_get = (xraudio_ppr_plugin_api_get_t)dlsym(handle, "xraudio_ppr_plugin_api_get");
+   char *error = dlerror();
 
-   //if(error != NULL) {
-   //   XLOGD_ERROR("Failed to find plugin method (ctrlm_hal_rf4ce_main), error <%s>", error);
-   //   dlclose(handle);
-   //   return(NULL);
-   //}
+   if(error != NULL) {
+      XLOGD_INFO("Optional plugin PPR not present, error <%s>", error);
+   } else {
+      XLOGD_INFO("Loading optional plugin PPR.");
+      g_vsdk.ppr_plugin = plugin_api_get();
+
+      if(g_vsdk.ppr_plugin == NULL) {
+         XLOGD_ERROR("PPR plugin API get failed");
+         dlclose(handle);
+         return(NULL);
+      }
+      if(g_vsdk.ppr_plugin->version          == NULL ||
+         g_vsdk.ppr_plugin->object_create    == NULL ||
+         g_vsdk.ppr_plugin->init             == NULL ||
+         g_vsdk.ppr_plugin->object_destroy   == NULL ||
+         g_vsdk.ppr_plugin->run              == NULL ||
+         g_vsdk.ppr_plugin->command          == NULL ||
+         g_vsdk.ppr_plugin->get_status       == NULL ||
+         g_vsdk.ppr_plugin->get_lookback_pcm == NULL) {
+         XLOGD_ERROR("PPR plugin API incomplete");
+         g_vsdk.ppr_plugin = NULL;
+         dlclose(handle);
+         return(NULL);
+      }
+      XLOGD_INFO("Loaded optional plugin PPR.");
+   }
 
    XLOGD_INFO("FFV ALG plugin is loaded."); // TODO Print the version info here
    
