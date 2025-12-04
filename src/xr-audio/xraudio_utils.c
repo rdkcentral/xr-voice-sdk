@@ -420,7 +420,6 @@ const char *xraudio_rsrc_queue_msg_type_str(xraudio_rsrc_queue_msg_type_t type) 
 }
 #endif
 
-#ifdef XRAUDIO_OUTPUT_ENABLED
 const char *xraudio_output_state_str(xraudio_output_state_t type) {
    switch(type) {
       case XRAUDIO_OUTPUT_STATE_CREATED: return("CREATED");
@@ -431,7 +430,6 @@ const char *xraudio_output_state_str(xraudio_output_state_t type) {
    }
    return(xraudio_invalid_return(type));
 }
-#endif
 
 const char *xraudio_input_state_str(xraudio_input_state_t type) {
    switch(type) {

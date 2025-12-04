@@ -121,9 +121,10 @@ typedef struct {
    char                          fifo_name[XRAUDIO_FIFO_NAME_LENGTH_MAX];
    xraudio_input_statistics_t    statistics;
    bool                          kwd_enabled;
-   #ifdef XRAUDIO_EOS_ENABLED
+   bool                          dga_enabled;
+   bool                          eos_enabled;
+   
    xraudio_eos_object_t          obj_eos[XRAUDIO_INPUT_MAX_CHANNEL_QTY];
-   #endif
    #ifdef XRAUDIO_SDF_ENABLED
    xraudio_sdf_object_t          obj_sdf;
    uint32_t                      sound_focus_sample_count;
@@ -173,9 +174,7 @@ static xraudio_result_t xraudio_input_capture_stop_locked(xraudio_input_obj_t *o
 static __inline xraudio_input_session_t *xraudio_input_source_to_session(xraudio_input_obj_t *obj, xraudio_devices_input_t source);
 
 xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, uint8_t user_id, int msgq, uint16_t capabilities, xraudio_hal_dsp_config_t *dsp_config, json_t *json_obj_input) {
-   #ifdef XRAUDIO_EOS_ENABLED
    json_t *jeos_config = NULL;
-   #endif
    #ifdef XRAUDIO_PPR_ENABLED
    json_t *jppr_config = NULL;
    #endif
@@ -207,9 +206,7 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       session->audio_buf_samples        = NULL;
       session->audio_buf_sample_qty     = 0;
       session->fifo_sound_intensity     = -1;
-      #ifdef XRAUDIO_DGA_ENABLED
       session->kwd_peak_power_dBFS      = 0;
-      #endif
 
       session->format_out                = (xraudio_input_format_t) { .container     = XRAUDIO_CONTAINER_INVALID,
                                                                       .encoding.type = XRAUDIO_ENCODING_INVALID,
@@ -235,22 +232,26 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
    if(dsp_config != NULL) {
       obj->dsp_config            = *dsp_config;
       obj->kwd_enabled           = true;
+      obj->dga_enabled           = true;
+      obj->eos_enabled           = true;
    } else {
       obj->kwd_enabled           = false;
+      obj->dga_enabled           = false;
+      obj->eos_enabled           = false;
    }
 
    if(NULL == json_obj_input) {
       XLOGD_INFO("json_obj_input is null, using defaults");
    } else {
-      #ifdef XRAUDIO_EOS_ENABLED
-      jeos_config = json_object_get(json_obj_input, JSON_OBJ_NAME_INPUT_EOS);
-      if(NULL == jeos_config) {
-         XLOGD_INFO("EOS config not found, using defaults");
-      } else if(!json_is_object(jeos_config)) {
-         XLOGD_INFO("jeos_config is not object, using defaults");
-         jeos_config = NULL;
+      if(obj->eos_enabled) {
+         jeos_config = json_object_get(json_obj_input, JSON_OBJ_NAME_INPUT_EOS);
+         if(NULL == jeos_config) {
+            XLOGD_INFO("EOS config not found, using defaults");
+         } else if(!json_is_object(jeos_config)) {
+            XLOGD_INFO("jeos_config is not object, using defaults");
+            jeos_config = NULL;
+         }
       }
-      #endif
       #ifdef XRAUDIO_PPR_ENABLED
       jppr_config = json_object_get(json_obj_input, JSON_OBJ_NAME_INPUT_PPR);
       if(NULL == jppr_config) {
@@ -262,11 +263,11 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       #endif
    }
 
-   #ifdef XRAUDIO_EOS_ENABLED
-   for (uint8_t i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
-      obj->obj_eos[i] = xraudio_eos_object_create(false, jeos_config);
+   if(obj->eos_enabled) {
+      for (uint8_t i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
+         obj->obj_eos[i] = xraudio_eos_object_create(false, jeos_config);
+      }
    }
-   #endif
    #ifdef XRAUDIO_SDF_ENABLED
    obj->obj_sdf                  = xraudio_sdf_object_create(hal_obj);
    obj->sound_focus_sample_count = 0;
@@ -320,14 +321,14 @@ void xraudio_input_object_destroy(xraudio_input_object_t object) {
          // Close the microphone interface
          xraudio_input_close_locked(obj);
       }
-      #ifdef XRAUDIO_EOS_ENABLED
-      for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
-         if(obj->obj_eos[i] != NULL) {
-            xraudio_eos_object_destroy(obj->obj_eos[i]);
-            obj->obj_eos[i] = NULL;
+      if(obj->eos_enabled) {
+         for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
+            if(obj->obj_eos[i] != NULL) {
+               xraudio_eos_object_destroy(obj->obj_eos[i]);
+               obj->obj_eos[i] = NULL;
+            }
          }
       }
-      #endif
       #ifdef XRAUDIO_SDF_ENABLED
       if(obj->obj_sdf != NULL) {
          xraudio_sdf_object_destroy(obj->obj_sdf);
@@ -702,11 +703,11 @@ xraudio_result_t xraudio_input_stream_keyword_info_get(xraudio_object_t object, 
          return(XRAUDIO_RESULT_ERROR_INPUT);
       }
 
-      #ifdef XRAUDIO_DGA_ENABLED
-      xraudio_input_session_t *session = xraudio_input_source_to_session(obj, source);
-      session->kwd_peak_power_dBFS                    = stream_params.kwd_peak_power_dBFS;
-      session->dynamic_gain_update                    = keyword_detector_result->dynamic_gain_update;
-      #endif
+      if(obj->dga_enabled) {
+         xraudio_input_session_t *session = xraudio_input_source_to_session(obj, source);
+         session->kwd_peak_power_dBFS                    = stream_params.kwd_peak_power_dBFS;
+         session->dynamic_gain_update                    = keyword_detector_result->dynamic_gain_update;
+      }
       keyword_detector_result->endpoints.begin        = stream_params.kwd_begin;
       keyword_detector_result->endpoints.end          = stream_params.kwd_end;
       keyword_detector_result->endpoints.pre          = stream_params.kwd_pre;
@@ -922,13 +923,11 @@ xraudio_result_t xraudio_input_stream_to_pipe(xraudio_input_object_t object, xra
 
    session->state = XRAUDIO_INPUT_STATE_STREAMING;
 
-   #ifdef XRAUDIO_EOS_ENABLED
-   if(subsequent && obj->dsp_config.eos_enabled) {
+   if(obj->eos_enabled && subsequent && obj->dsp_config.eos_enabled) {
       for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
          xraudio_eos_state_set_speech_begin(obj->obj_eos[i]);
       }
    }
-   #endif
 
    xraudio_result_t result = xraudio_input_dispatch_record(obj, source, format_decoded, subsequent, callback, param);
    XRAUDIO_RECORD_MUTEX_UNLOCK();
@@ -1217,17 +1216,13 @@ void xraudio_input_keyword_detected(xraudio_input_object_t object) {
       return;
    }
 
-#if defined(XRAUDIO_EOS_ENABLED) || defined(XRAUDIO_PPR_ENABLED)
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
-#endif
 
-#ifdef XRAUDIO_EOS_ENABLED
-   if(session->state == XRAUDIO_INPUT_STATE_DETECTING && obj->dsp_config.eos_enabled) {
+   if(obj->eos_enabled && session->state == XRAUDIO_INPUT_STATE_DETECTING && obj->dsp_config.eos_enabled) {
       for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
          xraudio_eos_state_set_speech_begin(obj->obj_eos[i]);
       }
    }
-#endif
 #ifdef XRAUDIO_PPR_ENABLED
    if(session->state == XRAUDIO_INPUT_STATE_DETECTING && obj->dsp_config.ppr_enabled) {
       xraudio_ppr_command(obj->obj_ppr, XRAUDIO_PPR_COMMAND_KEYWORD_DETECT);
@@ -1257,15 +1252,14 @@ unsigned char xraudio_input_signal_level_get(xraudio_input_object_t object, uint
       return(0);
    }
 
-#ifdef XRAUDIO_EOS_ENABLED
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
 
-   if(obj->dsp_config.eos_enabled) {
+   if(obj->eos_enabled && obj->dsp_config.eos_enabled) {
       if(session->state == XRAUDIO_INPUT_STATE_DETECTING || session->state == XRAUDIO_INPUT_STATE_RECORDING || session->state == XRAUDIO_INPUT_STATE_STREAMING) {
          return(xraudio_eos_signal_level_get(obj->obj_eos[chan]));
       }
    }
-#endif
+
    return(0);
 }
 
@@ -1287,36 +1281,37 @@ uint16_t xraudio_input_signal_direction_get(xraudio_input_object_t object) {
 }
 
 xraudio_eos_event_t xraudio_input_eos_run(xraudio_input_object_t object, uint8_t chan, float *input_samples, int32_t sample_qty, int16_t *scaled_eos_samples) {
-#ifdef XRAUDIO_EOS_ENABLED
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
-   if(!xraudio_input_object_is_valid(obj)) {
-      XLOGD_ERROR("Invalid object.");
-      return(XRAUDIO_EOS_EVENT_NONE);
+
+   if(obj->eos_enabled) {
+      if(!xraudio_input_object_is_valid(obj)) {
+         XLOGD_ERROR("Invalid object.");
+         return(XRAUDIO_EOS_EVENT_NONE);
+      }
+      if(chan >= XRAUDIO_INPUT_MAX_CHANNEL_QTY) {
+         XLOGD_ERROR("Bad channel (%hu).", (uint16_t)chan);
+         return(0);
+      }
+      return (obj->dsp_config.eos_enabled) ? xraudio_eos_run_float(obj->obj_eos[chan], input_samples, sample_qty, scaled_eos_samples) : XRAUDIO_EOS_EVENT_NONE;
    }
-   if(chan >= XRAUDIO_INPUT_MAX_CHANNEL_QTY) {
-      XLOGD_ERROR("Bad channel (%hu).", (uint16_t)chan);
-      return(0);
-   }
-   return (obj->dsp_config.eos_enabled) ? xraudio_eos_run_float(obj->obj_eos[chan], input_samples, sample_qty, scaled_eos_samples) : XRAUDIO_EOS_EVENT_NONE;
-#else
    return XRAUDIO_EOS_EVENT_NONE;
-#endif
 }
 
 void xraudio_input_eos_state_set_speech_begin(xraudio_input_object_t object) {
-#ifdef XRAUDIO_EOS_ENABLED
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
-   if(!xraudio_input_object_is_valid(obj)) {
-      XLOGD_ERROR("Invalid object.");
-      return;
-   }
-   if(obj->dsp_config.eos_enabled) {
-      XLOGD_DEBUG("Keyword detected. Force VADEOS to start.");
-      for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
-         xraudio_eos_state_set_speech_begin(obj->obj_eos[i]);
+
+   if(obj->eos_enabled) {
+      if(!xraudio_input_object_is_valid(obj)) {
+         XLOGD_ERROR("Invalid object.");
+         return;
+      }
+      if(obj->dsp_config.eos_enabled) {
+         XLOGD_DEBUG("Keyword detected. Force VADEOS to start.");
+         for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
+            xraudio_eos_state_set_speech_begin(obj->obj_eos[i]);
+         }
       }
    }
-#endif
 }
 
 xraudio_ppr_event_t xraudio_input_ppr_run(xraudio_input_object_t object, uint16_t frame_size_in_samples, const int32_t** ppmic_input_buffers, const int32_t** ppref_input_buffers, int32_t** ppkwd_output_buffers, int32_t** ppasr_output_buffers, int32_t** ppref_output_buffers) {
@@ -1606,7 +1601,7 @@ xraudio_result_t xraudio_input_dispatch_record(xraudio_input_obj_t *obj, xraudio
       session->kwd_peak_power_dBFS = 0;
    } else {
       msg.kwd_peak_power_dBFS      = 0;
-      msg.dynamic_gain_update      = 0.0;
+      msg.dynamic_gain_update      = NULL;
    }
 
    // Reset latency mode flag back to normal. Latency mode will persist until the end of the stream.

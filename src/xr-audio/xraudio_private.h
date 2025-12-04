@@ -31,13 +31,9 @@
 #include <jansson.h>
 #include "xraudio_hal.h"
 #include "xraudio_config.h"
-#ifdef XRAUDIO_EOS_ENABLED
 #include "xraudio_eos.h"
-#endif
 #include "xraudio_kwd.h"
-#ifdef XRAUDIO_DGA_ENABLED
 #include "xraudio_dga.h"
-#endif
 #ifdef XRAUDIO_SDF_ENABLED
 #include "xraudio_sdf.h"
 #endif
@@ -47,9 +43,7 @@
 #ifdef XRAUDIO_PPR_ENABLED
 #include "xraudio_ppr.h"
 #endif
-#ifdef XRAUDIO_OUTPUT_ENABLED
 #include "xraudio_output.h"
-#endif
 #include "xraudio_input.h"
 
 #define XLOG_MODULE_ID XLOG_MODULE_ID_XRAUDIO
@@ -154,11 +148,13 @@ typedef struct {
 typedef struct {
    xr_mq_t                           msgq;
    sem_t *                           semaphore;
+   bool                              kwd_enabled;
+   bool                              dga_enabled;
+   bool                              eos_enabled;
+   bool                              out_enabled;
    xraudio_input_object_t            obj_input;
-   #ifdef XRAUDIO_OUTPUT_ENABLED
    xraudio_output_object_t           obj_output;
    json_t*                           json_obj_output;
-   #endif
    xraudio_hal_obj_t                 hal_obj;
    xraudio_hal_input_obj_t           hal_input_obj;
    xraudio_hal_dsp_config_t          dsp_config;

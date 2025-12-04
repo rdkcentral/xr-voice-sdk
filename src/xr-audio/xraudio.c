@@ -84,6 +84,8 @@ typedef struct {
    #endif
    bool                              production_build;
    bool                              kwd_enabled;
+   bool                              dga_enabled;
+   bool                              eos_enabled;
    bool                              out_enabled;
    bool                              curtail_enabled;
    xraudio_internal_capture_params_t internal_capture_params;
@@ -181,6 +183,8 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
 
 
    obj->kwd_enabled                           = vsdk_ffv_enabled();
+   obj->dga_enabled                           = obj->kwd_enabled;
+   obj->eos_enabled                           = obj->kwd_enabled;
    obj->out_enabled                           = false;
 
    obj->curtail_enabled                       = vsdk_curtail_xraudio_enabled();
@@ -1152,6 +1156,10 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
    params.msgq                           = obj->msgq_main;
    params.semaphore                      = &semaphore;
    params.obj_input                      = obj->obj_input;
+   params.kwd_enabled                    = obj->kwd_enabled;
+   params.dga_enabled                    = obj->dga_enabled;
+   params.eos_enabled                    = obj->eos_enabled;
+   params.out_enabled                    = obj->out_enabled;
    if(obj->out_enabled) {
       params.obj_output                     = obj->obj_output;
       params.json_obj_output                = obj->json_obj_output;
@@ -1165,7 +1173,7 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
       params.hal_input_obj                  = obj->obj_input ? xraudio_input_hal_obj_get(obj->obj_input) : NULL;
    } else {
       params.hal_obj                        = NULL;
-      params.dsp_config                     = NULL;
+      memset(&params.dsp_config, 0, sizeof(params.dsp_config));
       params.hal_input_obj                  = NULL;
    }
    params.internal_capture_params        = obj->internal_capture_params;
@@ -1941,7 +1949,6 @@ xraudio_result_t xraudio_capture_stop(xraudio_object_t object) {
    return(result);
 }
 
-#ifdef XRAUDIO_OUTPUT_ENABLED
 xraudio_result_t xraudio_play_sound_intensity_transfer(xraudio_object_t object, const char *fifo_name) {
    xraudio_obj_t *  obj    = (xraudio_obj_t *)object;
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
@@ -2336,7 +2343,6 @@ xraudio_result_t xraudio_play_volume_config_get(xraudio_object_t object, xraudio
     XRAUDIO_API_MUTEX_UNLOCK();
     return(result);
 }
-#endif
 
 void xraudio_statistics_clear(xraudio_object_t object, uint32_t statistics) {
    xraudio_obj_t *obj = (xraudio_obj_t *)object;
@@ -2372,7 +2378,6 @@ void xraudio_statistics_print(xraudio_object_t object, uint32_t statistics) {
    XRAUDIO_API_MUTEX_UNLOCK();
 }
 
-#ifdef XRAUDIO_OUTPUT_ENABLED
 xraudio_result_t xraudio_bluetooth_hfp_start(xraudio_object_t object, xraudio_input_format_t *format) {
    xraudio_obj_t *obj = (xraudio_obj_t *)object;
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
@@ -2477,7 +2482,6 @@ xraudio_result_t xraudio_bluetooth_hfp_mute(xraudio_object_t object, unsigned ch
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
-#endif
 
 void xraudio_thread_poll(xraudio_object_t object, xraudio_thread_poll_func_t func) {
    xraudio_obj_t *obj = (xraudio_obj_t *)object;
