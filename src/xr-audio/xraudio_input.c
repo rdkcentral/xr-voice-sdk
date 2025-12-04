@@ -275,19 +275,19 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
    }
    
    if(obj->ppr_plugin != NULL) {
-      obj->obj_ppr                  = (obj->ppr_plugin->object_create)(jppr_config);
+      obj->obj_ppr                  = obj->ppr_plugin->object_create(jppr_config);
 
-      if(!(obj->ppr_plugin->init)(obj->obj_ppr)) {
+      if(!obj->ppr_plugin->init(obj->obj_ppr)) {
          XLOGD_ERROR("Preprocess init failed");
          if(obj->obj_ppr != NULL) {
-            (obj->ppr_plugin->object_destroy)(obj->obj_ppr);
+            obj->ppr_plugin->object_destroy(obj->obj_ppr);
          }
          free(obj);
          return(NULL);
       }
 
       xraudio_ppr_status_t ppr_status;
-      (obj->ppr_plugin->get_status)(obj->obj_ppr, &ppr_status);
+      obj->ppr_plugin->get_status(obj->obj_ppr, &ppr_status);
       obj->dsp_name = ppr_status.dsp_name;
    }
 
@@ -343,7 +343,7 @@ void xraudio_input_object_destroy(xraudio_input_object_t object) {
       }
       #endif
       if(obj->ppr_plugin != NULL && obj->obj_ppr != NULL) {
-         (obj->ppr_plugin->object_destroy)(obj->obj_ppr);
+         obj->ppr_plugin->object_destroy(obj->obj_ppr);
          obj->obj_ppr = NULL;
       }
       obj->identifier = 0;
@@ -1224,7 +1224,7 @@ void xraudio_input_keyword_detected(xraudio_input_object_t object) {
    }
 
    if(obj->ppr_plugin != NULL && session->state == XRAUDIO_INPUT_STATE_DETECTING && obj->dsp_config.ppr_enabled) {
-      (obj->ppr_plugin->command)(obj->obj_ppr, XRAUDIO_PPR_COMMAND_KEYWORD_DETECT);
+      obj->ppr_plugin->command(obj->obj_ppr, XRAUDIO_PPR_COMMAND_KEYWORD_DETECT);
    }
 }
 
@@ -1323,7 +1323,7 @@ xraudio_ppr_event_t xraudio_input_ppr_run(xraudio_input_object_t object, uint16_
          return(XRAUDIO_PPR_EVENT_NONE);
       }
       if(obj->dsp_config.ppr_enabled) {
-         event = (obj->ppr_plugin->run)(
+         event = obj->ppr_plugin->run(
                      obj->obj_ppr,
                      frame_size_in_samples,
                      ppmic_input_buffers,
@@ -1347,7 +1347,7 @@ void xraudio_input_ppr_state_set_speech_begin(xraudio_input_object_t object) {
          return;
       }
       if(obj->dsp_config.ppr_enabled && !obj->dsp_config.eos_enabled) {
-         (obj->ppr_plugin->command)(obj->obj_ppr, XRAUDIO_PPR_COMMAND_KEYWORD_DETECT);
+         obj->ppr_plugin->command(obj->obj_ppr, XRAUDIO_PPR_COMMAND_KEYWORD_DETECT);
       }
    }
 }

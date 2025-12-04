@@ -47,8 +47,8 @@ typedef struct {
    vsdk_ffv_plugin_handles_t ffv_plugins;
    bool                      ffv_enabled;
    bool                      sdf_enabled;
-   bool                      ovc_enabled;
    bool                      out_enabled;
+   xraudio_ovc_plugin_api_t *ovc_plugin;
    xraudio_ppr_plugin_api_t *ppr_plugin;
    vsdk_thread_poll_func_t   func;
    void *                    data;
@@ -98,7 +98,6 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
    g_vsdk.curtail_xraudio = curtail_xraudio;
    g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
    g_vsdk.sdf_enabled     = (g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) ? true : false;
-   g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;
    g_vsdk.out_enabled     = (g_vsdk.ffv_plugins.handle_ffv_out != NULL) ? true : false;
 
    if(rc == 0) {
@@ -123,7 +122,6 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
    g_vsdk.curtail_xraudio = curtail_xraudio;
    g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
    g_vsdk.sdf_enabled     = (g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) ? true : false;
-   g_vsdk.ovc_enabled     = (g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) ? true : false;
    g_vsdk.out_enabled     = (g_vsdk.ffv_plugins.handle_ffv_out != NULL) ? true : false;
 
    if(rc == 0) {
@@ -220,8 +218,8 @@ bool vsdk_sdf_enabled(void) {
    return(g_vsdk.sdf_enabled);
 }
 
-bool vsdk_ovc_enabled(void) {
-   return(g_vsdk.ovc_enabled);
+xraudio_ovc_plugin_api_t *vsdk_ovc_plugin_get(void) {
+   return(g_vsdk.ovc_plugin);
 }
 
 xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void) {
@@ -534,16 +532,38 @@ void *vsdk_load_plugin_ffv_ovc(void) {
 
    dlerror();  // Clear any existing error
 
-   //g_ctrlm.rf4ce_hal_main = (ctrlm_hal_rf4ce_main_t)dlsym(handle, "ctrlm_hal_rf4ce_main");
-   //char *error = dlerror();
+   xraudio_ovc_plugin_api_get_t plugin_api_get = (xraudio_ovc_plugin_api_get_t)dlsym(handle, "xraudio_ovc_plugin_api_get");
+   char *error = dlerror();
 
-   //if(error != NULL) {
-   //   XLOGD_ERROR("Failed to find plugin method (ctrlm_hal_rf4ce_main), error <%s>", error);
-   //   dlclose(handle);
-   //   return(NULL);
-   //}
+   if(error != NULL) {
+      XLOGD_INFO("Optional plugin OVC not present, error <%s>", error);
+   } else {
+      XLOGD_INFO("Loading optional plugin OVC.");
+      g_vsdk.ovc_plugin = plugin_api_get();
 
-   XLOGD_INFO("FFV OVC plugin is loaded."); // TODO Print the version info here
+      if(g_vsdk.ovc_plugin == NULL) {
+         XLOGD_ERROR("OVC plugin API get failed");
+         dlclose(handle);
+         return(NULL);
+      }
+      if(g_vsdk.ovc_plugin->version                 == NULL ||
+         g_vsdk.ovc_plugin->object_create           == NULL ||
+         g_vsdk.ovc_plugin->object_destroy          == NULL ||
+         g_vsdk.ovc_plugin->config_get              == NULL ||
+         g_vsdk.ovc_plugin->config_set              == NULL ||
+         g_vsdk.ovc_plugin->set_gain                == NULL ||
+         g_vsdk.ovc_plugin->increase                == NULL ||
+         g_vsdk.ovc_plugin->decrease                == NULL ||
+         g_vsdk.ovc_plugin->apply_gain_multichannel == NULL ||
+         g_vsdk.ovc_plugin->get_scale               == NULL ||
+         g_vsdk.ovc_plugin->is_ramp_active          == NULL) {
+         XLOGD_ERROR("OVC plugin API incomplete");
+         g_vsdk.ovc_plugin = NULL;
+         dlclose(handle);
+         return(NULL);
+      }
+      XLOGD_INFO("Loaded optional plugin OVC.");
+   }
    
    return(handle);
 }

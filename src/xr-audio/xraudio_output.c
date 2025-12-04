@@ -65,7 +65,7 @@ typedef struct {
    xraudio_ovc_object_t           obj_ovc;
    xraudio_hal_dsp_config_t       dsp_config;
    bool                           eos_enabled;
-   bool                           ovc_enabled;
+   xraudio_ovc_plugin_api_t *     ovc_plugin;
 } xraudio_output_obj_t;
 
 static bool             xraudio_output_object_is_valid(xraudio_output_obj_t *obj);
@@ -125,7 +125,7 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->play_bumper          = 0;
    obj->dsp_config           = *dsp_config;
    obj->eos_enabled          = false;
-   obj->ovc_enabled          = vsdk_ovc_enabled();
+   obj->ovc_plugin           = vsdk_ovc_plugin_get();
    
    if(obj->eos_enabled) {
       if(NULL == json_obj_output) {
@@ -149,8 +149,8 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->use_external_gain    = (capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL) ? 1 : 0;
    obj->ramp_enable          = 1;
 
-   if(obj->ovc_enabled) {
-      obj->obj_ovc = xraudio_ovc_object_create(obj->ramp_enable, obj->use_external_gain);
+   if(obj->ovc_plugin != NULL) {
+      obj->obj_ovc = obj->ovc_plugin->object_create(obj->ramp_enable, obj->use_external_gain);
       if(obj->obj_ovc == NULL) {
          XLOGD_ERROR("Unable to allocate ovc memory");
          return(NULL);
@@ -174,8 +174,8 @@ void xraudio_output_object_destroy(xraudio_output_object_t object) {
          xraudio_eos_object_destroy(obj->obj_eos);
          obj->obj_eos = NULL;
       }
-      if(obj->ovc_enabled && obj->obj_ovc != NULL) {
-         xraudio_ovc_object_destroy(obj->obj_ovc);
+      if(obj->ovc_plugin != NULL && obj->obj_ovc != NULL) {
+         obj->ovc_plugin->object_destroy(obj->obj_ovc);
          obj->obj_ovc = NULL;
       }
       obj->identifier = 0;
@@ -790,15 +790,15 @@ xraudio_result_t xraudio_output_volume_gain_apply(xraudio_output_object_t object
 
       if(obj->ramp_enable == 0) {
          obj->volume_mono_cur = obj->volume_right;
-         if(obj->ovc_enabled) {
+         if(obj->ovc_plugin != NULL) {
             float gain = obj->volume_mono_cur * vol_step_dB;
-            xraudio_ovc_set_gain(obj->obj_ovc, gain);
+            obj->ovc_plugin->set_gain(obj->obj_ovc, gain);
          }
          XLOGD_DEBUG("right <%d> left <%d> cur <%d> NO RAMP", obj->volume_right,  obj->volume_left,  obj->volume_mono_cur);
       } else {
          bool ramp_is_active = false;
-         if(obj->ovc_enabled) {
-            ramp_is_active = xraudio_ovc_is_ramp_active(obj->obj_ovc);
+         if(obj->ovc_plugin != NULL) {
+            ramp_is_active = obj->ovc_plugin->is_ramp_active(obj->obj_ovc);
          }
          if(!ramp_is_active) {
             if(obj->volume_mono_cur < obj->volume_right) {
@@ -806,16 +806,16 @@ xraudio_result_t xraudio_output_volume_gain_apply(xraudio_output_object_t object
                if(obj->volume_mono_cur > max_volume) {
                   obj->volume_mono_cur = max_volume;
                }
-               if(obj->ovc_enabled) {
-                  xraudio_ovc_increase(obj->obj_ovc);
+               if(obj->ovc_plugin != NULL) {
+                  obj->ovc_plugin->increase(obj->obj_ovc);
                }
             } else if(obj->volume_mono_cur > obj->volume_right) {
                obj->volume_mono_cur--;
                if(obj->volume_mono_cur < min_volume) {
                   obj->volume_mono_cur = min_volume;
                }
-               if(obj->ovc_enabled) {
-                  xraudio_ovc_decrease(obj->obj_ovc);
+               if(obj->ovc_plugin != NULL) {
+                  obj->ovc_plugin->decrease(obj->obj_ovc);
                }
             }
             XLOGD_DEBUG("right <%d> left <%d> cur <%d> RAMP", obj->volume_right,  obj->volume_left, obj->volume_mono_cur);
@@ -823,20 +823,20 @@ xraudio_result_t xraudio_output_volume_gain_apply(xraudio_output_object_t object
       }
    } else if(obj->play_bumper) {
       XLOGD_INFO("PLAY BUMPER");
-      if(obj->ovc_enabled) {
+      if(obj->ovc_plugin != NULL) {
          if(obj->volume_mono_cur == XRAUDIO_VOLUME_MAX) {
-            xraudio_ovc_increase(obj->obj_ovc);
+            obj->ovc_plugin->increase(obj->obj_ovc);
          } else if(obj->volume_mono_cur == XRAUDIO_VOLUME_MIN) {
-            xraudio_ovc_decrease(obj->obj_ovc);
+            obj->ovc_plugin->decrease(obj->obj_ovc);
          }
       }
       obj->play_bumper = 0;
    }
 
    //XLOGD_DEBUG("right <%d> cur <%d> ramp <%d> ramp_act <%s>", obj->volume_right, obj->volume_mono_cur, obj->ramp_enable, ramp_is_active ? "YES" : "NO");
-   if(obj->ovc_enabled) {
+   if(obj->ovc_plugin != NULL) {
       uint32_t sample_qty = (bytes / sizeof(int16_t));
-      if(!xraudio_ovc_apply_gain_multichannel(obj->obj_ovc, (int16_t *)buffer, (int16_t *)buffer, chans, sample_qty)) {
+      if(!obj->ovc_plugin->apply_gain_multichannel(obj->obj_ovc, (int16_t *)buffer, (int16_t *)buffer, chans, sample_qty)) {
          XLOGD_ERROR("error applying gain");
          result = XRAUDIO_RESULT_ERROR_OUTPUT_VOLUME;
       }
@@ -845,9 +845,9 @@ xraudio_result_t xraudio_output_volume_gain_apply(xraudio_output_object_t object
       float vol_left_scale  = 1.0;
       float vol_right_scale = 1.0;
       
-      if(obj->ovc_enabled && obj->use_external_gain != 0) {
-         vol_left_scale  = xraudio_ovc_get_scale(obj->obj_ovc);
-         vol_right_scale = xraudio_ovc_get_scale(obj->obj_ovc);
+      if(obj->ovc_plugin != NULL && obj->use_external_gain != 0) {
+         vol_left_scale  = obj->ovc_plugin->get_scale(obj->obj_ovc);
+         vol_right_scale = obj->ovc_plugin->get_scale(obj->obj_ovc);
       }
 
       if(!xraudio_hal_output_volume_set_float(obj->hal_output_obj, obj->device, vol_left_scale, vol_right_scale)) {
@@ -877,9 +877,9 @@ xraudio_result_t xraudio_output_volume_config_set(xraudio_output_object_t object
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
 
-   if(obj->ovc_enabled) {
+   if(obj->ovc_plugin != NULL) {
       xraudio_volume_step_t volume_step;
-      xraudio_ovc_config_set(obj->obj_ovc, obj->format, max_volume, min_volume, volume_step_dB, use_ext_gain, &volume_step);
+      obj->ovc_plugin->config_set(obj->obj_ovc, obj->format, max_volume, min_volume, volume_step_dB, use_ext_gain, &volume_step);
 
       obj->volume_right = volume_step;
       obj->volume_left  = obj->volume_right;
@@ -897,8 +897,8 @@ xraudio_result_t xraudio_output_volume_config_get(xraudio_output_object_t object
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
 
-   if(obj->ovc_enabled) {
-      xraudio_ovc_config_get(obj, max_volume, min_volume, volume_step_dB);
+   if(obj->ovc_plugin != NULL) {
+      obj->ovc_plugin->config_get(obj, max_volume, min_volume, volume_step_dB);
    }
 
    if(use_ext_gain != NULL) {
