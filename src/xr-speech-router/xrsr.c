@@ -227,7 +227,7 @@ bool xrsr_config_get(xrsr_config_t *config) {
       return(false);
    }
 
-   if(vsdk_ffv_enabled()) {
+   if(vsdk_hal_in_enabled()) {
       config->networked_standby = true;
       config->local_mic         = true;
       config->local_mic_tap     = true;
@@ -507,7 +507,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    g_xrsr.privacy_mode      = privacy_mode;
    g_xrsr.mask_pii          = mask_pii;
    
-   if(!vsdk_ffv_enabled()) {
+   if(!vsdk_hal_in_enabled()) {
       g_xrsr.networked_standby = false;
       g_xrsr.local_mic         = false;
       g_xrsr.local_mic_tap     = false;

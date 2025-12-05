@@ -65,6 +65,7 @@ typedef struct {
    xraudio_ovc_object_t           obj_ovc;
    xraudio_hal_dsp_config_t       dsp_config;
    bool                           eos_enabled;
+   xraudio_hal_plugin_api_t *     hal_plugin;
    xraudio_ovc_plugin_api_t *     ovc_plugin;
 } xraudio_output_obj_t;
 
@@ -125,6 +126,7 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->play_bumper          = 0;
    obj->dsp_config           = *dsp_config;
    obj->eos_enabled          = false;
+   obj->hal_plugin           = vsdk_hal_plugin_get();
    obj->ovc_plugin           = vsdk_ovc_plugin_get();
    
    if(obj->eos_enabled) {
@@ -720,7 +722,7 @@ xraudio_result_t xraudio_output_dispatch_stop(xraudio_output_obj_t *obj, audio_o
 }
 
 bool xraudio_output_audio_hal_open(xraudio_output_obj_t *obj) {
-   obj->hal_output_obj = xraudio_hal_output_open(obj->hal_obj, obj->device, obj->resource_id, obj->user_id, &obj->format, obj->volume_left, obj->volume_right);
+   obj->hal_output_obj = obj->hal_plugin->output_open(obj->hal_obj, obj->device, obj->resource_id, obj->user_id, &obj->format, obj->volume_left, obj->volume_right);
 
    XLOGD_INFO("stream handle %p", obj->hal_output_obj);
 
@@ -733,7 +735,7 @@ void xraudio_output_audio_hal_close(xraudio_output_obj_t *obj) {
       return;
    }
    XLOGD_INFO("");
-   xraudio_hal_output_close(obj->hal_output_obj, obj->device);
+   obj->hal_plugin->output_close(obj->hal_output_obj, obj->device);
    obj->hal_output_obj = NULL;
 }
 
@@ -759,7 +761,7 @@ xraudio_result_t xraudio_output_volume_set(xraudio_output_object_t object, xraud
    case 2:  // volume control library currently does not support separate channel controls
       // increase or decrease volume if different from current volume
       if(obj->hal_output_obj != NULL && obj->capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL) {
-         xraudio_hal_output_volume_set_int(obj->hal_output_obj, obj->device, left, right);
+         obj->hal_plugin->output_volume_set_int(obj->hal_output_obj, obj->device, left, right);
       }
 
       obj->volume_right = right;
@@ -850,7 +852,7 @@ xraudio_result_t xraudio_output_volume_gain_apply(xraudio_output_object_t object
          vol_right_scale = obj->ovc_plugin->get_scale(obj->obj_ovc);
       }
 
-      if(!xraudio_hal_output_volume_set_float(obj->hal_output_obj, obj->device, vol_left_scale, vol_right_scale)) {
+      if(!obj->hal_plugin->output_volume_set_float(obj->hal_output_obj, obj->device, vol_left_scale, vol_right_scale)) {
          XLOGD_ERROR("unable to set volume");
          result = XRAUDIO_RESULT_ERROR_OUTPUT_VOLUME;
       }
@@ -1040,7 +1042,7 @@ static void xraudio_output_stats_general_clear(xraudio_output_obj_t *obj) {
 
 static void xraudio_output_stats_general_print(xraudio_output_obj_t *obj) {
    if(obj->hal_output_obj != NULL) {
-      XLOGD_INFO("output latency estimate %u ms", xraudio_hal_output_latency_get(obj->hal_output_obj));
+      XLOGD_INFO("output latency estimate %u ms", obj->hal_plugin->output_latency_get(obj->hal_output_obj));
    }
 }
 
@@ -1131,7 +1133,7 @@ xraudio_result_t xraudio_output_hfp_mute(xraudio_output_object_t object, unsigne
 
    XLOGD_INFO("qahw_set_mic_mute <%s>", enable ? "TRUE" : "FALSE");
 
-   if(!xraudio_hal_input_mute(NULL, XRAUDIO_DEVICE_INPUT_HFP, enable)) {
+   if(!obj->hal_plugin->input_mute(NULL, XRAUDIO_DEVICE_INPUT_HFP, enable)) {
      XLOGD_ERROR("hal mic mute failed");
    }
 

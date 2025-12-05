@@ -38,15 +38,15 @@ typedef struct {
    void *handle_ffv_sdf;
    void *handle_ffv_ovc;
    void *handle_ffv_ppr;
-   void *handle_ffv_out;
 } vsdk_ffv_plugin_handles_t;
 
 typedef struct {
    bool                      initialized;
    bool                      curtail_xraudio;
    vsdk_ffv_plugin_handles_t ffv_plugins;
-   bool                      ffv_enabled;
-   bool                      out_enabled;
+   bool                      hal_in_enabled;
+   bool                      hal_out_enabled;
+   xraudio_hal_plugin_api_t *hal_plugin;
    xraudio_sdf_plugin_api_t *sdf_plugin;
    xraudio_ovc_plugin_api_t *ovc_plugin;
    xraudio_ppr_plugin_api_t *ppr_plugin;
@@ -60,7 +60,7 @@ static void  vsdk_thread_response(void);
 static bool  vsdk_file_exists(const char *filename);
 static void  vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio);
 static bool  vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles);
-static void *vsdk_load_plugin_ffv_hal(void **handle_out);
+static void *vsdk_load_plugin_ffv_hal(bool *out_enabled);
 static void *vsdk_load_plugin_ffv_kwd(void);
 static void *vsdk_load_plugin_ffv_alg(void **handle_ppr);
 static void *vsdk_load_plugin_ffv_sdf(void);
@@ -96,8 +96,8 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
 
    // Store the value so it can be used when xraudio is initialized
    g_vsdk.curtail_xraudio = curtail_xraudio;
-   g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
-   g_vsdk.out_enabled     = (g_vsdk.ffv_plugins.handle_ffv_out != NULL) ? true : false;
+   g_vsdk.hal_out_enabled = false;
+   g_vsdk.hal_in_enabled  = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -119,8 +119,8 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
 
    // Store the value so it can be used when xraudio is initialized
    g_vsdk.curtail_xraudio = curtail_xraudio;
-   g_vsdk.ffv_enabled     = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
-   g_vsdk.out_enabled     = (g_vsdk.ffv_plugins.handle_ffv_out != NULL) ? true : false;
+   g_vsdk.hal_out_enabled = false;
+   g_vsdk.hal_in_enabled  = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -134,7 +134,7 @@ void vsdk_term(void) {
    }
    xlog_term();
 
-   if(g_vsdk.ffv_enabled) {
+   if(g_vsdk.hal_in_enabled || g_vsdk.hal_out_enabled) {
       XLOGD_INFO("unload FFV hal");
       dlclose(g_vsdk.ffv_plugins.handle_ffv_hal);
       dlclose(g_vsdk.ffv_plugins.handle_ffv_kwd);
@@ -157,11 +157,6 @@ void vsdk_term(void) {
       XLOGD_INFO("unload FFV PPR");
       dlclose(g_vsdk.ffv_plugins.handle_ffv_ppr);
       g_vsdk.ffv_plugins.handle_ffv_ppr = NULL;
-   }
-   if(g_vsdk.ffv_plugins.handle_ffv_out != NULL) {
-      XLOGD_INFO("unload FFV OUT");
-      dlclose(g_vsdk.ffv_plugins.handle_ffv_out);
-      g_vsdk.ffv_plugins.handle_ffv_out = NULL;
    }
 
    g_vsdk.initialized = false;
@@ -208,8 +203,16 @@ bool vsdk_curtail_xraudio_enabled(void) {
    return(g_vsdk.curtail_xraudio);
 }
 
-bool vsdk_ffv_enabled(void) {
-   return(g_vsdk.ffv_enabled);
+bool vsdk_hal_in_enabled(void) {
+   return(g_vsdk.hal_in_enabled);
+}
+
+bool vsdk_hal_out_enabled(void) {
+   return(g_vsdk.hal_out_enabled);
+}
+
+xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void) {
+   return(g_vsdk.hal_plugin);
 }
 
 xraudio_sdf_plugin_api_t *vsdk_sdf_plugin_get(void) {
@@ -224,9 +227,6 @@ xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void) {
    return(g_vsdk.ppr_plugin);
 }
 
-bool vsdk_out_enabled(void) {
-   return(g_vsdk.out_enabled);
-}
 
 bool vsdk_file_exists(const char *filename) {
    if(filename == NULL) {
@@ -295,7 +295,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
    memset(handles, 0, sizeof(*handles));
    do {
-      handles->handle_ffv_hal = vsdk_load_plugin_ffv_hal(&handles->handle_ffv_out);
+      handles->handle_ffv_hal = vsdk_load_plugin_ffv_hal(&g_vsdk.hal_out_enabled);
 
       if(handles->handle_ffv_hal == NULL) {
          break;
@@ -342,10 +342,6 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
       if(handles->handle_ffv_ppr != NULL) {
          dlclose(handles->handle_ffv_ppr);
          handles->handle_ffv_ppr = NULL;
-      }
-      if(handles->handle_ffv_out != NULL) {
-         dlclose(handles->handle_ffv_out);
-         handles->handle_ffv_out = NULL;
       }
    }
 
@@ -442,7 +438,7 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    return(handle);
 }
 
-void *vsdk_load_plugin_ffv_hal(void **handle_out) {
+void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
    void *handle = NULL;
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-hal.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-hal.so";
@@ -462,17 +458,70 @@ void *vsdk_load_plugin_ffv_hal(void **handle_out) {
 
    dlerror();  // Clear any existing error
 
-   //g_ctrlm.rf4ce_hal_main = (ctrlm_hal_rf4ce_main_t)dlsym(handle, "ctrlm_hal_rf4ce_main");
-   //char *error = dlerror();
+   xraudio_hal_plugin_api_get_t plugin_api_get = (xraudio_hal_plugin_api_get_t)dlsym(handle, "xraudio_hal_plugin_api_get");
+   char *error = dlerror();
 
-   //if(error != NULL) {
-   //   XLOGD_ERROR("Failed to find plugin method (ctrlm_hal_rf4ce_main), error <%s>", error);
-   //   dlclose(handle);
-   //   return(NULL);
-   //}
+   if(error != NULL) {
+      XLOGD_ERROR("Required plugin HAL not present, error <%s>", error);
+      return(NULL);
+   }
+   XLOGD_INFO("Loading required plugin HAL.");
+   g_vsdk.hal_plugin = plugin_api_get();
 
-   XLOGD_INFO("FFV HAL plugin is loaded."); // TODO Print the version info here
-   
+   if(g_vsdk.hal_plugin == NULL) {
+      XLOGD_ERROR("HAL plugin API get failed");
+      dlclose(handle);
+      return(NULL);
+   }
+   if(g_vsdk.hal_plugin->version                      == NULL ||
+      g_vsdk.hal_plugin->init                         == NULL ||
+      g_vsdk.hal_plugin->capabilities_get             == NULL ||
+      g_vsdk.hal_plugin->dsp_config_get               == NULL ||
+      g_vsdk.hal_plugin->available_devices_get        == NULL ||
+      g_vsdk.hal_plugin->open                         == NULL ||
+      g_vsdk.hal_plugin->power_mode                   == NULL ||
+      g_vsdk.hal_plugin->privacy_mode                 == NULL ||
+      g_vsdk.hal_plugin->privacy_mode_get             == NULL ||
+      g_vsdk.hal_plugin->close                        == NULL ||
+      g_vsdk.hal_plugin->thread_poll                  == NULL ||
+      g_vsdk.hal_plugin->input_open                   == NULL ||
+      g_vsdk.hal_plugin->input_close                  == NULL ||
+      g_vsdk.hal_plugin->input_buffer_size_get        == NULL ||
+      g_vsdk.hal_plugin->input_read                   == NULL ||
+      g_vsdk.hal_plugin->input_mute                   == NULL ||
+      g_vsdk.hal_plugin->input_focus                  == NULL ||
+      g_vsdk.hal_plugin->input_stats                  == NULL ||
+      g_vsdk.hal_plugin->input_detection              == NULL ||
+      g_vsdk.hal_plugin->input_eos_cmd                == NULL ||
+      g_vsdk.hal_plugin->input_stream_params_get      == NULL ||
+      g_vsdk.hal_plugin->input_stream_start_set       == NULL ||
+      g_vsdk.hal_plugin->input_keyword_detector_reset == NULL ||
+      g_vsdk.hal_plugin->input_test_mode              == NULL ||
+      g_vsdk.hal_plugin->input_stream_latency_set     == NULL) {
+      XLOGD_ERROR("HAL plugin API incomplete");
+      g_vsdk.hal_plugin = NULL;
+      dlclose(handle);
+      return(NULL);
+   }
+   if(g_vsdk.hal_plugin->output_open             == NULL ||
+      g_vsdk.hal_plugin->output_close            == NULL ||
+      g_vsdk.hal_plugin->output_buffer_size_get  == NULL ||
+      g_vsdk.hal_plugin->output_write            == NULL ||
+      g_vsdk.hal_plugin->output_volume_set_int   == NULL ||
+      g_vsdk.hal_plugin->output_volume_set_float == NULL ||
+      g_vsdk.hal_plugin->output_latency_get      == NULL) {
+      XLOGD_INFO("HAL plugin OUTPUT API not present");
+      if(out_enabled != NULL) {
+         *out_enabled = false;
+      }
+   } else {
+      if(out_enabled != NULL) {
+         *out_enabled = true;
+      }
+   }
+
+   XLOGD_INFO("Loaded required plugin HAL.");
+      
    return(handle);
 }
 

@@ -21,6 +21,7 @@
 #ifndef __VSDK_PRIVATE__
 #define __VSDK_PRIVATE__
 
+#include "xraudio_hal.h"
 #include "xraudio_sdf.h"
 #include "xraudio_ovc.h"
 #include "xraudio_ppr.h"
@@ -30,11 +31,13 @@ extern "C" {
 #endif
 
 bool vsdk_curtail_xraudio_enabled(void);
-bool vsdk_ffv_enabled(void);
+bool vsdk_hal_in_enabled(void);
+bool vsdk_hal_out_enabled(void);
+
+xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void);
 xraudio_sdf_plugin_api_t *vsdk_sdf_plugin_get(void);
 xraudio_ovc_plugin_api_t *vsdk_ovc_plugin_get(void);
 xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void);
-bool vsdk_out_enabled(void);
 
 #ifdef __cplusplus
 }

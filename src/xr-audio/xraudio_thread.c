@@ -1258,7 +1258,7 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       instance->keyword_triggered     = (record->stream_keyword_duration != 0) ? true : false;
 
       if(state->params.kwd_enabled && record->stream_until[0] == XRAUDIO_INPUT_RECORD_UNTIL_END_OF_SPEECH && instance->use_hal_eos) {
-         if(!xraudio_hal_input_eos_cmd(state->params.hal_input_obj, XRAUDIO_EOS_CMD_SESSION_BEGIN, state->record.keyword_detector.active_chan)) {
+         if(!state->params.hal_plugin->input_eos_cmd(state->params.hal_input_obj, XRAUDIO_EOS_CMD_SESSION_BEGIN, state->record.keyword_detector.active_chan)) {
             XLOGD_ERROR("unable to begin hal eos session");
          } else {
             instance->eos_hal_cmd_pending = true;
@@ -1266,7 +1266,7 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       }
 
       if(instance->format_out.encoding.type != XRAUDIO_ENCODING_PCM_RAW && instance->latency_mode != XRAUDIO_STREAM_LATENCY_NORMAL && state->record.latency_mode != instance->latency_mode) {
-         if(state->params.kwd_enabled && !xraudio_hal_input_stream_latency_set(state->params.hal_input_obj, instance->latency_mode)) {
+         if(state->params.kwd_enabled && !state->params.hal_plugin->input_stream_latency_set(state->params.hal_input_obj, instance->latency_mode)) {
             XLOGD_ERROR("unable to set hal input latency mode <%s>", xraudio_stream_latency_mode_str(instance->latency_mode));
          }
          state->record.latency_mode = instance->latency_mode;
@@ -1278,7 +1278,7 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       if(state->params.kwd_enabled) {
          if(instance->format_out.encoding.type == XRAUDIO_ENCODING_PCM_RAW) { // Set raw mic mode
             instance->raw_mic_enable = true;
-            if(xraudio_hal_input_test_mode(state->params.hal_input_obj, true)) {
+            if(state->params.hal_plugin->input_test_mode(state->params.hal_input_obj, true)) {
                XLOGD_INFO("hal input set to raw mic test mode");
                state->record.raw_mic_enable = true;
             } else {
@@ -1378,7 +1378,7 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
          instance->raw_mic_enable = false;
 
          if(state->record.raw_mic_enable) {
-            if(xraudio_hal_input_test_mode(state->params.hal_input_obj, false)) {
+            if(state->params.hal_plugin->input_test_mode(state->params.hal_input_obj, false)) {
                XLOGD_INFO("hal input restored to normal test mode");
             } else {
                XLOGD_ERROR("unable to restore hal input to normal test mode");
@@ -1388,7 +1388,7 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
       }
       if(instance->latency_mode != XRAUDIO_STREAM_LATENCY_NORMAL && state->record.latency_mode != XRAUDIO_STREAM_LATENCY_NORMAL) {
          if(state->params.kwd_enabled) {
-            if(xraudio_hal_input_stream_latency_set(state->params.hal_input_obj, XRAUDIO_STREAM_LATENCY_NORMAL)) {
+            if(state->params.hal_plugin->input_stream_latency_set(state->params.hal_input_obj, XRAUDIO_STREAM_LATENCY_NORMAL)) {
                XLOGD_INFO("hal input restored to normal latency mode");
             } else {
                XLOGD_ERROR("unable to restore hal input to normal latency mode");
@@ -1416,7 +1416,7 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
 
    if(!more_streams) {
       if(state->params.kwd_enabled && instance->eos_hal_cmd_pending) { // an EOS command is pending with the HAL, so terminate the EOS session
-         if(!xraudio_hal_input_eos_cmd(state->params.hal_input_obj, XRAUDIO_EOS_CMD_SESSION_TERMINATE, state->record.keyword_detector.active_chan)) {
+         if(!state->params.hal_plugin->input_eos_cmd(state->params.hal_input_obj, XRAUDIO_EOS_CMD_SESSION_TERMINATE, state->record.keyword_detector.active_chan)) {
             XLOGD_ERROR("unable to terminate hal eos session");
          }
          instance->eos_hal_cmd_pending = false;
@@ -1626,7 +1626,7 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
    }
 
    if(state->params.kwd_enabled && state->record.capture_session.raw_mic_enable) {
-      if(xraudio_hal_input_test_mode(state->params.hal_input_obj, true)) {
+      if(state->params.hal_plugin->input_test_mode(state->params.hal_input_obj, true)) {
          XLOGD_INFO("hal input set to raw mic test mode");
       } else {
          XLOGD_ERROR("unable to set hal input to raw mic test mode");
@@ -1693,7 +1693,7 @@ void xraudio_msg_capture_stop(xraudio_thread_state_t *state, void *msg) {
    state->record.capture_session.param           = NULL;
 
    if(state->params.kwd_enabled && state->record.capture_session.raw_mic_enable) {
-      if(xraudio_hal_input_test_mode(state->params.hal_input_obj, false)) {
+      if(state->params.hal_plugin->input_test_mode(state->params.hal_input_obj, false)) {
          XLOGD_INFO("hal input restored to normal test mode");
       } else {
          XLOGD_ERROR("unable to restore hal input to normal test mode");
@@ -1773,7 +1773,7 @@ void xraudio_msg_play_start(xraudio_thread_state_t *state, void *msg) {
    state->playback.first_write_complete = false;
    #endif
 
-   XLOGD_DEBUG("nominal timeout %u us frame size %u bytes hal buffer size %u", state->playback.timeout, state->playback.frame_size, xraudio_hal_output_buffer_size_get(state->playback.hal_output_obj));
+   XLOGD_DEBUG("nominal timeout %u us frame size %u bytes hal buffer size %u", state->playback.timeout, state->playback.frame_size, state->params.hal_plugin->output_buffer_size_get(state->playback.hal_output_obj));
 
    // Send first chunk (2x chunk period) to the speaker
    unsigned long first_frame_size = 2 * state->playback.frame_size;
@@ -1872,7 +1872,7 @@ void xraudio_msg_detect(xraudio_thread_state_t *state, void *msg) {
       }
 
       if(state->params.hal_input_obj != NULL) {
-         if(!xraudio_hal_input_keyword_detector_reset(state->params.hal_input_obj)) {
+         if(!state->params.hal_plugin->input_keyword_detector_reset(state->params.hal_input_obj)) {
             XLOGD_ERROR("unable to reset HAL keyword detector");
             //Allow internal detector to run
          }
@@ -1969,7 +1969,12 @@ void xraudio_msg_async_session_begin(xraudio_thread_state_t *state, void *msg) {
    memset(&detector_result, 0, sizeof(xraudio_keyword_detector_result_t));
 
    //mic fd may have changed with firmware load
-   xraudio_input_hal_obj_external_get(state->params.hal_input_obj, begin->source, begin->format, &configuration);
+  if(!xraudio_devices_input_external_is_valid(begin->source)) {
+      XLOGD_ERROR("not a valid external device");
+   } else {
+      state->params.hal_plugin->input_open(state->params.hal_input_obj, begin->source, begin->format, &configuration);
+   }
+   
    state->record.fd                 = configuration.fd;
 
    if(state->record.fd < 0) {
@@ -2053,7 +2058,7 @@ void xraudio_msg_thread_poll(xraudio_thread_state_t *state, void *msg) {
 
    if(state->params.kwd_enabled || state->params.out_enabled) {
       // Call hal to ensure that it is ok
-      if(!xraudio_hal_thread_poll()) {
+      if(!state->params.hal_plugin->thread_poll()) {
          XLOGD_ERROR("xraudio HAL is NOT responsive");
          return;
       }
@@ -2068,7 +2073,7 @@ void xraudio_msg_power_mode(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    // Call HAL to enter the power mode
-   if(state->params.kwd_enabled && !xraudio_hal_power_mode(state->params.hal_obj, power_mode->power_mode)) {
+   if(state->params.kwd_enabled && !state->params.hal_plugin->power_mode(state->params.hal_obj, power_mode->power_mode)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
 
@@ -2085,7 +2090,7 @@ void xraudio_msg_privacy_mode(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    // Call HAL to enter the privacy mode
-   if(state->params.kwd_enabled && !xraudio_hal_privacy_mode(state->params.hal_obj, privacy_mode->enable)) {
+   if(state->params.kwd_enabled && !state->params.hal_plugin->privacy_mode(state->params.hal_obj, privacy_mode->enable)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
 
@@ -2102,7 +2107,7 @@ void xraudio_msg_privacy_mode_get(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    //Call HAL to get mute state
-  if(state->params.kwd_enabled && !xraudio_hal_privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
+  if(state->params.kwd_enabled && !state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
 
@@ -2306,7 +2311,7 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
 
    xraudio_eos_event_t eos_event_hal = XRAUDIO_EOS_EVENT_NONE;
 
-   rc = xraudio_hal_input_read(params->hal_input_obj, mic_frame_data, mic_frame_size, &eos_event_hal);
+   rc = params->hal_plugin->input_read(params->hal_input_obj, mic_frame_data, mic_frame_size, &eos_event_hal);
    XLOGD_DEBUG("bytes read %d, bytes expected %u, frame size %u", rc, mic_frame_size, session->frame_size_in);
    if(rc != (int) mic_frame_size) {
       if(rc < 0) {
@@ -2513,7 +2518,7 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
             xraudio_hal_input_stats_t input_stats = { 0 };
 
             // Read statistics from the hal which were reset at the point to start counting
-            if(!xraudio_hal_input_stats(params->hal_input_obj, &input_stats, false)) {
+            if(!params->hal_plugin->input_stats(params->hal_input_obj, &input_stats, false)) {
                XLOGD_ERROR("unable to read input stats!");
             } else {
                // Determine how many samples were lost from keyword end to end of stream
@@ -2774,7 +2779,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
          } else {
             // if kwd detector snr used as a criterion and available from the HAL, update it
             xraudio_hal_input_stats_t input_stats;
-            if(xraudio_hal_input_stats(params->hal_input_obj, &input_stats, false)) {
+            if(params->hal_plugin->input_stats(params->hal_input_obj, &input_stats, false)) {
                if(detector->criterion == XRAUDIO_KWD_CRITERION_SNR) {
                   detector_chan->snr = input_stats.snr[chan];
                }
@@ -2898,7 +2903,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
 
    // Inform the HAL that keyword has been detected
    bool ignore = false;
-   if(!xraudio_hal_input_detection(params->hal_input_obj, detector->active_chan, &ignore)) {
+   if(!params->hal_plugin->input_detection(params->hal_input_obj, detector->active_chan, &ignore)) {
       XLOGD_ERROR("unable to inform hal of detection");
    } else if(ignore) { // HAL says to ignore the detection so re-arm the detector
       xraudio_keyword_detector_t *detector = &session->keyword_detector;
@@ -2979,7 +2984,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
          // if talker level threshold test is enabled, ignore detections below the threshold (likely noise)
          if(detector->result.endpoints.talker_thresh_enabled) {
             xraudio_hal_input_stats_t input_stats;
-            if(xraudio_hal_input_stats(params->hal_input_obj, &input_stats, false)) {
+            if(params->hal_plugin->input_stats(params->hal_input_obj, &input_stats, false)) {
                float talker_threshold_dBSPL = detector->result.endpoints.talker_threshold_dBSPL;
                float mic_acoustic_overload_dbspl = (float)input_stats.mic_acoustic_overload_dbspl;
                float talker_level_dBSPL = talker_level_dBFS + mic_acoustic_overload_dbspl + session->input_aop_adjust_dB;
@@ -3018,7 +3023,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
       xraudio_input_ppr_state_set_speech_begin(params->obj_input);
    }
 
-   if(!xraudio_hal_input_stats(params->hal_input_obj, NULL, true)) {
+   if(!params->hal_plugin->input_stats(params->hal_input_obj, NULL, true)) {
       XLOGD_ERROR("unable to reset input stats!");
    }
 
@@ -4044,7 +4049,7 @@ int xraudio_out_write_hal(xraudio_main_thread_params_t *params, xraudio_session_
    int32_t chans = (int32_t)session->format.channel_qty;
    xraudio_output_volume_gain_apply(params->obj_output, buffer, frame_size, chans);
 
-   int rc = xraudio_hal_output_write(session->hal_output_obj, buffer, frame_size);
+   int rc = params->hal_plugin->output_write(session->hal_output_obj, buffer, frame_size);
    if(rc < 0) {
       XLOGD_ERROR("Audio out write failed %d stream handle %p", rc, session->hal_output_obj);
    } else if(rc < (int)frame_size) {
