@@ -76,13 +76,13 @@ extern "C" {
 /// @param[in] version_info Pointer to an array of version information structures
 /// @param[inout] qty       Quantity of entries in the version_info array (in), qty of entries populated (out).
 /// @return The function has no return value.  It returns the version info for each component.
-void                 xraudio_eos_version(xraudio_version_info_t *version_info, uint32_t *qty);
+typedef void                 (*xraudio_eos_func_version_t)(xraudio_version_info_t *version_info, uint32_t *qty);
 
 /// @brief Create an xraudio EOS object
 /// @details Create an xraudio EOS object.
 /// @param[in] signal_level_only If true, indicates that only signal level needs to be calculated.  Otherwise, both end of speech events and signal level need to be calculated.
 /// @return The function returns a reference to the object or NULL if an error occurred.
-xraudio_eos_object_t xraudio_eos_object_create(bool signal_level_only, const json_t *config);
+typedef xraudio_eos_object_t (*xraudio_eos_func_object_create_t)(bool signal_level_only, const json_t *config);
 
 /// @brief Initialize an xraudio EOS session
 /// @details Initialize an xraudio EOS session with the provided parameters.
@@ -90,13 +90,13 @@ xraudio_eos_object_t xraudio_eos_object_create(bool signal_level_only, const jso
 /// @param[in] chan_qty Deprecated.  Will be removed.
 /// @param[in] params   Deprecated.  Will be removed.
 /// @return The function returns true for success and false for failure.
-bool                 xraudio_eos_init(xraudio_eos_object_t object, uint8_t chan_qty, void *params);
+typedef bool                 (*xraudio_eos_func_init_t)(xraudio_eos_object_t object, uint8_t chan_qty, void *params);
 
 /// @brief Destroy an xraudio EOS object
 /// @details Destroy an xraudio EOS object.  If resources have been allocated, they will be released.
 /// @param[in] object Reference to an xraudio EOS object.
 /// @return The function has no return value.
-void                 xraudio_eos_object_destroy(xraudio_eos_object_t object);
+typedef void                 (*xraudio_eos_func_object_destroy_t)(xraudio_eos_object_t object);
 
 /// @brief Run an xraudio EOS session
 /// @details This function is called to execute the end of speech detector on the sample buffer of single precision floating point PCM samples.
@@ -105,7 +105,7 @@ void                 xraudio_eos_object_destroy(xraudio_eos_object_t object);
 /// @param[in]  sample_qty         Quantity of samples in the sample_buffer array
 /// @param[out] scaled_eos_samples Pointer to an array of 16-bit samples returned by the component for capture purposes.  If NULL, the parameter is ignored.
 /// @return The function returns the current EOS event based on the input audio.
-xraudio_eos_event_t  xraudio_eos_run_float(xraudio_eos_object_t object, const float *sample_buffer, uint32_t sample_qty, int16_t *scaled_eos_samples);
+typedef xraudio_eos_event_t  (*xraudio_eos_func_run_float_t)(xraudio_eos_object_t object, const float *sample_buffer, uint32_t sample_qty, int16_t *scaled_eos_samples);
 
 /// @brief Run an xraudio EOS session
 /// @details This function is called to execute the end of speech detector on the sample buffer of 16-bit signed PCM samples.
@@ -113,31 +113,47 @@ xraudio_eos_event_t  xraudio_eos_run_float(xraudio_eos_object_t object, const fl
 /// @param[in] sample_buffer Pointer to an array of 16-bit signed PCM samples
 /// @param[in] sample_qty    Quantity of samples in the sample_buffer array
 /// @return The function returns the current EOS event based on the input audio.
-xraudio_eos_event_t  xraudio_eos_run_int16(xraudio_eos_object_t object, int16_t *sample_buffer, uint32_t sample_qty);
+typedef xraudio_eos_event_t  (*xraudio_eos_func_run_int16_t)(xraudio_eos_object_t object, int16_t *sample_buffer, uint32_t sample_qty);
 
 /// @brief Inform xraudio EOS session of speech begin
 /// @details Informs the end of speech detector that speech detection has started.
 /// @param[in] object Reference to an EOS object.
 /// @return The function has no return value.
-void                 xraudio_eos_state_set_speech_begin(xraudio_eos_object_t object);
+typedef void                 (*xraudio_eos_func_state_set_speech_begin_t)(xraudio_eos_object_t object);
 
 /// @brief Inform xraudio EOS session of speech end
 /// @details Informs the end of speech detector that speech detection has ended.
 /// @param[in] object Reference to an EOS object.
 /// @return The function has no return value.
-void                 xraudio_eos_state_set_speech_end(xraudio_eos_object_t object);
+typedef void                 (*xraudio_eos_func_state_set_speech_end_t)(xraudio_eos_object_t object);
 
 /// @brief Retrieve an xraudio EOS session signal level
 /// @details Retrieve the current signal level for this end of speech detector.
 /// @param[in] object Reference to an xraudio EOS object.
 /// @return The function returns the signal level in percent (0-100).
-unsigned char        xraudio_eos_signal_level_get(xraudio_eos_object_t object);
+typedef unsigned char        (*xraudio_eos_func_signal_level_get_t)(xraudio_eos_object_t object);
 
 /// @brief Retrieve an xraudio EOS session SNR
 /// @details Retrieve the current signal to noise ratio for this end of speech detector.
 /// @param[in] object Reference to an xraudio EOS object.
 /// @return The function returns the current signal to noise ratio in DB.
-float                xraudio_eos_signal_to_noise_ratio_get(xraudio_eos_object_t object);
+typedef float                (*xraudio_eos_func_signal_to_noise_ratio_get_t)(xraudio_eos_object_t object);
+
+typedef struct {
+   xraudio_eos_func_version_t                    version;
+   xraudio_eos_func_object_create_t              object_create;
+   xraudio_eos_func_init_t                       init;
+   xraudio_eos_func_object_destroy_t             object_destroy;
+   xraudio_eos_func_run_float_t                  run_float;
+   xraudio_eos_func_run_int16_t                  run_int16;
+   xraudio_eos_func_state_set_speech_begin_t     state_set_speech_begin;
+   xraudio_eos_func_state_set_speech_end_t       state_set_speech_end;
+   xraudio_eos_func_signal_level_get_t           signal_level_get;
+   xraudio_eos_func_signal_to_noise_ratio_get_t  signal_to_noise_ratio_get;
+} xraudio_eos_plugin_api_t;
+
+typedef xraudio_eos_plugin_api_t *(*xraudio_eos_plugin_api_get_t)(void);
+xraudio_eos_plugin_api_t *xraudio_eos_plugin_api_get(void);
 
 /// @}
 

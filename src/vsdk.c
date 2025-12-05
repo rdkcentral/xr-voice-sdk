@@ -47,6 +47,9 @@ typedef struct {
    bool                      hal_in_enabled;
    bool                      hal_out_enabled;
    xraudio_hal_plugin_api_t *hal_plugin;
+   //xraudio_kwd_plugin_api_t *kwd_plugin;
+   xraudio_eos_plugin_api_t *eos_plugin;
+   //xraudio_dga_plugin_api_t *dga_plugin;
    xraudio_sdf_plugin_api_t *sdf_plugin;
    xraudio_ovc_plugin_api_t *ovc_plugin;
    xraudio_ppr_plugin_api_t *ppr_plugin;
@@ -214,6 +217,14 @@ bool vsdk_hal_out_enabled(void) {
 xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void) {
    return(g_vsdk.hal_plugin);
 }
+
+//xraudio_kwd_plugin_api_t *vsdk_kwd_plugin_get(void);
+
+xraudio_eos_plugin_api_t *vsdk_eos_plugin_get(void) {
+   return(g_vsdk.eos_plugin);
+}
+
+//xraudio_dga_plugin_api_t *vsdk_dga_plugin_get(void);
 
 xraudio_sdf_plugin_api_t *vsdk_sdf_plugin_get(void) {
    return(g_vsdk.sdf_plugin);
@@ -403,14 +414,50 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
    dlerror();  // Clear any existing error
 
-   xraudio_ppr_plugin_api_get_t plugin_api_get = (xraudio_ppr_plugin_api_get_t)dlsym(handle, "xraudio_ppr_plugin_api_get");
+   xraudio_eos_plugin_api_get_t eos_plugin_api_get = (xraudio_eos_plugin_api_get_t)dlsym(handle, "xraudio_eos_plugin_api_get");
    char *error = dlerror();
+
+   if(error != NULL) {
+      XLOGD_ERROR("Required plugin EOS not present, error <%s>", error);
+      dlclose(handle);
+      return(NULL);
+   }
+
+   XLOGD_INFO("Loading required plugin EOS.");
+   g_vsdk.eos_plugin = eos_plugin_api_get();
+
+   if(g_vsdk.eos_plugin == NULL) {
+      XLOGD_ERROR("EOS plugin API get failed");
+      dlclose(handle);
+      return(NULL);
+   }
+   if(g_vsdk.eos_plugin->version                   == NULL ||
+      g_vsdk.eos_plugin->object_create             == NULL ||
+      g_vsdk.eos_plugin->init                      == NULL ||
+      g_vsdk.eos_plugin->object_destroy            == NULL ||
+      g_vsdk.eos_plugin->run_float                 == NULL ||
+      g_vsdk.eos_plugin->run_int16                 == NULL ||
+      g_vsdk.eos_plugin->state_set_speech_begin    == NULL ||
+      g_vsdk.eos_plugin->state_set_speech_end      == NULL ||
+      g_vsdk.eos_plugin->signal_level_get          == NULL ||
+      g_vsdk.eos_plugin->signal_to_noise_ratio_get == NULL) {
+      XLOGD_ERROR("EOS plugin API incomplete");
+      g_vsdk.eos_plugin = NULL;
+      dlclose(handle);
+      return(NULL);
+   }
+   XLOGD_INFO("Loaded required plugin EOS.");
+
+   dlerror();  // Clear any existing error
+
+   xraudio_ppr_plugin_api_get_t ppr_plugin_api_get = (xraudio_ppr_plugin_api_get_t)dlsym(handle, "xraudio_ppr_plugin_api_get");
+   error = dlerror();
 
    if(error != NULL) {
       XLOGD_INFO("Optional plugin PPR not present, error <%s>", error);
    } else {
       XLOGD_INFO("Loading optional plugin PPR.");
-      g_vsdk.ppr_plugin = plugin_api_get();
+      g_vsdk.ppr_plugin = ppr_plugin_api_get();
 
       if(g_vsdk.ppr_plugin == NULL) {
          XLOGD_ERROR("PPR plugin API get failed");

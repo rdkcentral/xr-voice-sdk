@@ -64,8 +64,8 @@ typedef struct {
    xraudio_eos_object_t           obj_eos;
    xraudio_ovc_object_t           obj_ovc;
    xraudio_hal_dsp_config_t       dsp_config;
-   bool                           eos_enabled;
    xraudio_hal_plugin_api_t *     hal_plugin;
+   xraudio_eos_plugin_api_t *     eos_plugin;
    xraudio_ovc_plugin_api_t *     ovc_plugin;
 } xraudio_output_obj_t;
 
@@ -125,11 +125,11 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->volume_mono_cur      = XRAUDIO_VOLUME_NOM;
    obj->play_bumper          = 0;
    obj->dsp_config           = *dsp_config;
-   obj->eos_enabled          = false;
    obj->hal_plugin           = vsdk_hal_plugin_get();
+   obj->eos_plugin           = vsdk_eos_plugin_get();
    obj->ovc_plugin           = vsdk_ovc_plugin_get();
    
-   if(obj->eos_enabled) {
+   if(obj->eos_plugin != NULL) {
       if(NULL == json_obj_output) {
          XLOGD_INFO("json_obj_output is null, using defaults");
       }
@@ -146,7 +146,7 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
          }
       }
 
-      obj->obj_eos              = xraudio_eos_object_create(true, jeos_config);
+      obj->obj_eos              = obj->eos_plugin->object_create(true, jeos_config);
    }
    obj->use_external_gain    = (capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL) ? 1 : 0;
    obj->ramp_enable          = 1;
@@ -172,8 +172,8 @@ void xraudio_output_object_destroy(xraudio_output_object_t object) {
          // Close the speaker interface
          xraudio_output_close_locked(obj);
       }
-      if(obj->eos_enabled && obj->obj_eos != NULL) {
-         xraudio_eos_object_destroy(obj->obj_eos);
+      if(obj->eos_plugin != NULL && obj->obj_eos != NULL) {
+         obj->eos_plugin->object_destroy(obj->obj_eos);
          obj->obj_eos = NULL;
       }
       if(obj->ovc_plugin != NULL && obj->obj_ovc != NULL) {
@@ -979,8 +979,8 @@ xraudio_eos_event_t xraudio_output_eos_run(xraudio_output_object_t object, int16
       return(XRAUDIO_EOS_EVENT_NONE);
    }
    
-   if(obj->eos_enabled) {
-      return (obj->dsp_config.eos_enabled) ? xraudio_eos_run_int16(obj->obj_eos, input_samples, sample_qty) : XRAUDIO_EOS_EVENT_NONE;
+   if(obj->eos_plugin != NULL) {
+      return (obj->dsp_config.eos_enabled) ? obj->eos_plugin->run_int16(obj->obj_eos, input_samples, sample_qty) : XRAUDIO_EOS_EVENT_NONE;
    }
    return(XRAUDIO_EOS_EVENT_NONE);
 }
@@ -992,8 +992,8 @@ unsigned char xraudio_output_signal_level_get(xraudio_output_object_t object) {
       return(0);
    }
    
-   if(obj->eos_enabled && obj->state == XRAUDIO_OUTPUT_STATE_PLAYING && obj->dsp_config.eos_enabled) {
-      return(xraudio_eos_signal_level_get(obj->obj_eos));
+   if(obj->eos_plugin != NULL && obj->state == XRAUDIO_OUTPUT_STATE_PLAYING && obj->dsp_config.eos_enabled) {
+      return(obj->eos_plugin->signal_level_get(obj->obj_eos));
    }
    
    return(0);

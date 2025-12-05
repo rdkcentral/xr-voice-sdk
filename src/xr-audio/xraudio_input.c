@@ -123,8 +123,8 @@ typedef struct {
    xraudio_input_statistics_t    statistics;
    bool                          kwd_enabled;
    bool                          dga_enabled;
-   bool                          eos_enabled;
    xraudio_hal_plugin_api_t *    hal_plugin;
+   xraudio_eos_plugin_api_t *    eos_plugin;
    xraudio_sdf_plugin_api_t *    sdf_plugin;
    xraudio_ppr_plugin_api_t *    ppr_plugin;
    
@@ -231,15 +231,15 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       obj->dsp_config            = *dsp_config;
       obj->kwd_enabled           = vsdk_hal_in_enabled();
       obj->dga_enabled           = obj->kwd_enabled;
-      obj->eos_enabled           = obj->kwd_enabled;
       obj->hal_plugin            = vsdk_hal_plugin_get();
+      obj->eos_plugin            = vsdk_eos_plugin_get();
       obj->sdf_plugin            = vsdk_sdf_plugin_get();
       obj->ppr_plugin            = vsdk_ppr_plugin_get();
    } else {
       obj->kwd_enabled           = false;
       obj->dga_enabled           = false;
-      obj->eos_enabled           = false;
       obj->hal_plugin            = NULL;
+      obj->eos_plugin            = NULL;
       obj->sdf_plugin            = NULL;
       obj->ppr_plugin            = NULL;
    }
@@ -247,7 +247,7 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
    if(NULL == json_obj_input) {
       XLOGD_INFO("json_obj_input is null, using defaults");
    } else {
-      if(obj->eos_enabled) {
+      if(obj->eos_plugin != NULL) {
          jeos_config = json_object_get(json_obj_input, JSON_OBJ_NAME_INPUT_EOS);
          if(NULL == jeos_config) {
             XLOGD_INFO("EOS config not found, using defaults");
@@ -267,9 +267,9 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       }
    }
 
-   if(obj->eos_enabled) {
+   if(obj->eos_plugin != NULL) {
       for (uint8_t i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
-         obj->obj_eos[i] = xraudio_eos_object_create(false, jeos_config);
+         obj->obj_eos[i] = obj->eos_plugin->object_create(false, jeos_config);
       }
    }
    if(obj->sdf_plugin != NULL) {
@@ -327,10 +327,10 @@ void xraudio_input_object_destroy(xraudio_input_object_t object) {
          // Close the microphone interface
          xraudio_input_close_locked(obj);
       }
-      if(obj->eos_enabled) {
+      if(obj->eos_plugin != NULL) {
          for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
             if(obj->obj_eos[i] != NULL) {
-               xraudio_eos_object_destroy(obj->obj_eos[i]);
+               obj->eos_plugin->object_destroy(obj->obj_eos[i]);
                obj->obj_eos[i] = NULL;
             }
          }
@@ -925,9 +925,9 @@ xraudio_result_t xraudio_input_stream_to_pipe(xraudio_input_object_t object, xra
 
    session->state = XRAUDIO_INPUT_STATE_STREAMING;
 
-   if(obj->eos_enabled && subsequent && obj->dsp_config.eos_enabled) {
+   if(obj->eos_plugin != NULL && subsequent && obj->dsp_config.eos_enabled) {
       for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
-         xraudio_eos_state_set_speech_begin(obj->obj_eos[i]);
+         obj->eos_plugin->state_set_speech_begin(obj->obj_eos[i]);
       }
    }
 
@@ -1220,9 +1220,9 @@ void xraudio_input_keyword_detected(xraudio_input_object_t object) {
 
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
 
-   if(obj->eos_enabled && session->state == XRAUDIO_INPUT_STATE_DETECTING && obj->dsp_config.eos_enabled) {
+   if(obj->eos_plugin != NULL && session->state == XRAUDIO_INPUT_STATE_DETECTING && obj->dsp_config.eos_enabled) {
       for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
-         xraudio_eos_state_set_speech_begin(obj->obj_eos[i]);
+         obj->eos_plugin->state_set_speech_begin(obj->obj_eos[i]);
       }
    }
 
@@ -1255,9 +1255,9 @@ unsigned char xraudio_input_signal_level_get(xraudio_input_object_t object, uint
 
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
 
-   if(obj->eos_enabled && obj->dsp_config.eos_enabled) {
+   if(obj->eos_plugin != NULL && obj->dsp_config.eos_enabled) {
       if(session->state == XRAUDIO_INPUT_STATE_DETECTING || session->state == XRAUDIO_INPUT_STATE_RECORDING || session->state == XRAUDIO_INPUT_STATE_STREAMING) {
-         return(xraudio_eos_signal_level_get(obj->obj_eos[chan]));
+         return(obj->eos_plugin->signal_level_get(obj->obj_eos[chan]));
       }
    }
 
@@ -1284,7 +1284,7 @@ uint16_t xraudio_input_signal_direction_get(xraudio_input_object_t object) {
 xraudio_eos_event_t xraudio_input_eos_run(xraudio_input_object_t object, uint8_t chan, float *input_samples, int32_t sample_qty, int16_t *scaled_eos_samples) {
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
 
-   if(obj->eos_enabled) {
+   if(obj->eos_plugin != NULL) {
       if(!xraudio_input_object_is_valid(obj)) {
          XLOGD_ERROR("Invalid object.");
          return(XRAUDIO_EOS_EVENT_NONE);
@@ -1293,7 +1293,7 @@ xraudio_eos_event_t xraudio_input_eos_run(xraudio_input_object_t object, uint8_t
          XLOGD_ERROR("Bad channel (%hu).", (uint16_t)chan);
          return(0);
       }
-      return (obj->dsp_config.eos_enabled) ? xraudio_eos_run_float(obj->obj_eos[chan], input_samples, sample_qty, scaled_eos_samples) : XRAUDIO_EOS_EVENT_NONE;
+      return (obj->dsp_config.eos_enabled) ? obj->eos_plugin->run_float(obj->obj_eos[chan], input_samples, sample_qty, scaled_eos_samples) : XRAUDIO_EOS_EVENT_NONE;
    }
    return XRAUDIO_EOS_EVENT_NONE;
 }
@@ -1301,7 +1301,7 @@ xraudio_eos_event_t xraudio_input_eos_run(xraudio_input_object_t object, uint8_t
 void xraudio_input_eos_state_set_speech_begin(xraudio_input_object_t object) {
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
 
-   if(obj->eos_enabled) {
+   if(obj->eos_plugin != NULL) {
       if(!xraudio_input_object_is_valid(obj)) {
          XLOGD_ERROR("Invalid object.");
          return;
@@ -1309,7 +1309,7 @@ void xraudio_input_eos_state_set_speech_begin(xraudio_input_object_t object) {
       if(obj->dsp_config.eos_enabled) {
          XLOGD_DEBUG("Keyword detected. Force VADEOS to start.");
          for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
-            xraudio_eos_state_set_speech_begin(obj->obj_eos[i]);
+            obj->eos_plugin->state_set_speech_begin(obj->obj_eos[i]);
          }
       }
    }
