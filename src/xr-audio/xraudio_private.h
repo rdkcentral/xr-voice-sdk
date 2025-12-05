@@ -143,11 +143,11 @@ typedef struct {
    xr_mq_t                           msgq;
    sem_t *                           semaphore;
    bool                              kwd_enabled;
-   bool                              dga_enabled;
    bool                              eos_enabled;
    bool                              ppr_enabled;
    bool                              out_enabled;
    xraudio_hal_plugin_api_t *        hal_plugin;
+   xraudio_dga_plugin_api_t *        dga_plugin;
    xraudio_input_object_t            obj_input;
    xraudio_output_object_t           obj_output;
    json_t*                           json_obj_output;

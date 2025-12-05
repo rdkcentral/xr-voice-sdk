@@ -22,6 +22,7 @@
 #define __VSDK_PRIVATE__
 
 #include "xraudio_hal.h"
+#include "xraudio_dga.h"
 #include "xraudio_sdf.h"
 #include "xraudio_ovc.h"
 #include "xraudio_ppr.h"
@@ -37,7 +38,7 @@ bool vsdk_hal_out_enabled(void);
 xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void);
 //xraudio_kwd_plugin_api_t *vsdk_kwd_plugin_get(void);
 xraudio_eos_plugin_api_t *vsdk_eos_plugin_get(void);
-//xraudio_dga_plugin_api_t *vsdk_dga_plugin_get(void);
+xraudio_dga_plugin_api_t *vsdk_dga_plugin_get(void);
 xraudio_sdf_plugin_api_t *vsdk_sdf_plugin_get(void);
 xraudio_ovc_plugin_api_t *vsdk_ovc_plugin_get(void);
 xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void);

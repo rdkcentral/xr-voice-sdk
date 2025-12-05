@@ -84,8 +84,8 @@ typedef struct {
    #endif
    bool                              production_build;
    xraudio_hal_plugin_api_t *        hal_plugin;
+   xraudio_dga_plugin_api_t *        dga_plugin;
    bool                              kwd_enabled;
-   bool                              dga_enabled;
    bool                              eos_enabled;
    bool                              ppr_enabled;
    bool                              out_enabled;
@@ -184,8 +184,8 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    #endif
 
    obj->hal_plugin                            = vsdk_hal_plugin_get();
+   obj->dga_plugin                            = vsdk_dga_plugin_get();
    obj->kwd_enabled                           = vsdk_hal_in_enabled();
-   obj->dga_enabled                           = obj->kwd_enabled;
    obj->eos_enabled                           = (vsdk_eos_plugin_get() == NULL) ? false : true;
    obj->ppr_enabled                           = (vsdk_ppr_plugin_get() == NULL) ? false : true;
    obj->out_enabled                           = vsdk_hal_out_enabled();
@@ -1160,11 +1160,11 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
    params.semaphore                      = &semaphore;
    params.obj_input                      = obj->obj_input;
    params.kwd_enabled                    = obj->kwd_enabled;
-   params.dga_enabled                    = obj->dga_enabled;
    params.eos_enabled                    = obj->eos_enabled;
    params.ppr_enabled                    = obj->ppr_enabled;
    params.out_enabled                    = obj->out_enabled;
    params.hal_plugin                     = obj->hal_plugin;
+   params.dga_plugin                     = obj->dga_plugin;
    if(obj->out_enabled) {
       params.obj_output                     = obj->obj_output;
       params.json_obj_output                = obj->json_obj_output;

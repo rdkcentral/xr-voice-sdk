@@ -672,7 +672,7 @@ void *xraudio_main_thread(void *param) {
    xraudio_eos_detector_init(&state->record.eos_detector);
    XLOGD_DEBUG("eos_detector.single_channel_mode <%s>", (state->record.eos_detector.single_channel_mode == XRAUDIO_SINGLE_CHANNEL_SKIP) ? "SKIP" : "ONLY");
 
-   if(state->params.dga_enabled) {
+   if(state->params.dga_plugin != NULL) {
       if(NULL == state->params.json_obj_input) {
          XLOGD_INFO("parameter json_obj_input is null, using defaults");
       } else {
@@ -686,7 +686,7 @@ void *xraudio_main_thread(void *param) {
             }
          }
       }
-      state->record.obj_dga                  = xraudio_dga_object_create(jdga_config);
+      state->record.obj_dga                  = state->params.dga_plugin->object_create(jdga_config);
       state->record.dynamic_gain_enabled     = true;
    }
 
@@ -900,8 +900,8 @@ void *xraudio_main_thread(void *param) {
 
    rdkx_timer_destroy(state->timer_obj);
 
-   if(state->params.dga_enabled && state->record.obj_dga != NULL) {
-      xraudio_dga_object_destroy(state->record.obj_dga);
+   if(state->params.dga_plugin != NULL && state->record.obj_dga != NULL) {
+      state->params.dga_plugin->object_destroy(state->record.obj_dga);
       state->record.obj_dga = NULL;
    }
 
@@ -1086,7 +1086,7 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       xraudio_input_record_from_t stream_from = record->stream_from[0];
       XLOGD_DEBUG("<%s> active chan <%u> samples avail <%u> kwd begin <%d> end <%d> offset <%d>\n", xraudio_input_record_from_str(stream_from), active_chan, pre_detection_samples_avail, kwd_begin, kwd_end, offset);
 
-      if(state->params.dga_enabled && record->subsequent && XRAUDIO_DEVICE_INPUT_LOCAL_GET(instance->source) != XRAUDIO_DEVICE_INPUT_NONE) { // Use same input beam and dynamic gain from last stream
+      if(state->params.dga_plugin != NULL && record->subsequent && XRAUDIO_DEVICE_INPUT_LOCAL_GET(instance->source) != XRAUDIO_DEVICE_INPUT_NONE) { // Use same input beam and dynamic gain from last stream
          instance->dynamic_gain_set = true;
          XLOGD_DEBUG("dynamic gain bit qty <%u> chan <%u>", instance->dynamic_gain_pcm_bit_qty, active_chan);
       }
@@ -1136,7 +1136,7 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
          instance->pre_detection_sample_qty = pre_detection_samples_avail;
       }
 
-      if(state->params.dga_enabled) {
+      if(state->params.dga_plugin != NULL) {
          XLOGD_INFO("record->kwd_peak_power_dBFS is %d", record->kwd_peak_power_dBFS);
          if(record->kwd_peak_power_dBFS != 0) {
             instance->dynamic_gain_set         = true;
@@ -1147,7 +1147,7 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
             int16_t hal_kwd_peak_power_aop_adjusted = instance->hal_kwd_peak_power_dBFS - (int16_t)(state->record.input_aop_adjust_dB);
             XLOGD_INFO("peak power aop adjusted <%d dBFS>, peak power <%d dBFS>, aop_adjust <%d dB>", hal_kwd_peak_power_aop_adjusted, instance->hal_kwd_peak_power_dBFS, (int16_t)state->record.input_aop_adjust_dB);
             float dynamic_gain;
-            xraudio_dga_update(state->record.obj_dga, &instance->dynamic_gain_pcm_bit_qty, hal_kwd_peak_power_aop_adjusted, &dynamic_gain);
+            state->params.dga_plugin->update(state->record.obj_dga, &instance->dynamic_gain_pcm_bit_qty, hal_kwd_peak_power_aop_adjusted, &dynamic_gain);
             dynamic_gain -= state->record.input_aop_adjust_dB;
             state->record.keyword_detector.result.channels[state->record.keyword_detector.active_chan].dynamic_gain = dynamic_gain;
             if(record->dynamic_gain_update != NULL) {
@@ -2006,7 +2006,7 @@ void xraudio_msg_async_session_begin(xraudio_thread_state_t *state, void *msg) {
 
    state->record.keyword_detector.active_chan = 0;
    
-   if(state->params.dga_enabled) {
+   if(state->params.dga_plugin != NULL) {
       xraudio_session_record_inst_t *instance = &state->record.instances[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
 
       instance->dynamic_gain_set         = true;
@@ -2017,7 +2017,7 @@ void xraudio_msg_async_session_begin(xraudio_thread_state_t *state, void *msg) {
       int16_t hal_kwd_peak_power_aop_adjusted = instance->hal_kwd_peak_power_dBFS - (int16_t)(state->record.input_aop_adjust_dB);
       XLOGD_INFO("peak power aop adjusted <%d dBFS>, peak power <%d dBFS>, aop_adjust <%d dB>", hal_kwd_peak_power_aop_adjusted, instance->hal_kwd_peak_power_dBFS, (int16_t)state->record.input_aop_adjust_dB);
       float dynamic_gain;
-      xraudio_dga_update(state->record.obj_dga, &instance->dynamic_gain_pcm_bit_qty, hal_kwd_peak_power_aop_adjusted, &dynamic_gain);
+      state->params.dga_plugin->update(state->record.obj_dga, &instance->dynamic_gain_pcm_bit_qty, hal_kwd_peak_power_aop_adjusted, &dynamic_gain);
       dynamic_gain -= state->record.input_aop_adjust_dB;
       detector_result.channels[state->record.keyword_detector.active_chan].dynamic_gain = dynamic_gain;
       XLOGD_DEBUG("pcm bit qty in <%u> out <%u>", state->record.pcm_bit_qty, instance->dynamic_gain_pcm_bit_qty);
@@ -2916,7 +2916,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
       return(0);
    }
 
-   if(params->dga_enabled && session->dynamic_gain_enabled && params->dsp_config.dga_enabled) {
+   if(params->dga_plugin != NULL && session->dynamic_gain_enabled && params->dsp_config.dga_enabled) {
       instance->dynamic_gain_set = true;
 
 
@@ -2975,7 +2975,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
          instance->dynamic_gain_pcm_bit_qty = session->pcm_bit_qty;
          float dynamic_gain;
          float talker_level_dBFS;
-         xraudio_dga_calculate(session->obj_dga, &instance->dynamic_gain_pcm_bit_qty, frame_qty, (const float **)samples, sample_qty, &dynamic_gain, &talker_level_dBFS);
+         params->dga_plugin->calculate(session->obj_dga, &instance->dynamic_gain_pcm_bit_qty, frame_qty, (const float **)samples, sample_qty, &dynamic_gain, &talker_level_dBFS);
          dynamic_gain -= session->input_aop_adjust_dB;
          detector->result.channels[detector->active_chan].dynamic_gain = dynamic_gain;
 
@@ -3109,7 +3109,7 @@ int xraudio_in_write_to_memory(xraudio_devices_input_t source, xraudio_main_thre
          size_t            data_size  = frame_size * frame_group_index;
          xraudio_sample_t *samples    = (xraudio_sample_t *)frame_buffer;
          
-         if(params->dga_enabled && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
+         if(params->dga_plugin != NULL && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
             uint8_t chan = 0;
             if(params->kwd_enabled && params->dsp_config.input_asr_max_channel_qty == 0) {
                chan = session->keyword_detector.active_chan;
@@ -3117,7 +3117,7 @@ int xraudio_in_write_to_memory(xraudio_devices_input_t source, xraudio_main_thre
             float* frame_buffer_fp32 = &session->frame_buffer_fp32[chan].frames[0].samples[0];
             uint32_t sample_qty = data_size / sizeof(float);
             // Apply gain to group of audio frames
-            xraudio_dga_apply(session->obj_dga, frame_buffer_fp32, sample_qty * frame_group_index);
+            params->dga_plugin->apply(session->obj_dga, frame_buffer_fp32, sample_qty * frame_group_index);
             // Convert float to int16
             xraudio_samples_convert_fp32_int16(samples, frame_buffer_fp32, sample_qty * frame_group_index, instance->dynamic_gain_pcm_bit_qty);
          }
@@ -3173,7 +3173,7 @@ int xraudio_in_write_to_pipe(xraudio_devices_input_t source, xraudio_main_thread
 
       // Local source, set frame vars
       frame_buffer_int16 = &session->frame_buffer_int16[chan].frames[0].samples[0];
-      if(params->dga_enabled) {
+      if(params->dga_plugin != NULL) {
          frame_buffer_fp32  = &session->frame_buffer_fp32[chan].frames[0].samples[0];
       }
       frame_size_int16   = instance->frame_size_out;
@@ -3196,8 +3196,8 @@ int xraudio_in_write_to_pipe(xraudio_devices_input_t source, xraudio_main_thread
             XLOGD_DEBUG("prepending keyword utterance from channel <%u> instance <%u> to stream", detector->active_chan, detector->active_chan - params->dsp_config.input_asr_max_channel_qty);
 
             if(chunk_1_sample_qty) {
-               if(params->dga_enabled && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
-                  xraudio_dga_apply(session->obj_dga, chunk_1_samples_fp32, chunk_1_sample_qty);
+               if(params->dga_plugin != NULL && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
+                  params->dga_plugin->apply(session->obj_dga, chunk_1_samples_fp32, chunk_1_sample_qty);
                   bit_qty = instance->dynamic_gain_pcm_bit_qty;
                }
                uint32_t size;
@@ -3245,8 +3245,8 @@ int xraudio_in_write_to_pipe(xraudio_devices_input_t source, xraudio_main_thread
                }
             }
             if(chunk_2_sample_qty) {
-               if(params->dga_enabled && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
-                  xraudio_dga_apply(session->obj_dga, chunk_2_samples_fp32, chunk_2_sample_qty);
+               if(params->dga_plugin != NULL && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
+                  params->dga_plugin->apply(session->obj_dga, chunk_2_samples_fp32, chunk_2_sample_qty);
                   bit_qty = instance->dynamic_gain_pcm_bit_qty;
                }
                
@@ -3347,7 +3347,7 @@ int xraudio_in_write_to_pipe(xraudio_devices_input_t source, xraudio_main_thread
             data_size = frame_size_int16 * frame_group_index;
             data_ptr  = frame_buffer_int16;
 
-            if(params->dga_enabled && !is_external && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
+            if(params->dga_plugin != NULL && !is_external && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
                uint32_t sample_qty = data_size / sizeof(int16_t);
                float frame_buffer_temp[sample_qty];
 
@@ -3356,7 +3356,7 @@ int xraudio_in_write_to_pipe(xraudio_devices_input_t source, xraudio_main_thread
                   frame_buffer_temp[index] = frame_buffer_fp32[index];
                }
                // Apply gain to group of audio frames
-               xraudio_dga_apply(session->obj_dga, frame_buffer_temp, sample_qty);
+               params->dga_plugin->apply(session->obj_dga, frame_buffer_temp, sample_qty);
                // Convert float to int16
                xraudio_samples_convert_fp32_int16(frame_buffer_int16, frame_buffer_temp, sample_qty, instance->dynamic_gain_pcm_bit_qty);
             }
@@ -3448,14 +3448,14 @@ int xraudio_in_write_to_user(xraudio_devices_input_t source, xraudio_main_thread
       errno = 0;
       xraudio_sample_t *samples = (xraudio_sample_t *)frame_buffer;
       
-      if(params->dga_enabled && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
+      if(params->dga_plugin != NULL && instance->dynamic_gain_set && params->dsp_config.dga_enabled) {
          uint8_t chan = 0;
          if(params->kwd_enabled && params->dsp_config.input_asr_max_channel_qty == 0) {
             chan = session->keyword_detector.active_chan;
          }
          float* frame_buffer_fp32 = &session->frame_buffer_fp32[chan].frames[0].samples[0];
          // Apply gain to group of audio frames
-         xraudio_dga_apply(session->obj_dga, frame_buffer_fp32, sample_qty * frame_group_index);
+         params->dga_plugin->apply(session->obj_dga, frame_buffer_fp32, sample_qty * frame_group_index);
          // Convert float to int16
          xraudio_samples_convert_fp32_int16(samples, frame_buffer_fp32, sample_qty * frame_group_index, instance->dynamic_gain_pcm_bit_qty);
       }

@@ -49,7 +49,7 @@ typedef struct {
    xraudio_hal_plugin_api_t *hal_plugin;
    //xraudio_kwd_plugin_api_t *kwd_plugin;
    xraudio_eos_plugin_api_t *eos_plugin;
-   //xraudio_dga_plugin_api_t *dga_plugin;
+   xraudio_dga_plugin_api_t *dga_plugin;
    xraudio_sdf_plugin_api_t *sdf_plugin;
    xraudio_ovc_plugin_api_t *ovc_plugin;
    xraudio_ppr_plugin_api_t *ppr_plugin;
@@ -450,6 +450,39 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
    dlerror();  // Clear any existing error
 
+   xraudio_dga_plugin_api_get_t dga_plugin_api_get = (xraudio_dga_plugin_api_get_t)dlsym(handle, "xraudio_dga_plugin_api_get");
+   error = dlerror();
+
+   if(error != NULL) {
+      XLOGD_ERROR("Required plugin DGA not present, error <%s>", error);
+      dlclose(handle);
+      return(NULL);
+   }
+
+   XLOGD_INFO("Loading required plugin DGA.");
+   g_vsdk.dga_plugin = dga_plugin_api_get();
+
+   if(g_vsdk.dga_plugin == NULL) {
+      XLOGD_ERROR("DGA plugin API get failed");
+      dlclose(handle);
+      return(NULL);
+   }
+   if(g_vsdk.dga_plugin->version        == NULL ||
+      g_vsdk.dga_plugin->object_create  == NULL ||
+      g_vsdk.dga_plugin->object_destroy == NULL ||
+      g_vsdk.dga_plugin->calculate      == NULL ||
+      g_vsdk.dga_plugin->update         == NULL ||
+      g_vsdk.dga_plugin->apply          == NULL) {
+      XLOGD_ERROR("DGA plugin API incomplete");
+      g_vsdk.dga_plugin = NULL;
+      g_vsdk.eos_plugin = NULL;
+      dlclose(handle);
+      return(NULL);
+   }
+   XLOGD_INFO("Loaded required plugin DGA.");
+
+   dlerror();  // Clear any existing error
+
    xraudio_ppr_plugin_api_get_t ppr_plugin_api_get = (xraudio_ppr_plugin_api_get_t)dlsym(handle, "xraudio_ppr_plugin_api_get");
    error = dlerror();
 
@@ -462,6 +495,8 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
       if(g_vsdk.ppr_plugin == NULL) {
          XLOGD_ERROR("PPR plugin API get failed");
          dlclose(handle);
+         g_vsdk.dga_plugin = NULL;
+         g_vsdk.eos_plugin = NULL;
          return(NULL);
       }
       if(g_vsdk.ppr_plugin->version          == NULL ||
@@ -475,6 +510,8 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
          XLOGD_ERROR("PPR plugin API incomplete");
          g_vsdk.ppr_plugin = NULL;
          dlclose(handle);
+         g_vsdk.dga_plugin = NULL;
+         g_vsdk.eos_plugin = NULL;
          return(NULL);
       }
       XLOGD_INFO("Loaded optional plugin PPR.");
