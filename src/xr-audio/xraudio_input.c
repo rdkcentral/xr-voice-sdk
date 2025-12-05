@@ -229,7 +229,7 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
 
    if(dsp_config != NULL) {
       obj->dsp_config            = *dsp_config;
-      obj->kwd_enabled           = vsdk_hal_in_enabled();
+      obj->kwd_enabled           = (vsdk_kwd_plugin_get() == NULL) ? false : true;
       obj->dga_enabled           = (vsdk_dga_plugin_get() == NULL) ? false : true;
       obj->hal_plugin            = vsdk_hal_plugin_get();
       obj->eos_plugin            = vsdk_eos_plugin_get();

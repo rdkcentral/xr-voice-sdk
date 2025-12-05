@@ -47,7 +47,7 @@ typedef struct {
    bool                      hal_in_enabled;
    bool                      hal_out_enabled;
    xraudio_hal_plugin_api_t *hal_plugin;
-   //xraudio_kwd_plugin_api_t *kwd_plugin;
+   xraudio_kwd_plugin_api_t *kwd_plugin;
    xraudio_eos_plugin_api_t *eos_plugin;
    xraudio_dga_plugin_api_t *dga_plugin;
    xraudio_sdf_plugin_api_t *sdf_plugin;
@@ -218,13 +218,17 @@ xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void) {
    return(g_vsdk.hal_plugin);
 }
 
-//xraudio_kwd_plugin_api_t *vsdk_kwd_plugin_get(void);
+xraudio_kwd_plugin_api_t *vsdk_kwd_plugin_get(void) {
+   return(g_vsdk.kwd_plugin);
+}
 
 xraudio_eos_plugin_api_t *vsdk_eos_plugin_get(void) {
    return(g_vsdk.eos_plugin);
 }
 
-//xraudio_dga_plugin_api_t *vsdk_dga_plugin_get(void);
+xraudio_dga_plugin_api_t *vsdk_dga_plugin_get(void) {
+   return(g_vsdk.dga_plugin);
+}
 
 xraudio_sdf_plugin_api_t *vsdk_sdf_plugin_get(void) {
    return(g_vsdk.sdf_plugin);
@@ -379,19 +383,43 @@ void *vsdk_load_plugin_ffv_kwd(void) {
 
    dlerror();  // Clear any existing error
 
-   //g_ctrlm.rf4ce_hal_main = (ctrlm_hal_rf4ce_main_t)dlsym(handle, "ctrlm_hal_rf4ce_main");
-   //char *error = dlerror();
+   xraudio_kwd_plugin_api_get_t plugin_api_get = (xraudio_kwd_plugin_api_get_t)dlsym(handle, "xraudio_kwd_plugin_api_get");
+   char *error = dlerror();
 
-   //if(error != NULL) {
-   //   XLOGD_ERROR("Failed to find plugin method (ctrlm_hal_rf4ce_main), error <%s>", error);
-   //   dlclose(handle);
-   //   return(NULL);
-   //}
+   if(error != NULL) {
+      XLOGD_ERROR("Required plugin KWD not present, error <%s>", error);
+      dlclose(handle);
+      return(NULL);
+   }
 
-   XLOGD_INFO("FFV KWD plugin is loaded."); // TODO Print the version info here
-   
+   XLOGD_INFO("Loading required plugin KWD.");
+   g_vsdk.kwd_plugin = plugin_api_get();
+
+   if(g_vsdk.kwd_plugin == NULL) {
+      XLOGD_ERROR("KWD plugin API get failed");
+      dlclose(handle);
+      return(NULL);
+   }
+   if(g_vsdk.kwd_plugin->version                == NULL ||
+      g_vsdk.kwd_plugin->object_create          == NULL ||
+      g_vsdk.kwd_plugin->object_destroy         == NULL ||
+      g_vsdk.kwd_plugin->init                   == NULL ||
+      g_vsdk.kwd_plugin->update                 == NULL ||
+      g_vsdk.kwd_plugin->run                    == NULL ||
+      g_vsdk.kwd_plugin->run_int16              == NULL ||
+      g_vsdk.kwd_plugin->postprocess            == NULL ||
+      g_vsdk.kwd_plugin->result                 == NULL ||
+      g_vsdk.kwd_plugin->term                   == NULL ||
+      g_vsdk.kwd_plugin->sensitivity_limits_get == NULL ||
+      g_vsdk.kwd_plugin->sensitivity_lut_check  == NULL) {
+      XLOGD_ERROR("KWD plugin API incomplete");
+      g_vsdk.kwd_plugin = NULL;
+      dlclose(handle);
+      return(NULL);
+   }
+   XLOGD_INFO("Loaded required plugin KWD.");
+
    return(handle);
-
 }
 
 void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
