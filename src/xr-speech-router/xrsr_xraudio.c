@@ -666,11 +666,9 @@ bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_
 }
 
 xrsr_session_group_t xrsr_xraudio_source_to_group(xraudio_devices_input_t source) {
-   #ifdef MICROPHONE_TAP_ENABLED
    if(source == XRAUDIO_DEVICE_INPUT_MIC_TAP) {
       return(XRSR_SESSION_GROUP_MIC_TAP);
    }
-   #endif
    return(XRSR_SESSION_GROUP_DEFAULT);
 }
 

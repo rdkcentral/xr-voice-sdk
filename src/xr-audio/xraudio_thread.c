@@ -3479,11 +3479,9 @@ void xraudio_in_sound_intensity_transfer(xraudio_main_thread_params_t *params, x
       if(params->kwd_plugin != NULL && params->dsp_config.input_asr_max_channel_qty == 0) {
          active_chan = session->keyword_detector.active_chan;
       }
-      #ifdef MICROPHONE_TAP_ENABLED
       if(group == XRAUDIO_INPUT_SESSION_GROUP_MIC_TAP) {
          active_chan = XRAUDIO_INPUT_BEAM_INDEX_CENTER; // default to center channel for MIC TAP
       }
-      #endif
 
       uint16_t intensity = xraudio_input_signal_level_get(params->obj_input, active_chan);
       uint16_t direction = xraudio_input_signal_direction_get(params->obj_input);
@@ -5441,11 +5439,9 @@ void xraudio_in_session_record_group_semaphore_unlock(xraudio_main_thread_params
    g_voice_session.detecting         = 1; // Used to make sure we don't close HAL when detecting stops
    g_voice_session.sources_supported = session->devices_input;
    g_voice_session.msgq              = params->msgq;
-   #ifdef MICROPHONE_TAP_ENABLED
    if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(g_voice_session.sources_supported)) {
       g_voice_session.sources_supported |= XRAUDIO_DEVICE_INPUT_MIC_TAP;
    }
-   #endif
 
    XLOGD_DEBUG("group <%s>", xraudio_input_session_group_str(group));
 }
