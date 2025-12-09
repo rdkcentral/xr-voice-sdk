@@ -40,8 +40,6 @@ option(MICROPHONE_TAP_ENABLED,  "speech router microphone tap"                OF
 
 option(XRSR_ALLOW_INPUT_FAILURE,  "speech router allow input failure"         OFF)
 
-set(XRSR_KEYWORD_PHRASE, "" CACHE STRING "speech router keyword phrase")
-
 option(XRAUDIO_RESOURCE_MGMT,   "xraudio resource management"                 OFF)
 
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
@@ -162,12 +160,6 @@ endif()
 
 if(XRSR_ALLOW_INPUT_FAILURE)
    target_compile_definitions(xr-voice-sdk PUBLIC XRSR_ALLOW_INPUT_FAILURE)
-endif()
-
-if(XRSR_KEYWORD_PHRASE STREQUAL hello_sky)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_KEYWORD_PHRASE_HELLO_SKY)
-elseif(XRSR_KEYWORD_PHRASE STREQUAL hey_xfinity)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_KEYWORD_PHRASE_HEY_XFINITY)
 endif()
 
 if(XRAUDIO_RESOURCE_MGMT)
