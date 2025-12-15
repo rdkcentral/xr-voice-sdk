@@ -38,8 +38,6 @@ option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OF
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
 option(MICROPHONE_TAP_ENABLED,  "speech router microphone tap"                OFF)
 
-option(XRAUDIO_RESOURCE_MGMT,   "xraudio resource management"                 OFF)
-
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
 set(XRAUDIO_CONFIG_JSON_KWD, "" CACHE FILEPATH "xraudio config kwd")
 set(XRAUDIO_CONFIG_JSON_EOS, "" CACHE FILEPATH "xraudio config eos")
@@ -56,7 +54,6 @@ option(XRAUDIO_DGA_ENABLED,    "xraudio dynamic gain"     OFF)
 option(XRAUDIO_SDF_ENABLED,    "xraudio sound focus"      OFF)
 option(XRAUDIO_OVC_ENABLED,    "xraudio ovc"              OFF)
 option(XRAUDIO_PPR_ENABLED,    "xraudio pre-processing"   OFF)
-option(XRAUDIO_OUTPUT_ENABLED, "xraudio output"           OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -155,12 +152,6 @@ endif()
 if(MICROPHONE_TAP_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC MICROPHONE_TAP_ENABLED)
 endif()
-
-if(XRAUDIO_RESOURCE_MGMT)
-   target_sources(xr-voice-sdk PUBLIC src/xr-audio/xraudio_resource.c)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_RESOURCE_MGMT)
-   target_link_libraries(xr-voice-sdk rt)
-endif()
    
 target_sources(xr-voice-sdk PUBLIC src/xr-audio/adpcm/adpcm_decode.c)
 target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_ADPCM)
@@ -209,10 +200,14 @@ if(XRAUDIO_OVC_ENABLED)
    target_link_libraries(xr-voice-sdk xraudio-ovc)
 endif()
 
-if(XRAUDIO_OUTPUT_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_OUTPUT_ENABLED)
-   target_sources(xr-voice-sdk PUBLIC src/xr-audio/xraudio_output.c)
-endif()
+# Disable resource management (implement via vsdk_options.json file if needed)
+# target_sources(xr-voice-sdk PUBLIC src/xr-audio/xraudio_resource.c)
+# target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_RESOURCE_MGMT)
+# target_link_libraries(xr-voice-sdk rt)
+
+# Disable audio output (implement via shared library or HAL interface if needed)
+# target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_OUTPUT_ENABLED)
+# target_sources(xr-voice-sdk PUBLIC src/xr-audio/xraudio_output.c)
 
 # CONFIG FILES
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xrsr_config.json TYPE INCLUDE)
