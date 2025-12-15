@@ -38,10 +38,6 @@ option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OF
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
 option(MICROPHONE_TAP_ENABLED,  "speech router microphone tap"                OFF)
 
-option(XRSR_ALLOW_INPUT_FAILURE,  "speech router allow input failure"         OFF)
-
-set(XRSR_KEYWORD_PHRASE, "" CACHE STRING "speech router keyword phrase")
-
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
 set(XRAUDIO_CONFIG_JSON_KWD, "" CACHE FILEPATH "xraudio config kwd")
 set(XRAUDIO_CONFIG_JSON_EOS, "" CACHE FILEPATH "xraudio config eos")
@@ -156,17 +152,7 @@ endif()
 if(MICROPHONE_TAP_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC MICROPHONE_TAP_ENABLED)
 endif()
-
-if(XRSR_ALLOW_INPUT_FAILURE)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_ALLOW_INPUT_FAILURE)
-endif()
-
-if(XRSR_KEYWORD_PHRASE STREQUAL hello_sky)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_KEYWORD_PHRASE_HELLO_SKY)
-elseif(XRSR_KEYWORD_PHRASE STREQUAL hey_xfinity)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_KEYWORD_PHRASE_HEY_XFINITY)
-endif()
-
+   
 target_sources(xr-voice-sdk PUBLIC src/xr-audio/adpcm/adpcm_decode.c)
 target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_ADPCM)
 target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/adpcm/)
