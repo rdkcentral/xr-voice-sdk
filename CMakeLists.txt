@@ -38,8 +38,6 @@ option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OF
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
 option(MICROPHONE_TAP_ENABLED,  "speech router microphone tap"                OFF)
 
-option(XRSR_ALLOW_INPUT_FAILURE,  "speech router allow input failure"         OFF)
-
 option(XRAUDIO_RESOURCE_MGMT,   "xraudio resource management"                 OFF)
 
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
@@ -156,10 +154,6 @@ endif()
 
 if(MICROPHONE_TAP_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC MICROPHONE_TAP_ENABLED)
-endif()
-
-if(XRSR_ALLOW_INPUT_FAILURE)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_ALLOW_INPUT_FAILURE)
 endif()
 
 if(XRAUDIO_RESOURCE_MGMT)
