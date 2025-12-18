@@ -862,7 +862,7 @@ void *xraudio_main_thread(void *param) {
                   int errsv = errno;
                   XLOGD_ERROR("record fd read error <%s>", strerror(errsv));
                } else {
-                  XLOGD_ERROR("record fd read error <%d>", rc);
+                  XLOGD_ERROR("record fd read error <%ld>", rc);
                }
             } else {
                XLOGD_DEBUG("val <%llu>", val);
@@ -2996,7 +2996,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
                   if(detector_chan->endpoints.end_of_wuw_ext_enabled) {
                      instance->eos_end_of_wake_word_samples = 0;
                   }
-                  XLOGD_INFO("ignore keyword detection. Talker level is below threshold", talker_level_dBSPL, talker_threshold_dBSPL);
+                  XLOGD_INFO("ignore keyword detection. Talker level is below threshold");
                   xraudio_in_session_record_group_semaphore_unlock(params, session, source); // unlock semaphore to allow for next detection
                   return(0);
                }
@@ -4077,7 +4077,7 @@ void xraudio_out_sound_intensity_transfer(xraudio_main_thread_params_t *params, 
    ssize_t rc = write(session->fifo_sound_intensity, buf, sizeof(buf));
    if(rc != sizeof(buf)) {
       int errsv = errno;
-      XLOGD_ERROR("unable to write fifo %d <%s>", rc, strerror(errsv));
+      XLOGD_ERROR("unable to write fifo %ld <%s>", rc, strerror(errsv));
    }
 }
 
