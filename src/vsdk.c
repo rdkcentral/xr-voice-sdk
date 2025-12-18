@@ -139,26 +139,44 @@ void vsdk_term(void) {
 
    if(g_vsdk.hal_in_enabled || g_vsdk.hal_out_enabled) {
       XLOGD_INFO("unload FFV hal");
-      dlclose(g_vsdk.ffv_plugins.handle_ffv_hal);
-      dlclose(g_vsdk.ffv_plugins.handle_ffv_kwd);
-      dlclose(g_vsdk.ffv_plugins.handle_ffv_alg);
+      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_hal) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+      }
+      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_kwd) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV KWD <%s>", (err != NULL) ? err : "unknown error");
+      }
+      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_alg) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV ALG <%s>", (err != NULL) ? err : "unknown error");
+      }
       g_vsdk.ffv_plugins.handle_ffv_hal = NULL;
       g_vsdk.ffv_plugins.handle_ffv_kwd = NULL;
       g_vsdk.ffv_plugins.handle_ffv_alg = NULL;
    }
    if(g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) {
       XLOGD_INFO("unload FFV SDF");
-      dlclose(g_vsdk.ffv_plugins.handle_ffv_sdf);
+      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_sdf) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV SDF <%s>", (err != NULL) ? err : "unknown error");
+      }
       g_vsdk.ffv_plugins.handle_ffv_sdf = NULL;
    }
    if(g_vsdk.ffv_plugins.handle_ffv_ovc != NULL) {
       XLOGD_INFO("unload FFV OVC");
-      dlclose(g_vsdk.ffv_plugins.handle_ffv_ovc);
+      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_ovc) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV OVC <%s>", (err != NULL) ? err : "unknown error");
+      }
       g_vsdk.ffv_plugins.handle_ffv_ovc = NULL;
    }
    if(g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) {
       XLOGD_INFO("unload FFV PPR");
-      dlclose(g_vsdk.ffv_plugins.handle_ffv_ppr);
+      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_ppr) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV PPR <%s>", (err != NULL) ? err : "unknown error");
+      }
       g_vsdk.ffv_plugins.handle_ffv_ppr = NULL;
    }
 
@@ -335,30 +353,50 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
    if(!ret) {
       if(handles->handle_ffv_hal != NULL) {
-         dlclose(handles->handle_ffv_hal);
+         if(dlclose(handles->handle_ffv_hal) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+         }
          handles->handle_ffv_hal = NULL;
       }
       if(handles->handle_ffv_kwd != NULL) {
-         dlclose(handles->handle_ffv_kwd);
+         if(dlclose(handles->handle_ffv_kwd) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV KWD <%s>", (err != NULL) ? err : "unknown error");
+         }
          handles->handle_ffv_kwd = NULL;
       }
       if(handles->handle_ffv_alg != NULL) {
-         dlclose(handles->handle_ffv_alg);
+         if(dlclose(handles->handle_ffv_alg) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV ALG <%s>", (err != NULL) ? err : "unknown error");
+         }
          handles->handle_ffv_alg = NULL;
       }
       if(handles->handle_ffv_sdf != NULL) {
-         dlclose(handles->handle_ffv_sdf);
+         if(dlclose(handles->handle_ffv_sdf) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV SDF <%s>", (err != NULL) ? err : "unknown error");
+         }
          handles->handle_ffv_sdf = NULL;
       }
       if(handles->handle_ffv_ovc != NULL) {
-         dlclose(handles->handle_ffv_ovc);
+         if(dlclose(handles->handle_ffv_ovc) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV OVC <%s>", (err != NULL) ? err : "unknown error");
+         }
          handles->handle_ffv_ovc = NULL;
       }
       if(handles->handle_ffv_ppr != NULL) {
-         dlclose(handles->handle_ffv_ppr);
+         if(dlclose(handles->handle_ffv_ppr) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV PPR <%s>", (err != NULL) ? err : "unknown error");
+         }
          handles->handle_ffv_ppr = NULL;
       }
    }
+
+   XLOGD_INFO("FFV plugin is <%s>", ret ? "enabled" : "disabled");
 
    return(ret);
 }
@@ -388,7 +426,10 @@ void *vsdk_load_plugin_ffv_kwd(void) {
 
    if(error != NULL) {
       XLOGD_ERROR("Required plugin KWD not present, error <%s>", error);
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV KWD <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
 
@@ -397,7 +438,10 @@ void *vsdk_load_plugin_ffv_kwd(void) {
 
    if(g_vsdk.kwd_plugin == NULL) {
       XLOGD_ERROR("KWD plugin API get failed");
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV KWD <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
    if(g_vsdk.kwd_plugin->version                == NULL ||
@@ -414,7 +458,10 @@ void *vsdk_load_plugin_ffv_kwd(void) {
       g_vsdk.kwd_plugin->sensitivity_lut_check  == NULL) {
       XLOGD_ERROR("KWD plugin API incomplete");
       g_vsdk.kwd_plugin = NULL;
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV KWD <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
    XLOGD_INFO("Loaded required plugin KWD.");
@@ -447,7 +494,10 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
    if(error != NULL) {
       XLOGD_ERROR("Required plugin EOS not present, error <%s>", error);
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV EOS <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
 
@@ -456,7 +506,10 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
    if(g_vsdk.eos_plugin == NULL) {
       XLOGD_ERROR("EOS plugin API get failed");
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV EOS <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
    if(g_vsdk.eos_plugin->version                   == NULL ||
@@ -471,7 +524,10 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
       g_vsdk.eos_plugin->signal_to_noise_ratio_get == NULL) {
       XLOGD_ERROR("EOS plugin API incomplete");
       g_vsdk.eos_plugin = NULL;
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV EOS <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
    XLOGD_INFO("Loaded required plugin EOS.");
@@ -483,7 +539,10 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
    if(error != NULL) {
       XLOGD_ERROR("Required plugin DGA not present, error <%s>", error);
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV DGA <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
 
@@ -492,7 +551,10 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
    if(g_vsdk.dga_plugin == NULL) {
       XLOGD_ERROR("DGA plugin API get failed");
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV DGA <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
    if(g_vsdk.dga_plugin->version        == NULL ||
@@ -504,7 +566,10 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
       XLOGD_ERROR("DGA plugin API incomplete");
       g_vsdk.dga_plugin = NULL;
       g_vsdk.eos_plugin = NULL;
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV DGA <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
    XLOGD_INFO("Loaded required plugin DGA.");
@@ -522,7 +587,10 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
       if(g_vsdk.ppr_plugin == NULL) {
          XLOGD_ERROR("PPR plugin API get failed");
-         dlclose(handle);
+         if(dlclose(handle) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV PPR <%s>", (err != NULL) ? err : "unknown error");
+         }
          g_vsdk.dga_plugin = NULL;
          g_vsdk.eos_plugin = NULL;
          return(NULL);
@@ -537,7 +605,10 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
          g_vsdk.ppr_plugin->get_lookback_pcm == NULL) {
          XLOGD_ERROR("PPR plugin API incomplete");
          g_vsdk.ppr_plugin = NULL;
-         dlclose(handle);
+         if(dlclose(handle) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV PPR <%s>", (err != NULL) ? err : "unknown error");
+         }
          g_vsdk.dga_plugin = NULL;
          g_vsdk.eos_plugin = NULL;
          return(NULL);
@@ -582,7 +653,10 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
 
    if(g_vsdk.hal_plugin == NULL) {
       XLOGD_ERROR("HAL plugin API get failed");
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
    if(g_vsdk.hal_plugin->version                      == NULL ||
@@ -612,7 +686,10 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
       g_vsdk.hal_plugin->input_stream_latency_set     == NULL) {
       XLOGD_ERROR("HAL plugin API incomplete");
       g_vsdk.hal_plugin = NULL;
-      dlclose(handle);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
    if(g_vsdk.hal_plugin->output_open             == NULL ||
@@ -668,7 +745,10 @@ void *vsdk_load_plugin_ffv_sdf(void) {
 
       if(g_vsdk.sdf_plugin == NULL) {
          XLOGD_ERROR("SDF plugin API get failed");
-         dlclose(handle);
+         if(dlclose(handle) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV SDF <%s>", (err != NULL) ? err : "unknown error");
+         }
          return(NULL);
       }
       if(g_vsdk.sdf_plugin->object_create        == NULL ||
@@ -680,7 +760,10 @@ void *vsdk_load_plugin_ffv_sdf(void) {
          g_vsdk.sdf_plugin->statistics_print     == NULL) {
          XLOGD_ERROR("SDF plugin API incomplete");
          g_vsdk.sdf_plugin = NULL;
-         dlclose(handle);
+         if(dlclose(handle) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV SDF <%s>", (err != NULL) ? err : "unknown error");
+         }
          return(NULL);
       }
       XLOGD_INFO("Loaded optional plugin SDF.");
@@ -720,7 +803,10 @@ void *vsdk_load_plugin_ffv_ovc(void) {
 
       if(g_vsdk.ovc_plugin == NULL) {
          XLOGD_ERROR("OVC plugin API get failed");
-         dlclose(handle);
+         if(dlclose(handle) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV OVC <%s>", (err != NULL) ? err : "unknown error");
+         }
          return(NULL);
       }
       if(g_vsdk.ovc_plugin->version                 == NULL ||
@@ -736,7 +822,10 @@ void *vsdk_load_plugin_ffv_ovc(void) {
          g_vsdk.ovc_plugin->is_ramp_active          == NULL) {
          XLOGD_ERROR("OVC plugin API incomplete");
          g_vsdk.ovc_plugin = NULL;
-         dlclose(handle);
+         if(dlclose(handle) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV OVC <%s>", (err != NULL) ? err : "unknown error");
+         }
          return(NULL);
       }
       XLOGD_INFO("Loaded optional plugin OVC.");

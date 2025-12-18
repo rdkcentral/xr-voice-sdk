@@ -1172,10 +1172,10 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
       params.obj_output                     = NULL;
       params.json_obj_output                = NULL;
    }
-   if(obj->kwd_plugin != NULL) {
+   if(obj->kwd_plugin != NULL && obj->obj_input != NULL) {
       params.hal_obj                        = g_xraudio_process.hal_obj;
       params.dsp_config                     = g_xraudio_process.dsp_config;
-      params.hal_input_obj                  = obj->obj_input ? xraudio_input_hal_obj_get(obj->obj_input) : NULL;
+      params.hal_input_obj                  = xraudio_input_hal_obj_get(obj->obj_input);
    } else {
       params.hal_obj                        = NULL;
       memset(&params.dsp_config, 0, sizeof(params.dsp_config));
