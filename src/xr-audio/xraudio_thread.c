@@ -4077,7 +4077,7 @@ void xraudio_out_sound_intensity_transfer(xraudio_main_thread_params_t *params, 
    ssize_t rc = write(session->fifo_sound_intensity, buf, sizeof(buf));
    if(rc != sizeof(buf)) {
       int errsv = errno;
-      XLOGD_ERROR("unable to write fifo %ld <%s>", rc, strerror(errsv));
+      XLOGD_ERROR("unable to write fifo %zd <%s>", rc, strerror(errsv));
    }
 }
 
