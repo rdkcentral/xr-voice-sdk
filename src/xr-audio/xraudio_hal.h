@@ -189,6 +189,7 @@ typedef struct {
    uint8_t input_kwd_max_channel_qty;
    float   aop_adjust;
    bool    dsp_output_override_enable;
+   bool    doa_beam_sel_enabled;
 } xraudio_hal_dsp_config_t;
 
 /// @}

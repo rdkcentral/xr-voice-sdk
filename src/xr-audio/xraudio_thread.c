@@ -2477,8 +2477,11 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
       xraudio_eos_event_t eos_event = xraudio_input_eos_run(params->obj_input, chan, frame_buffer_fp32, sample_qty_chan, &scaled_eos_samples[0] );
 
       #if defined(XRAUDIO_KWD_ENABLED)
-      uint8_t active_chan = (params->dsp_config.input_asr_max_channel_qty == 0) ? session->keyword_detector.active_chan : 0;   // kwd active ("best") channel
-      xraudio_hal_input_doa_beam_event(params->hal_input_obj, &active_chan);  // override with doa result
+      uint8_t active_chan = (params->dsp_config.input_asr_max_channel_qty == 0) ? session->keyword_detector.active_chan : 0;   // kwd active ("best") channel;
+      if(params->dsp_config.doa_beam_sel_enabled) {
+         xraudio_hal_input_doa_beam_event(params->hal_input_obj, &active_chan);
+         XLOGD_DEBUG("active_chan <%d>", active_chan);
+      }
       #else
       uint8_t active_chan = 0;                                       // ASR channel reserved for channel 0
       #endif
@@ -2958,11 +2961,9 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
 
    detector->post_frame_count_callback++;
 
-   if(!is_armed || !detector->triggered) {
+   if(!is_armed || (!detector->triggered && !params->dsp_config.doa_beam_sel_enabled)) {
       return(0);
    }
-
-   detector->post_frame_count_trigger++;
 
    XLOGD_DEBUG("all triggered <%s> post frame count <%u>", all_triggered ? "YES" : "NO", detector->post_frame_count_trigger);
    if(!all_triggered && detector->post_frame_count_trigger <= KEYWORD_TRIGGER_DETECT_THRESHOLD) {
