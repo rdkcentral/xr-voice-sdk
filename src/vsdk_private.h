@@ -33,6 +33,8 @@ extern "C" {
 #endif
 
 bool vsdk_curtail_xraudio_enabled(void);
+bool vsdk_xraudio_allow_input_failure(void);
+
 bool vsdk_hal_in_enabled(void);
 bool vsdk_hal_out_enabled(void);
 

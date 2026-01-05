@@ -37,12 +37,6 @@ option(WS_ENABLED,              "speech router websocket protocol"            OF
 option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
 
-option(XRSR_ALLOW_INPUT_FAILURE,  "speech router allow input failure"         OFF)
-
-set(XRSR_KEYWORD_PHRASE, "" CACHE STRING "speech router keyword phrase")
-
-option(XRAUDIO_RESOURCE_MGMT,   "xraudio resource management"                 OFF)
-
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
 set(XRAUDIO_CONFIG_JSON_KWD, "" CACHE FILEPATH "xraudio config kwd")
 set(XRAUDIO_CONFIG_JSON_EOS, "" CACHE FILEPATH "xraudio config eos")
@@ -52,8 +46,6 @@ set(XRAUDIO_CONFIG_JSON_OVC, "" CACHE FILEPATH "xraudio config ovc")
 set(XRAUDIO_CONFIG_JSON_PPR, "" CACHE FILEPATH "xraudio config ppr")
 set(XRAUDIO_CONFIG_JSON_SUB, "" CACHE FILEPATH "xraudio config sub")
 set(XRAUDIO_CONFIG_JSON_ADD, "" CACHE FILEPATH "xraudio config add")
-
-option(XRAUDIO_OUTPUT_ENABLED, "xraudio output"           OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -148,22 +140,6 @@ endif()
 if(SDT_ENABLED)
    target_sources(xr-voice-sdk PUBLIC src/xr-speech-router/xrsr_protocol_sdt.c)
    target_compile_definitions(xr-voice-sdk PUBLIC SDT_ENABLED)
-endif()
-
-if(XRSR_ALLOW_INPUT_FAILURE)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_ALLOW_INPUT_FAILURE)
-endif()
-
-if(XRSR_KEYWORD_PHRASE STREQUAL hello_sky)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_KEYWORD_PHRASE_HELLO_SKY)
-elseif(XRSR_KEYWORD_PHRASE STREQUAL hey_xfinity)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRSR_KEYWORD_PHRASE_HEY_XFINITY)
-endif()
-
-if(XRAUDIO_RESOURCE_MGMT)
-   target_sources(xr-voice-sdk PUBLIC src/xr-audio/xraudio_resource.c)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_RESOURCE_MGMT)
-   target_link_libraries(xr-voice-sdk rt)
 endif()
    
 target_sources(xr-voice-sdk PUBLIC src/xr-audio/adpcm/adpcm_decode.c)
