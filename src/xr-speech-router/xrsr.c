@@ -30,6 +30,7 @@
 #include <semaphore.h>
 #include <xr_mq.h>
 #include <pthread.h>
+#include <vsdk_private.h>
 #include <xrsr_private.h>
 #include <xraudio.h>
 #include <opus/opus.h>
@@ -221,49 +222,20 @@ static void xrsr_route_update(const char *host_name, const xrsr_route_t *route, 
 
 static xrsr_audio_format_t xrsr_audio_format_get(uint32_t formats_supported_dst, xraudio_input_format_t format_src);
 
-void xrsr_version(xrsr_version_info_t *version_info, uint32_t *qty) {
-   if(qty == NULL || *qty < XRSR_VERSION_QTY_MAX || version_info == NULL) {
-      return;
-   }
-   uint32_t qty_avail = *qty;
-
-   xraudio_version_info_t xraudio_version_info[XRAUDIO_VERSION_QTY_MAX];
-   memset(xraudio_version_info, 0, sizeof(xraudio_version_info));
-
-   uint32_t qty_xraudio = qty_avail;
-   xraudio_version(xraudio_version_info, &qty_xraudio);
-
-   for(uint32_t index = 0; index < qty_xraudio; index++) {
-      xraudio_version_info_t *entry = &xraudio_version_info[index];
-      version_info->name      = entry->name;
-      version_info->version   = entry->version;
-      version_info->branch    = entry->branch;
-      version_info->commit_id = entry->commit_id;
-      version_info++;
-      qty_avail--;
-   }
-   *qty -= qty_avail;
-}
-
 bool xrsr_config_get(xrsr_config_t *config) {
    if(config == NULL) {
       return(false);
    }
 
-   #ifdef XRAUDIO_KWD_ENABLED
+   if(vsdk_hal_in_enabled()) {
       config->networked_standby = true;
       config->local_mic         = true;
-      #ifdef MICROPHONE_TAP_ENABLED
       config->local_mic_tap     = true;
-      #else
-      config->local_mic_tap     = false;
-      #endif
-   #else
-
+   } else {
       config->networked_standby = false;
       config->local_mic         = false;
       config->local_mic_tap     = false;
-   #endif
+   }
 
    return(true);
 }
@@ -534,17 +506,16 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    g_xrsr.power_mode        = power_mode;
    g_xrsr.privacy_mode      = privacy_mode;
    g_xrsr.mask_pii          = mask_pii;
-   g_xrsr.networked_standby = false;
-   g_xrsr.local_mic         = false;
-   g_xrsr.local_mic_tap     = false;
    
-   #ifdef XRAUDIO_KWD_ENABLED
-   g_xrsr.networked_standby = true;
-   g_xrsr.local_mic         = true;
-   #ifdef MICROPHONE_TAP_ENABLED
-   g_xrsr.local_mic_tap     = true;
-   #endif
-   #endif
+   if(!vsdk_hal_in_enabled()) {
+      g_xrsr.networked_standby = false;
+      g_xrsr.local_mic         = false;
+      g_xrsr.local_mic_tap     = false;
+   } else {
+      g_xrsr.networked_standby = true;
+      g_xrsr.local_mic         = true;
+      g_xrsr.local_mic_tap     = true;
+   }
 
    g_xrsr.opened       = true;
    return(true);
@@ -1804,7 +1775,6 @@ void xrsr_msg_keyword_detect_error(const xrsr_thread_params_t *params, xrsr_thre
       xrsr_msg_session_terminate(params, state, &terminate);
    }
 
-   #ifdef MICROPHONE_TAP_ENABLED
    if(keyword_detected->source == XRSR_SRC_MICROPHONE && xrsr_is_source_active(XRSR_SRC_MICROPHONE_TAP)) { // Terminate active session on this source since an error occurred
       XLOGD_INFO("terminate source <%s>", xrsr_src_str(XRSR_SRC_MICROPHONE_TAP));
       xrsr_queue_msg_session_terminate_t terminate;
@@ -1813,7 +1783,6 @@ void xrsr_msg_keyword_detect_error(const xrsr_thread_params_t *params, xrsr_thre
       terminate.src         = XRSR_SRC_MICROPHONE_TAP;
       xrsr_msg_session_terminate(params, state, &terminate);
    }
-   #endif
 }
 
 void xrsr_msg_keyword_detect_sensitivity_limits_get(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg) {
@@ -3279,19 +3248,15 @@ bool xrsr_is_group_active(uint32_t group) {
 }
 
 uint32_t xrsr_source_to_group(xrsr_src_t src) {
-   #ifdef MICROPHONE_TAP_ENABLED
    if(src == XRSR_SRC_MICROPHONE_TAP) {
       return(1);
    }
-   #endif
    return(0);
 }
 
 bool xrsr_has_keyword_detector(xrsr_src_t src) {
-   #ifdef MICROPHONE_TAP_ENABLED
    if(src == XRSR_SRC_MICROPHONE_TAP) {
       return(false);
    }
-   #endif
    return(true);
 }

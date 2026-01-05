@@ -23,6 +23,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <jansson.h>
 #include <xraudio_version.h>
 
 /// @file xraudio_ppr.h
@@ -161,25 +162,25 @@ extern "C" {
 /// @param[in] version_info Pointer to an array of version information structures
 /// @param[inout] qty       Quantity of entries in the version_info array (in), qty of entries populated (out).
 /// @return The function has no return value.  It returns the version info for each component.
-void                 xraudio_ppr_version(xraudio_version_info_t *version_info, uint32_t *qty);
+typedef void                 (*xraudio_ppr_func_version_t)(xraudio_version_info_t *version_info, uint32_t *qty);
 
 /// @brief Create preprocess object
 /// @details Create an xraudio preprocess component object and initializes it with parameters provided
 /// @param[in] params   Reference to a JSON config parameters object.
 /// @return The function returns a reference to the object or NULL if an error occurred.
-xraudio_ppr_object_t xraudio_ppr_object_create(const json_t *params);
+typedef xraudio_ppr_object_t (*xraudio_ppr_func_object_create_t)(const json_t *params);
 
 /// @brief Preprocess initialization
 /// @details Initializes or reinitializes a preprocess instance
 /// @param[in] object   Reference to a preprocess object.
 /// @return The function returns true for success and false for failure.
-bool    xraudio_ppr_init(xraudio_ppr_object_t object);
+typedef bool    (*xraudio_ppr_func_init_t)(xraudio_ppr_object_t object);
 
 /// @brief Destroy preprocess object
 /// @details Destroy an xraudio preprocess object. If resources have been allocated, they will be released.
 /// @param[in] object   Reference to an xraudio preprocess object.
 /// @return The function has no return value.
-void    xraudio_ppr_object_destroy(xraudio_ppr_object_t object);
+typedef void    (*xraudio_ppr_func_object_destroy_t)(xraudio_ppr_object_t object);
 
 /// @brief Run preprocess
 /// @details The xraudio preprocess run function inputs the mic and reference streams and outputs the keyword,
@@ -200,7 +201,7 @@ void    xraudio_ppr_object_destroy(xraudio_ppr_object_t object);
 /// @param[out]   ppasr_output_buffers,   pointer to array of asr stream output buffers
 /// @param[out]   ppref_output_buffers    pointer to array of reference output buffers
 /// @return The function returns an event value
-xraudio_ppr_event_t xraudio_ppr_run(
+typedef xraudio_ppr_event_t (*xraudio_ppr_func_run_t)(
             xraudio_ppr_object_t object,
             uint16_t frame_size_in_samples,
             const int32_t** ppmic_input_buffers,   ///< pointer to array of mic input buffer pointers
@@ -215,14 +216,14 @@ xraudio_ppr_event_t xraudio_ppr_run(
 /// @param[in]    object      Reference to an xraudio preprocess object.
 /// @param[in]    command     Command value to issue to preprocess
 /// @return The function has no return value.
-void    xraudio_ppr_command(xraudio_ppr_object_t object, xraudio_ppr_command_t command);
+typedef void    (*xraudio_ppr_func_command_t)(xraudio_ppr_object_t object, xraudio_ppr_command_t command);
 
 /// @brief Preprocess status
 /// @details Used by xraudio to retrieve status information from the preprocess
 /// @param[in]    object      Reference to an xraudio preprocess object.
 /// @param[out]   status      Reference to status data structure
 /// @return The function has no return value.
-void    xraudio_ppr_get_status(xraudio_ppr_object_t object, xraudio_ppr_status_t *status);
+typedef void    (*xraudio_ppr_func_get_status_t)(xraudio_ppr_object_t object, xraudio_ppr_status_t *status);
 
 /// @brief Preprocess lookback buffer data
 /// @details Used by xraudio to retrieve past samples of a specified channel within a specified stream
@@ -236,7 +237,7 @@ void    xraudio_ppr_get_status(xraudio_ppr_object_t object, xraudio_ppr_status_t
 /// @param[out]   psamples                Pointer to destination buffer of selected lookback samples. psamples must have enough space to hold number of requested samples.
 /// @param[out]   n_samples_returned      actual number of samples returned
 /// @return The function has no return value.
-void    xraudio_ppr_get_lookback_pcm(
+typedef void    (*xraudio_ppr_func_get_lookback_pcm_t)(
             xraudio_ppr_object_t object,
             xraudio_ppr_stream_t stream,              ///< which stream's lookback to pull from (keyword or reference)
             uint8_t channel,                          ///< which channel in the stream. -1 for composite of all channels in stream
@@ -248,6 +249,20 @@ void    xraudio_ppr_get_lookback_pcm(
                                                       ///< psamples must contain sufficient space to hold up to num_requested_samples samples.
             uint32_t *n_samples_returned              ///< actual number of samples returned
             );
+
+typedef struct {
+   xraudio_ppr_func_version_t          version;
+   xraudio_ppr_func_object_create_t    object_create;
+   xraudio_ppr_func_init_t             init;
+   xraudio_ppr_func_object_destroy_t   object_destroy;
+   xraudio_ppr_func_run_t              run;
+   xraudio_ppr_func_command_t          command;
+   xraudio_ppr_func_get_status_t       get_status;
+   xraudio_ppr_func_get_lookback_pcm_t get_lookback_pcm;
+} xraudio_ppr_plugin_api_t;
+
+typedef xraudio_ppr_plugin_api_t *(*xraudio_ppr_plugin_api_get_t)(void);
+xraudio_ppr_plugin_api_t *xraudio_ppr_plugin_api_get(void);
 
 #ifdef __cplusplus
 }

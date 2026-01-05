@@ -26,7 +26,6 @@
 #include <openssl/ssl.h>
 #include <uuid/uuid.h>
 #include <xr_timestamp.h>
-#include <xraudio_version.h>
 #include <jansson.h>
 
 /// @file xrsr.h
@@ -46,8 +45,6 @@
 /// @brief Macros for constant values
 /// @details The speech router provides macros for some parameters which may change in the future.  User applications should use
 /// these names to allow the application code to function correctly if the values change.
-
-#define XRSR_VERSION_QTY_MAX (2 + XRAUDIO_VERSION_QTY_MAX) ///< The quantity of version information structures.
 
 #define XRSR_SAT_TOKEN_LEN_MAX             (5120)  ///< Maximum length of the NULL-terminated SAT token string.
 #define XRSR_USER_AGENT_LEN_MAX            (256)   ///< Maximum length of the NULL-terminated user agent string.
@@ -223,15 +220,6 @@ typedef enum {
 /// @{
 /// @brief Structures
 /// @details The speech router provides structures for grouping of values.
-
-/// @brief XRSR version information structure
-/// @details The version information data structure returned by the xrsr_version() api.
-typedef struct {
-   const char *name;      ///< component's name
-   const char *version;   ///< component's version
-   const char *branch;    ///< component's branch name
-   const char *commit_id; ///< component's commit identifier
-} xrsr_version_info_t;
 
 typedef struct {
    const char *filename;
@@ -624,13 +612,6 @@ extern "C" {
 /// @{
 /// @brief Function definitions
 /// @details The speech router provides functions to be called directly by the user application.
-
-/// @brief Retrieve the XRSR version
-/// @details Retrieves the detailed version information for the XRSR component.
-/// @param[in]    version_info Pointer to an array of version information structures
-/// @param[inout] qty          Quantity of entries in the version_info array
-/// @return The function has no return value.
-void xrsr_version(xrsr_version_info_t *version_info, uint32_t *qty);
 
 /// @brief Get the XRSR configuration
 /// @details Given a xrsr_config_t pointer, gets configuration information

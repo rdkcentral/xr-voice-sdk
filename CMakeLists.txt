@@ -36,7 +36,6 @@ option(HTTP_ENABLED,            "speech router http protocol"                 OF
 option(WS_ENABLED,              "speech router websocket protocol"            OFF)
 option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
-option(MICROPHONE_TAP_ENABLED,  "speech router microphone tap"                OFF)
 
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
 set(XRAUDIO_CONFIG_JSON_KWD, "" CACHE FILEPATH "xraudio config kwd")
@@ -47,13 +46,6 @@ set(XRAUDIO_CONFIG_JSON_OVC, "" CACHE FILEPATH "xraudio config ovc")
 set(XRAUDIO_CONFIG_JSON_PPR, "" CACHE FILEPATH "xraudio config ppr")
 set(XRAUDIO_CONFIG_JSON_SUB, "" CACHE FILEPATH "xraudio config sub")
 set(XRAUDIO_CONFIG_JSON_ADD, "" CACHE FILEPATH "xraudio config add")
-
-option(XRAUDIO_KWD_ENABLED,    "xraudio keyword detector" OFF)
-option(XRAUDIO_EOS_ENABLED,    "xraudio end of speech"    OFF)
-option(XRAUDIO_DGA_ENABLED,    "xraudio dynamic gain"     OFF)
-option(XRAUDIO_SDF_ENABLED,    "xraudio sound focus"      OFF)
-option(XRAUDIO_OVC_ENABLED,    "xraudio ovc"              OFF)
-option(XRAUDIO_PPR_ENABLED,    "xraudio pre-processing"   OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -105,6 +97,7 @@ target_sources(xr-voice-sdk PUBLIC
                xrsv_ws_nextgen_tv_control.c
                src/xr-audio/xraudio.c
                src/xr-audio/xraudio_input.c
+               src/xr-audio/xraudio_output.c
                src/xr-audio/xraudio_thread.c
                src/xr-audio/xraudio_utils.c
                src/xr-audio/xraudio_atomic.c)
@@ -148,10 +141,6 @@ if(SDT_ENABLED)
    target_sources(xr-voice-sdk PUBLIC src/xr-speech-router/xrsr_protocol_sdt.c)
    target_compile_definitions(xr-voice-sdk PUBLIC SDT_ENABLED)
 endif()
-
-if(MICROPHONE_TAP_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC MICROPHONE_TAP_ENABLED)
-endif()
    
 target_sources(xr-voice-sdk PUBLIC src/xr-audio/adpcm/adpcm_decode.c)
 target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_ADPCM)
@@ -170,44 +159,6 @@ if(CURTAIL_LIBRARY)
    target_compile_definitions(xr-voice-sdk PUBLIC VSDK_CURTAIL_ENABLED)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
 endif()
-
-if(XRAUDIO_KWD_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_KWD_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-ffv-hal)
-   target_link_libraries(xr-voice-sdk xraudio-ffv-kwd)
-endif()
-
-if(XRAUDIO_EOS_ENABLED OR XRAUDIO_DGA_ENABLED OR XRAUDIO_PPR_ENABLED) 
-if(XRAUDIO_EOS_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_EOS_ENABLED)
-endif()
-if(XRAUDIO_DGA_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DGA_ENABLED)
-endif()
-if(XRAUDIO_PPR_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_PPR_ENABLED)
-endif()
-   target_link_libraries(xr-voice-sdk xraudio-ffv-algorithms)
-endif()
-
-if(XRAUDIO_SDF_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_SDF_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-sdf)
-endif()
-
-if(XRAUDIO_OVC_ENABLED)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_OVC_ENABLED)
-   target_link_libraries(xr-voice-sdk xraudio-ovc)
-endif()
-
-# Disable resource management (implement via vsdk_options.json file if needed)
-# target_sources(xr-voice-sdk PUBLIC src/xr-audio/xraudio_resource.c)
-# target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_RESOURCE_MGMT)
-# target_link_libraries(xr-voice-sdk rt)
-
-# Disable audio output (implement via shared library or HAL interface if needed)
-# target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_OUTPUT_ENABLED)
-# target_sources(xr-voice-sdk PUBLIC src/xr-audio/xraudio_output.c)
 
 # CONFIG FILES
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xrsr_config.json TYPE INCLUDE)
