@@ -938,7 +938,7 @@ void *xraudio_main_thread(void *param) {
                   XLOGD_ERROR("record fd read error <%d>", rc);
                }
             } else {
-               XLOGD_DEBUG("val <%llu>", val);
+               //XLOGD_DEBUG("val <%llu>", val);
                if(val > 0) {
                   unsigned long timeout;
                   xraudio_process_mic_data(&state->params, &state->record, &timeout);
@@ -2420,7 +2420,7 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
    xraudio_eos_event_t eos_event_hal = XRAUDIO_EOS_EVENT_NONE;
 
    rc = xraudio_hal_input_read(params->hal_input_obj, mic_frame_data, mic_frame_size, &eos_event_hal);
-   XLOGD_DEBUG("bytes read %d, bytes expected %u, frame size %u", rc, mic_frame_size, session->frame_size_in);
+   //XLOGD_DEBUG("bytes read %d, bytes expected %u, frame size %u", rc, mic_frame_size, session->frame_size_in);
    if(rc != (int) mic_frame_size) {
       if(rc < 0) {
          XLOGD_ERROR("hal mic read: error %d", rc);
@@ -2479,8 +2479,16 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
       #if defined(XRAUDIO_KWD_ENABLED)
       uint8_t active_chan = (params->dsp_config.input_asr_max_channel_qty == 0) ? session->keyword_detector.active_chan : 0;   // kwd active ("best") channel;
       if(params->dsp_config.doa_beam_sel_enabled) {
-         xraudio_hal_input_doa_beam_event(params->hal_input_obj, &active_chan);
-         XLOGD_DEBUG("active_chan <%d>", active_chan);
+         // override active channel if necessary with one determined by DOA computation
+         if(xraudio_hal_input_doa_beam_event(params->hal_input_obj, &active_chan)) {
+            session->keyword_detector.result.chan_selected = active_chan;
+            session->keyword_detector.active_chan          = active_chan;
+            session->keyword_detector.doa_valid            = true;
+            if(active_chan != session->keyword_detector.active_chan) {
+               XLOGD_DEBUG("active_chan <%d>", active_chan);
+            }
+         }
+         XLOGD_DEBUG("doa_valid <%s> triggered <%s>", session->keyword_detector.doa_valid ? "TRUE" : "FALSE", session->keyword_detector.triggered ? "TRUE" : "FALSE");
       }
       #else
       uint8_t active_chan = 0;                                       // ASR channel reserved for channel 0
@@ -2897,6 +2905,9 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
 
          if(!detector->triggered) {
             detector->triggered = true;
+            if(params->dsp_config.doa_beam_sel_enabled) {
+               detector->doa_valid = false;
+            }
          }
          // Get the detection results
          if(!xraudio_kwd_result(detector->kwd_object, instance_kwd, &detector_chan->score, &detector_chan->snr, &detector_chan->endpoints)) {
@@ -2965,6 +2976,10 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
       return(0);
    }
 
+   if(detector->triggered) {
+      detector->post_frame_count_trigger++;
+   }
+
    XLOGD_DEBUG("all triggered <%s> post frame count <%u>", all_triggered ? "YES" : "NO", detector->post_frame_count_trigger);
    if(!all_triggered && detector->post_frame_count_trigger <= KEYWORD_TRIGGER_DETECT_THRESHOLD) {
       // Wait up to N frames for other detectors to fire
@@ -3028,76 +3043,87 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
 
    bool ignore = false;
    uint8_t active_chan = XRAUDIO_INPUT_MAX_CHANNEL_QTY;
-   if(!detector->doa_valid) {
-      if(detector->triggered) {
-         // Inform the HAL that keyword has been detected
-         if(!xraudio_hal_input_detection(params->hal_input_obj, detector->active_chan, &ignore) && detector->triggered) {
-            XLOGD_ERROR("unable to inform hal of detection");
-         } else if(ignore) { // HAL says to ignore the detection so re-arm the detector
-            xraudio_keyword_detector_t *detector = &session->keyword_detector;
-            xraudio_keyword_detector_session_arm(detector, detector->callback, detector->cb_param, detector->sensitivity);
-            return(0);
-         }
-
-         // Inform the DSP that keyword has been detected, and DOA can be computed
-         if(xraudio_hal_input_detection_event(params->hal_input_obj, detector->active_chan, detector->result.endpoints.begin, detector->result.endpoints.end)) {
-            // if no doa event yet, wait for next frame
-            XLOGD_INFO("wait for valid doa beam event");
-            //xraudio_keyword_detector_session_disarm(detector); // disarm the detector so it doesn't retrigger next frame
-            detector->triggered = false;
-            return(0);
-         } else {
-            XLOGD_WARN("unable to send detection event to DSP");
-         }
-      }
-
-      // check if doa result ready from DSP
-      if(xraudio_hal_input_doa_beam_event(params->hal_input_obj, &active_chan)) {
-         // DSP doa reported valid beam. Override active channel with doa result and update detection results
-         detector->result.chan_selected = active_chan;
-         detector->active_chan          = active_chan;
-         XLOGD_INFO("active_chan <%u>", active_chan);
-         detector->doa_valid            = true;
-
-         xraudio_keyword_detector_chan_t *detector_chan = &detector->channels[active_chan];
-
-         // Get the detection results
-         if(!xraudio_kwd_result(detector->kwd_object, active_chan, &detector_chan->score, &detector_chan->snr, &detector_chan->endpoints)) {
-            XLOGD_ERROR("keyword result channel <%u>", active_chan);
-         } else {
-            // update channel's results
-            detector->result.channels[active_chan].score = detector_chan->score;
-            detector->result.channels[active_chan].snr   = detector_chan->snr;
-            detector->result.channels[active_chan].doa   = active_chan * 90;
-
-            // update max score or max snr, using active channel
-            if((((int32_t)detector_chan->pd_sample_qty) + detector_chan->endpoints.begin) < 0) { // keyword endpoint out of range
-               XLOGD_ERROR("keyword endpoint out of range <%u> <%d>", detector_chan->pd_sample_qty, detector->result.endpoints.begin);
+   if(params->dsp_config.doa_beam_sel_enabled) {
+      if(!detector->doa_valid ) {
+         if(detector->triggered) {
+            // Inform the HAL that keyword has been detected once before requesting DOA computation
+            if(!xraudio_hal_input_detection(params->hal_input_obj, detector->active_chan, &ignore)) {
+               XLOGD_ERROR("unable to inform hal of detection");
+            } else if(ignore) { // HAL says to ignore the detection so re-arm the detector
+               xraudio_keyword_detector_t *detector = &session->keyword_detector;
+               xraudio_keyword_detector_session_arm(detector, detector->callback, detector->cb_param, detector->sensitivity);
+               return(0);
+            }
+            // Inform the DSP that keyword has been detected, and DOA can be computed
+            if(xraudio_hal_input_detection_event(params->hal_input_obj, detector->active_chan, detector->result.endpoints.begin, detector->result.endpoints.end)) {
+               // if no doa event yet, wait for next frame
+               XLOGD_INFO("wait for valid doa beam event");
+               //xraudio_keyword_detector_session_disarm(detector); // disarm the detector so it doesn't retrigger next frame
+               detector->triggered = false;
+               return(0);
             } else {
-               detector->result.endpoints     = detector_chan->endpoints;
-
-               // qty samples in circular buffer - small constant to account for frames that may arrive before user begins streaming
-               if((((int32_t)detector_chan->pd_sample_qty) + detector->result.endpoints.begin) < XRAUDIO_PRE_KWD_STREAM_LAG_SAMPLES) {
-                  detector->result.endpoints.pre  = 0 - detector_chan->pd_sample_qty;
-               } else  {
-                  detector->result.endpoints.pre  = 0 - (detector_chan->pd_sample_qty - XRAUDIO_PRE_KWD_STREAM_LAG_SAMPLES);
-               }
-               XLOGD_INFO("chan <%u> keyword endpoints pre <%d> begin <%d> end <%d>", active_chan, detector->result.endpoints.pre, detector->result.endpoints.begin, detector->result.endpoints.end);
+               XLOGD_WARN("unable to send detection event to DSP");
             }
          }
-         // post process detection results again using channel specified by doa
-         int32_t start_wuw      = 0;
-         int32_t end_wuw        = 0;
-         if(xraudio_kwd_postprocess(detector->kwd_object, detector->active_chan, &start_wuw, &end_wuw)) {
-            detector->result.endpoints.begin -= start_wuw;
-            detector->result.endpoints.end   -= end_wuw;
-            detector->result.endpoints.valid = true;
+
+         // check if doa result ready from DSP
+         if(xraudio_hal_input_doa_beam_event(params->hal_input_obj, &active_chan)) {
+            // DSP doa reported valid beam. Override active channel with doa result and update detection results
+            detector->result.chan_selected = active_chan;
+            detector->active_chan          = active_chan;
+            XLOGD_INFO("active_chan <%u>", active_chan);
+            detector->doa_valid            = true;
+
+            xraudio_keyword_detector_chan_t *detector_chan = &detector->channels[active_chan];
+
+            // Get the detection results
+            if(!xraudio_kwd_result(detector->kwd_object, active_chan, &detector_chan->score, &detector_chan->snr, &detector_chan->endpoints)) {
+               XLOGD_ERROR("keyword result channel <%u>", active_chan);
+            } else {
+               // update channel's results
+               detector->result.channels[active_chan].score = detector_chan->score;
+               detector->result.channels[active_chan].snr   = detector_chan->snr;
+               detector->result.channels[active_chan].doa   = active_chan * 90;
+
+               // update max score or max snr, using active channel
+               if((((int32_t)detector_chan->pd_sample_qty) + detector_chan->endpoints.begin) < 0) { // keyword endpoint out of range
+                  XLOGD_ERROR("keyword endpoint out of range <%u> <%d>", detector_chan->pd_sample_qty, detector->result.endpoints.begin);
+               } else {
+                  detector->result.endpoints     = detector_chan->endpoints;
+
+                  // qty samples in circular buffer - small constant to account for frames that may arrive before user begins streaming
+                  if((((int32_t)detector_chan->pd_sample_qty) + detector->result.endpoints.begin) < XRAUDIO_PRE_KWD_STREAM_LAG_SAMPLES) {
+                     detector->result.endpoints.pre  = 0 - detector_chan->pd_sample_qty;
+                  } else  {
+                     detector->result.endpoints.pre  = 0 - (detector_chan->pd_sample_qty - XRAUDIO_PRE_KWD_STREAM_LAG_SAMPLES);
+                  }
+                  XLOGD_INFO("chan <%u> keyword endpoints pre <%d> begin <%d> end <%d>", active_chan, detector->result.endpoints.pre, detector->result.endpoints.begin, detector->result.endpoints.end);
+               }
+            }
+            // post process detection results again using channel specified by doa
+            int32_t start_wuw      = 0;
+            int32_t end_wuw        = 0;
+            if(xraudio_kwd_postprocess(detector->kwd_object, detector->active_chan, &start_wuw, &end_wuw)) {
+               detector->result.endpoints.begin -= start_wuw;
+               detector->result.endpoints.end   -= end_wuw;
+               detector->result.endpoints.valid = true;
+            }
+            XLOGD_INFO("begin <%d>, end <%d>, start_wuw <%d>, end_wuw <%d>", detector->result.endpoints.begin, detector->result.endpoints.end,
+                  start_wuw, end_wuw);
+         } else {
+            XLOGD_INFO("doa result not available yet");
+            return(0);
          }
-         XLOGD_INFO("begin <%d>, end <%d>, start_wuw <%d>, end_wuw <%d>", detector->result.endpoints.begin, detector->result.endpoints.end,
-               start_wuw, end_wuw);
-      } else {
-         return(0);
       }
+   } else {
+      // Inform the HAL normally that keyword has been detected
+      if(!xraudio_hal_input_detection(params->hal_input_obj, detector->active_chan, &ignore)) {
+          XLOGD_ERROR("unable to inform hal of detection");
+       } else if(ignore) { // HAL says to ignore the detection so re-arm the detector
+          xraudio_keyword_detector_t *detector = &session->keyword_detector;
+          xraudio_keyword_detector_session_arm(detector, detector->callback, detector->cb_param, detector->sensitivity);
+          return(0);
+       }
    }
 
    if(!xraudio_in_session_group_semaphore_lock(source)) {
@@ -4759,7 +4785,7 @@ int xraudio_capture_file_filter_all(const struct dirent *name) {
 }
 
 int xraudio_capture_file_filter_by_index(const struct dirent *name) {
-   XLOGD_DEBUG("checking <%s>", name->d_name ? name->d_name : "NULL");
+   //XLOGD_DEBUG("checking <%s>", name->d_name ? name->d_name : "NULL");
    static char prefix[sizeof(CAPTURE_INTERNAL_FILENAME_PREFIX) + 6];
    if(name == NULL) {
       return(0);
