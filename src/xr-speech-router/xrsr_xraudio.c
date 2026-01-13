@@ -48,6 +48,7 @@ typedef struct {
    xraudio_devices_output_t      device_output;
    bool                          detect_active;
    bool                          session_rejected;
+   bool                          default_sensitivity;
    xraudio_keyword_sensitivity_t keyword_sensitivity;
    xraudio_devices_input_t       available_inputs[XRAUDIO_INPUT_MAX_DEVICE_QTY];
    xraudio_devices_output_t      available_outputs[XRAUDIO_OUTPUT_MAX_DEVICE_QTY];
@@ -68,7 +69,7 @@ static __inline xrsr_session_group_t xrsr_xraudio_source_to_group(xraudio_device
 static xraudio_devices_input_t g_local_mic_full_power = XRAUDIO_DEVICE_INPUT_NONE;
 static xraudio_devices_input_t g_local_mic_low_power  = XRAUDIO_DEVICE_INPUT_NONE;
 
-xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_sensitivity_t keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio) {
+xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_sensitivity_t *keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)malloc(sizeof(xrsr_xraudio_obj_t));
 
    if(obj == NULL) {
@@ -93,7 +94,8 @@ xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_sensitivity_t keyword_
    obj->device_output        = XRAUDIO_DEVICE_OUTPUT_NONE;
    obj->detect_active        = true;
    obj->session_rejected     = false;
-   obj->keyword_sensitivity  = keyword_sensitivity;
+   obj->default_sensitivity  = (keyword_sensitivity == NULL) ? true : false;
+   obj->keyword_sensitivity  = (keyword_sensitivity == NULL) ? XRAUDIO_INPUT_DEFAULT_KEYWORD_SENSITIVITY : *keyword_sensitivity;
    obj->xraudio_obj          = xraudio_object_create(json_obj_xraudio);
    if(obj->xraudio_obj == NULL) {
       XLOGD_ERROR("unable to create xraudio object");
@@ -415,7 +417,7 @@ void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_k
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
    if(changed && (stream->detecting)) {
-      xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->keyword_sensitivity);
+      xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->default_sensitivity ? NULL : &obj->keyword_sensitivity);
       if(XRAUDIO_RESULT_OK != result) {
          XLOGD_ERROR("xraudio_detect_params <%s>", xraudio_result_str(result));
       }
@@ -433,11 +435,15 @@ void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
 }
 
 void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
-   XLOGD_INFO("sensitivity <%f>", obj->keyword_sensitivity);
+   if(obj->default_sensitivity) {
+      XLOGD_INFO("sensitivity <default>");
+   } else {
+      XLOGD_INFO("sensitivity <%f>", obj->keyword_sensitivity);
+   }
 
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
-   xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->keyword_sensitivity);
+   xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, (obj->default_sensitivity) ? NULL : &obj->keyword_sensitivity);
    if(XRAUDIO_RESULT_OK != result) {
       XLOGD_ERROR("xraudio_detect_params <%s>", xraudio_result_str(result));
    }

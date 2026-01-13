@@ -277,8 +277,6 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    } while(1);
 
    // Create xraudio object
-   xraudio_keyword_sensitivity_t sensitivity = (keyword_config == NULL) ? XRAUDIO_INPUT_DEFAULT_KEYWORD_SENSITIVITY : (xraudio_keyword_sensitivity_t)keyword_config->sensitivity;
-
    for(uint32_t group = 0; group < XRSR_SESSION_GROUP_QTY; group++) {
       xrsr_session_t *session = &g_xrsr.sessions[group];
       session->src                  = XRSR_SRC_INVALID;
@@ -474,6 +472,8 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
          XLOGD_ERROR("Invalid power mode");
          return(false);
    }
+
+   xraudio_keyword_sensitivity_t *sensitivity = (keyword_config == NULL) ? NULL : (xraudio_keyword_sensitivity_t *)&keyword_config->sensitivity;
 
    g_xrsr.xrsr_xraudio_object = xrsr_xraudio_create(sensitivity, xraudio_power_mode, privacy_mode, json_obj_xraudio);
 

@@ -1157,20 +1157,24 @@ xraudio_result_t xraudio_input_stream_identifer_set(xraudio_object_t object, xra
    return(XRAUDIO_RESULT_OK);
 }
 
-xraudio_result_t xraudio_input_keyword_params(xraudio_input_object_t object, xraudio_keyword_sensitivity_t keyword_sensitivity) {
+xraudio_result_t xraudio_input_keyword_params(xraudio_input_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity) {
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
    if(!xraudio_input_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+   if(keyword_sensitivity == NULL) {
+      XLOGD_INFO("using default keyword sensitivity");
+      return(XRAUDIO_RESULT_OK);
    }
 
    XRAUDIO_RECORD_MUTEX_LOCK();
 
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
 
-   XLOGD_INFO("keyword sensitivity <%f> detecting <%s>", keyword_sensitivity, (session->state == XRAUDIO_INPUT_STATE_DETECTING) ? "YES" : "NO");
-   if(obj->detect_params.sensitivity != keyword_sensitivity) {
-      obj->detect_params.sensitivity = keyword_sensitivity;
+   XLOGD_INFO("keyword sensitivity <%f> detecting <%s>", *keyword_sensitivity, (session->state == XRAUDIO_INPUT_STATE_DETECTING) ? "YES" : "NO");
+   if(obj->detect_params.sensitivity != *keyword_sensitivity) {
+      obj->detect_params.sensitivity = *keyword_sensitivity;
       if(session->state == XRAUDIO_INPUT_STATE_DETECTING) {
          xraudio_input_dispatch_detect_params(obj);
       }
