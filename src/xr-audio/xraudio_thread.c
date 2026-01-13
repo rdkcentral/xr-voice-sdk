@@ -121,6 +121,7 @@ typedef struct {
 
 typedef struct {
    xraudio_kwd_object_t              kwd_object;
+   bool                              default_sensitivity;
    xraudio_keyword_sensitivity_t     sensitivity;
    bool                              active;
    bool                              triggered;
@@ -396,7 +397,7 @@ static int  xraudio_in_write_to_user(xraudio_devices_input_t source, xraudio_mai
 
 static void     xraudio_keyword_detector_init(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, json_t* jkwd_config);
 static void     xraudio_keyword_detector_term(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector);
-static void     xraudio_keyword_detector_session_init(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, uint8_t chan_qty, xraudio_keyword_sensitivity_t sensitivity);
+static void     xraudio_keyword_detector_session_init(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, uint8_t chan_qty, xraudio_keyword_sensitivity_t *sensitivity);
 static bool     xraudio_keyword_detector_session_is_active(xraudio_keyword_detector_t *detector);
 static uint32_t xraudio_keyword_detector_session_pd_avail(xraudio_keyword_detector_t *detector, uint8_t active_chan);
 static void     xraudio_keyword_detector_session_term(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector);
@@ -404,7 +405,7 @@ static int      xraudio_in_write_to_keyword_detector(xraudio_devices_input_t sou
 static void     xraudio_in_write_to_keyword_buffer(xraudio_keyword_detector_chan_t *keyword_detector_chan, float *frame_buffer_fp32, uint32_t sample_qty);
 static bool     xraudio_in_pre_detection_chunks(xraudio_keyword_detector_chan_t *keyword_detector_chan, uint32_t sample_qty, uint32_t offset_from_end, float **chunk_1_data, uint32_t *chunk_1_qty, float **chunk_2_data, uint32_t *chunk_2_qty);
 static void xraudio_keyword_detector_session_disarm(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector);
-static void xraudio_keyword_detector_session_arm(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, keyword_callback_t callback, void *cb_param, xraudio_keyword_sensitivity_t sensitivity);
+static void xraudio_keyword_detector_session_arm(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, keyword_callback_t callback, void *cb_param, xraudio_keyword_sensitivity_t *sensitivity);
 static bool xraudio_keyword_detector_session_is_armed(xraudio_keyword_detector_t *detector);
 
 static void xraudio_eos_detector_init(xraudio_eos_detector_t *detector);
@@ -1868,7 +1869,7 @@ void xraudio_msg_detect(xraudio_thread_state_t *state, void *msg) {
    if(state->params.kwd_plugin != NULL) {
       // Initialize the session upon receipt of first detect request which contains the sensitivity needed to start the session
       if(!xraudio_keyword_detector_session_is_active(&state->record.keyword_detector)) {
-         xraudio_keyword_detector_session_init(&state->params, &state->record.keyword_detector, detect->chan_qty, detect->sensitivity);
+         xraudio_keyword_detector_session_init(&state->params, &state->record.keyword_detector, detect->chan_qty, (detect->default_sensitivity) ? NULL : &detect->sensitivity);
       }
 
       if(state->params.hal_input_obj != NULL) {
@@ -1878,7 +1879,7 @@ void xraudio_msg_detect(xraudio_thread_state_t *state, void *msg) {
          }
       }
    }
-   xraudio_keyword_detector_session_arm(&state->params, &state->record.keyword_detector, detect->callback, detect->param, detect->sensitivity);
+   xraudio_keyword_detector_session_arm(&state->params, &state->record.keyword_detector, detect->callback, detect->param, (detect->default_sensitivity) ? NULL : &detect->sensitivity);
 
    // Set timeout for next chunk (in microseconds)
    state->record.timeout           = XRAUDIO_INPUT_FRAME_PERIOD * 1000;
@@ -1898,8 +1899,12 @@ void xraudio_msg_detect_params(xraudio_thread_state_t *state, void *msg) {
       XLOGD_DEBUG("");
 
       xraudio_keyword_detector_t *detector = &state->record.keyword_detector;
-      if(xraudio_keyword_detector_session_is_armed(detector) && (detector->sensitivity != detect_params->sensitivity)) {
-         xraudio_keyword_detector_session_arm(&state->params, detector, detector->callback, detector->cb_param, detect_params->sensitivity);
+      if(xraudio_keyword_detector_session_is_armed(detector)) {
+         if(detect_params->default_sensitivity) {
+            xraudio_keyword_detector_session_arm(&state->params, detector, detector->callback, detector->cb_param, NULL);
+         } else if((detector->sensitivity != detect_params->sensitivity)) {
+            xraudio_keyword_detector_session_arm(&state->params, detector, detector->callback, detector->cb_param, &detect_params->sensitivity);
+         }
       }
    }
 }
@@ -2907,7 +2912,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
       XLOGD_ERROR("unable to inform hal of detection");
    } else if(ignore) { // HAL says to ignore the detection so re-arm the detector
       xraudio_keyword_detector_t *detector = &session->keyword_detector;
-      xraudio_keyword_detector_session_arm(params, detector, detector->callback, detector->cb_param, detector->sensitivity);
+      xraudio_keyword_detector_session_arm(params, detector, detector->callback, detector->cb_param, (detector->default_sensitivity) ? NULL: &detector->sensitivity);
       return(0);
    }
 
@@ -2992,7 +2997,7 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
                XLOGD_DEBUG("mic AOP <%3.1f dBSPL> talker_level <%3.1f dBFS>", mic_acoustic_overload_dbspl, talker_level_dBFS);
                if(talker_level_dBSPL < talker_threshold_dBSPL) {
                   xraudio_keyword_detector_t *detector = &session->keyword_detector;
-                  xraudio_keyword_detector_session_arm(params, detector, detector->callback, detector->cb_param, detector->sensitivity);
+                  xraudio_keyword_detector_session_arm(params, detector, detector->callback, detector->cb_param, (detector->default_sensitivity) ? NULL : &detector->sensitivity);
                   if(detector_chan->endpoints.end_of_wuw_ext_enabled) {
                      instance->eos_end_of_wake_word_samples = 0;
                   }
@@ -3548,7 +3553,7 @@ void xraudio_keyword_detector_term(xraudio_main_thread_params_t *params, xraudio
    }
 }
 
-void xraudio_keyword_detector_session_init(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, uint8_t chan_qty, xraudio_keyword_sensitivity_t sensitivity) {
+void xraudio_keyword_detector_session_init(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, uint8_t chan_qty, xraudio_keyword_sensitivity_t *sensitivity) {
    XLOGD_DEBUG("");
    if(detector == NULL) {
       XLOGD_ERROR("Invalid parameters");
@@ -3556,7 +3561,8 @@ void xraudio_keyword_detector_session_init(xraudio_main_thread_params_t *params,
    }
    detector->active                    = true;
    detector->triggered                 = false;
-   detector->sensitivity               = sensitivity;
+   detector->default_sensitivity       = (sensitivity == NULL) ? true : false;
+   detector->sensitivity               = (sensitivity == NULL) ? XRAUDIO_INPUT_DEFAULT_KEYWORD_SENSITIVITY : *sensitivity;
    detector->post_frame_count_trigger  = 0;
    detector->post_frame_count_callback = 0;
    detector->active_chan               = 0;
@@ -3642,7 +3648,7 @@ void xraudio_keyword_detector_session_disarm(xraudio_main_thread_params_t *param
    }
 }
 
-void xraudio_keyword_detector_session_arm(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, keyword_callback_t callback, void *cb_param, xraudio_keyword_sensitivity_t sensitivity) {
+void xraudio_keyword_detector_session_arm(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, keyword_callback_t callback, void *cb_param, xraudio_keyword_sensitivity_t *sensitivity) {
    detector->callback                  = callback;
    detector->cb_param                  = cb_param;
    detector->result.chan_selected      = detector->input_kwd_max_channel_qty;
@@ -3676,12 +3682,24 @@ void xraudio_keyword_detector_session_arm(xraudio_main_thread_params_t *params, 
          }
       }
 
-      if(detector->sensitivity != sensitivity) {
-         XLOGD_INFO("update sensitivity <%f>", sensitivity);
-         if(!params->kwd_plugin->update(detector->kwd_object, sensitivity)) {
-            XLOGD_ERROR("kwd update failed");
-         } else {
-            detector->sensitivity = sensitivity;
+      if(sensitivity == NULL) {
+         if(!detector->default_sensitivity) {
+            XLOGD_INFO("update sensitivity <DEFAULT>");
+            if(!params->kwd_plugin->update(detector->kwd_object, NULL)) {
+               XLOGD_ERROR("kwd update failed");
+            } else {
+               detector->default_sensitivity = true;
+            }
+         }
+      } else {
+         if(detector->sensitivity != *sensitivity) {
+            XLOGD_INFO("update sensitivity <%f>", *sensitivity);
+            if(!params->kwd_plugin->update(detector->kwd_object, sensitivity)) {
+               XLOGD_ERROR("kwd update failed");
+            } else {
+               detector->sensitivity         = *sensitivity;
+               detector->default_sensitivity = false;
+            }
          }
       }
    }

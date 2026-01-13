@@ -75,6 +75,7 @@ typedef struct {
 } xraudio_input_capture_t;
 
 typedef struct {
+   bool                          default_sensitivity;
    xraudio_keyword_sensitivity_t sensitivity;
 } xraudio_input_detect_params_t;
 
@@ -301,7 +302,8 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
    obj->capture.container        = XRAUDIO_CONTAINER_INVALID;
    obj->capture.audio_file_path  = NULL;
 
-   obj->detect_params.sensitivity = XRAUDIO_INPUT_DEFAULT_KEYWORD_SENSITIVITY;
+   obj->detect_params.default_sensitivity = true;
+   obj->detect_params.sensitivity         = XRAUDIO_INPUT_DEFAULT_KEYWORD_SENSITIVITY;
 
    #ifdef INPUT_TIMING_DATA
    obj->timing_data_begin   = (xraudio_input_timing_t *)malloc(sizeof(xraudio_input_timing_t) * (INPUT_TIMING_SAMPLE_QTY + 1));
@@ -1163,20 +1165,28 @@ xraudio_result_t xraudio_input_keyword_params(xraudio_input_object_t object, xra
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   if(keyword_sensitivity == NULL) {
-      XLOGD_INFO("using default keyword sensitivity");
-      return(XRAUDIO_RESULT_OK);
-   }
 
    XRAUDIO_RECORD_MUTEX_LOCK();
 
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
 
-   XLOGD_INFO("keyword sensitivity <%f> detecting <%s>", *keyword_sensitivity, (session->state == XRAUDIO_INPUT_STATE_DETECTING) ? "YES" : "NO");
-   if(obj->detect_params.sensitivity != *keyword_sensitivity) {
-      obj->detect_params.sensitivity = *keyword_sensitivity;
-      if(session->state == XRAUDIO_INPUT_STATE_DETECTING) {
-         xraudio_input_dispatch_detect_params(obj);
+   if(keyword_sensitivity != NULL) {
+      XLOGD_INFO("keyword sensitivity <%f> detecting <%s>", *keyword_sensitivity, (session->state == XRAUDIO_INPUT_STATE_DETECTING) ? "YES" : "NO");
+      if(obj->detect_params.sensitivity != *keyword_sensitivity) {
+         obj->detect_params.default_sensitivity = false;
+         obj->detect_params.sensitivity         = *keyword_sensitivity;
+         if(session->state == XRAUDIO_INPUT_STATE_DETECTING) {
+            xraudio_input_dispatch_detect_params(obj);
+         }
+      }
+   } else {
+      XLOGD_INFO("keyword sensitivity <DEFAULT> detecting <%s>", (session->state == XRAUDIO_INPUT_STATE_DETECTING) ? "YES" : "NO");
+      if(!obj->detect_params.default_sensitivity) {
+         obj->detect_params.default_sensitivity = true;
+         obj->detect_params.sensitivity         = XRAUDIO_INPUT_DEFAULT_KEYWORD_SENSITIVITY;
+         if(session->state == XRAUDIO_INPUT_STATE_DETECTING) {
+            xraudio_input_dispatch_detect_params(obj);
+         }
       }
    }
 
@@ -1660,6 +1670,7 @@ xraudio_result_t xraudio_input_dispatch_detect(xraudio_input_obj_t *obj, keyword
    msg.callback               = callback;
    msg.param                  = param;
    msg.chan_qty               = obj->format_in.channel_qty;
+   msg.default_sensitivity    = obj->detect_params.default_sensitivity;
    msg.sensitivity            = obj->detect_params.sensitivity;
    msg.semaphore              = NULL;
 
@@ -1682,6 +1693,7 @@ xraudio_result_t xraudio_input_dispatch_detect(xraudio_input_obj_t *obj, keyword
 xraudio_result_t xraudio_input_dispatch_detect_params(xraudio_input_obj_t *obj) {
    xraudio_queue_msg_detect_params_t msg;
    msg.header.type            = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_PARAMS;
+   msg.default_sensitivity    = obj->detect_params.default_sensitivity;
    msg.sensitivity            = obj->detect_params.sensitivity;
 
    xraudio_input_queue_msg_push(obj, (const char *)&msg, sizeof(msg));
