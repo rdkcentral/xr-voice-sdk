@@ -443,7 +443,7 @@ void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
 
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
-   xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, (obj->default_sensitivity) ? NULL : &obj->keyword_sensitivity);
+   xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->default_sensitivity ? NULL : &obj->keyword_sensitivity);
    if(XRAUDIO_RESULT_OK != result) {
       XLOGD_ERROR("xraudio_detect_params <%s>", xraudio_result_str(result));
    }
