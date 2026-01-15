@@ -473,7 +473,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
          return(false);
    }
 
-   xraudio_keyword_sensitivity_t *sensitivity = (keyword_config == NULL) ? NULL : (xraudio_keyword_sensitivity_t *)&keyword_config->sensitivity;
+   xraudio_keyword_sensitivity_t *sensitivity = (keyword_config == NULL) ? NULL : &keyword_config->sensitivity;
 
    g_xrsr.xrsr_xraudio_object = xrsr_xraudio_create(sensitivity, xraudio_power_mode, privacy_mode, json_obj_xraudio);
 
