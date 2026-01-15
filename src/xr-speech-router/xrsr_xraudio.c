@@ -69,7 +69,7 @@ static __inline xrsr_session_group_t xrsr_xraudio_source_to_group(xraudio_device
 static xraudio_devices_input_t g_local_mic_full_power = XRAUDIO_DEVICE_INPUT_NONE;
 static xraudio_devices_input_t g_local_mic_low_power  = XRAUDIO_DEVICE_INPUT_NONE;
 
-xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_sensitivity_t *keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio) {
+xrsr_xraudio_object_t xrsr_xraudio_create(const xraudio_keyword_sensitivity_t *keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)malloc(sizeof(xrsr_xraudio_obj_t));
 
    if(obj == NULL) {
