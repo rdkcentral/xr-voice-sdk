@@ -290,19 +290,21 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    }
 
    // Load default json config, optional oem append and then append provided json values
-   const char *config_fn_tpl = "/etc/vsdk_config.json.template";
+   const char *config_fn_def = "/etc/vsdk_config.json";
    const char *config_fn_oem = "/etc/vendor/input/vsdk_config.json";
 
    bool oem_append = (access(config_fn_oem, F_OK) == 0) ? true : false;
 
    json_t *json_obj_final = NULL;
-   if(oem_append || NULL != json_obj_vsdk) { // Load default values and append with oem and/or provided json
+   if(!oem_append && NULL == json_obj_vsdk) {
+      XLOGD_INFO("Using default config");
+   } else { // Load default values and append with oem and/or provided json
       json_error_t error;
-      json_obj_final = json_load_file(config_fn_tpl, 0, &error);
+      json_obj_final = json_load_file(config_fn_def, 0, &error);
       if(json_obj_final == NULL) {
-         XLOGD_WARN("Failed to load template config file <%s>: %s", config_fn_tpl, error.text);
+         XLOGD_WARN("Failed to load default config file <%s>: %s", config_fn_def, error.text);
       } else {
-         XLOGD_INFO("Loaded template config file <%s>", config_fn_tpl);
+         XLOGD_INFO("Loaded default config file <%s>", config_fn_def);
          
          if(oem_append) {
             json_t *json_obj_oem = NULL;

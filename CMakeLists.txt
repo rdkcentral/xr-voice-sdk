@@ -146,7 +146,7 @@ if(CURTAIL_LIBRARY)
 endif()
 
 # CONFIG FILES
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json.template DESTINATION ${CMAKE_INSTALL_SYSCONFDIR} COMPONENT config )
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_INSTALL_SYSCONFDIR} COMPONENT config )
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
 
@@ -206,15 +206,15 @@ add_custom_command(
    VERBATIM)
 
 add_custom_command(
-   OUTPUT vsdk_config.json.template
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_config_default.json -a ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json:xraudio -o vsdk_config.json.template
+   OUTPUT vsdk_config.json
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_config_default.json -a ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json:xraudio -o vsdk_config.json
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_config_default.json ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json
    VERBATIM)
 
 add_custom_command(
    OUTPUT xrsr_config.h
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i vsdk_config.json.template -o xrsr_config.h -v "ws,http"
-   DEPENDS vsdk_config.json.template
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i vsdk_config.json -o xrsr_config.h -v "ws,http"
+   DEPENDS vsdk_config.json
    VERBATIM)
 
 add_custom_command(
