@@ -626,7 +626,7 @@ bool xrsr_config_get(xrsr_config_t *config);
 /// @param[in] keyword_config Keyword configuration information or NULL if not specified.
 /// @param[in] capture_config Capture configuration information or NULL if not specified.
 /// @return The function returns true if successful or false otherwise.
-bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, const json_t *json_obj_vsdk);
+bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, json_t *json_obj_vsdk);
 
 /// @brief Sets the speech router host name
 /// @details Replaces the host name.
