@@ -521,7 +521,12 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
 
       // Print the configuration since it was loaded from files
       char *json_dump = json_dumps(json_obj_final, JSON_INDENT(3) | JSON_SORT_KEYS);
-      if(json_dump != NULL) {
+      if(json_dump == NULL) {
+         XLOGD_ERROR("unable to dump JSON object");
+         json_decref(json_obj_final);
+         json_obj_final = NULL;
+         return(false);
+      } else {
          XLOGD_INFO_OPTS(XLOG_OPTS_DEFAULT, 20 * 1024, "Final configuration:\n%s", json_dump);
          free(json_dump);
       }
@@ -558,12 +563,21 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
          break;
       default:
          XLOGD_ERROR("Invalid power mode");
+         if(json_obj_final != NULL) {
+            json_decref(json_obj_final);
+            json_obj_final = NULL;
+         }
          return(false);
    }
 
    const xraudio_keyword_sensitivity_t *sensitivity = (keyword_config == NULL) ? NULL : &keyword_config->sensitivity;
 
    g_xrsr.xrsr_xraudio_object = xrsr_xraudio_create(sensitivity, xraudio_power_mode, privacy_mode, json_obj_xraudio);
+
+   if(json_obj_final != NULL) {
+      json_decref(json_obj_final);
+      json_obj_final = NULL;
+   }
 
    if(capture_config != NULL) {
       if(!xrsr_capture_config_apply(capture_config)) {

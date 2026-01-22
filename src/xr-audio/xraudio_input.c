@@ -1172,7 +1172,7 @@ xraudio_result_t xraudio_input_keyword_params(xraudio_input_object_t object, xra
 
    if(keyword_sensitivity != NULL) {
       XLOGD_INFO("keyword sensitivity <%f> detecting <%s>", *keyword_sensitivity, (session->state == XRAUDIO_INPUT_STATE_DETECTING) ? "YES" : "NO");
-      if(obj->detect_params.sensitivity != *keyword_sensitivity) {
+      if(obj->detect_params.default_sensitivity || obj->detect_params.sensitivity != *keyword_sensitivity) {
          obj->detect_params.default_sensitivity = false;
          obj->detect_params.sensitivity         = *keyword_sensitivity;
          if(session->state == XRAUDIO_INPUT_STATE_DETECTING) {
