@@ -28,6 +28,7 @@
 #include <math.h>
 #include <semaphore.h>
 #include "xraudio.h"
+#include "vsdk_private.h"
 #include "xraudio_private.h"
 
 #define XRAUDIO_OUTPUT_IDENTIFIER (0x9C834920)
@@ -60,13 +61,12 @@ typedef struct {
    int8_t                         play_bumper;
    int8_t                         ramp_enable;
    int8_t                         use_external_gain; // set to 1 to use hal api for volume control or 0 to use volume control library
-   #ifdef XRAUDIO_EOS_ENABLED
    xraudio_eos_object_t           obj_eos;
-   #endif
-   #ifdef XRAUDIO_OVC_ENABLED
    xraudio_ovc_object_t           obj_ovc;
-   #endif
    xraudio_hal_dsp_config_t       dsp_config;
+   xraudio_hal_plugin_api_t *     hal_plugin;
+   xraudio_eos_plugin_api_t *     eos_plugin;
+   xraudio_ovc_plugin_api_t *     ovc_plugin;
 } xraudio_output_obj_t;
 
 static bool             xraudio_output_object_is_valid(xraudio_output_obj_t *obj);
@@ -92,9 +92,7 @@ static xraudio_result_t xraudio_output_stop_locked(xraudio_output_obj_t *obj);
 
 xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, uint8_t user_id, int msgq, uint16_t capabilities, xraudio_hal_dsp_config_t *dsp_config, json_t* json_obj_output) {
    xraudio_output_obj_t *obj = (xraudio_output_obj_t *)malloc(sizeof(xraudio_output_obj_t));
-#ifdef XRAUDIO_EOS_ENABLED
    json_t *jeos_config = NULL;
-#endif
 
    if(obj == NULL) {
       XLOGD_ERROR("Out of memory.");
@@ -110,11 +108,11 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->device               = XRAUDIO_DEVICE_OUTPUT_INVALID;
    obj->resource_id          = XRAUDIO_RESOURCE_ID_OUTPUT_INVALID;
    obj->capabilities         = XRAUDIO_CAPS_OUTPUT_NONE;
-   obj->format               = (xraudio_output_format_t) { .container   = XRAUDIO_CONTAINER_INVALID,
-                                                             .encoding    = XRAUDIO_ENCODING_INVALID,
-                                                             .sample_rate = XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE,
-                                                             .sample_size = XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE,
-                                                             .channel_qty = XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY };
+   obj->format               = (xraudio_output_format_t) { .container     = XRAUDIO_CONTAINER_INVALID,
+                                                           .encoding.type = XRAUDIO_ENCODING_INVALID,
+                                                           .sample_rate   = XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE,
+                                                           .sample_size   = XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE,
+                                                           .channel_qty   = XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY };
    obj->fd                   = -1;
    obj->audio_buf            = NULL;
    obj->audio_buf_size       = 0;
@@ -127,35 +125,39 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->volume_mono_cur      = XRAUDIO_VOLUME_NOM;
    obj->play_bumper          = 0;
    obj->dsp_config           = *dsp_config;
-   #ifdef XRAUDIO_EOS_ENABLED
-   if(NULL == json_obj_output) {
-      XLOGD_INFO("json_obj_output is null, using defaults");
-   }
-   else {
-      jeos_config = json_object_get(json_obj_output, JSON_OBJ_NAME_OUTPUT_EOS);
-      if(NULL == jeos_config) {
-         XLOGD_INFO("EOS config not found, using defaults");
+   obj->hal_plugin           = vsdk_hal_plugin_get();
+   obj->eos_plugin           = vsdk_eos_plugin_get();
+   obj->ovc_plugin           = vsdk_ovc_plugin_get();
+   
+   if(obj->eos_plugin != NULL) {
+      if(NULL == json_obj_output) {
+         XLOGD_INFO("json_obj_output is null, using defaults");
       }
       else {
-         if(!json_is_object(jeos_config)) {
-            XLOGD_INFO("jeos_config not object, using defaults");
-            jeos_config = NULL;
+         jeos_config = json_object_get(json_obj_output, JSON_OBJ_NAME_OUTPUT_EOS);
+         if(NULL == jeos_config) {
+            XLOGD_INFO("EOS config not found, using defaults");
+         }
+         else {
+            if(!json_is_object(jeos_config)) {
+               XLOGD_INFO("jeos_config not object, using defaults");
+               jeos_config = NULL;
+            }
          }
       }
-   }
 
-   obj->obj_eos              = xraudio_eos_object_create(true, jeos_config);
-   #endif
+      obj->obj_eos              = obj->eos_plugin->object_create(true, jeos_config);
+   }
    obj->use_external_gain    = (capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL) ? 1 : 0;
    obj->ramp_enable          = 1;
 
-   #ifdef XRAUDIO_OVC_ENABLED
-   obj->obj_ovc = xraudio_ovc_object_create(obj->ramp_enable, obj->use_external_gain);
-   if(obj->obj_ovc == NULL) {
-       XLOGD_ERROR("Unable to allocate ovc memory");
-       return(NULL);
+   if(obj->ovc_plugin != NULL) {
+      obj->obj_ovc = obj->ovc_plugin->object_create(obj->ramp_enable, obj->use_external_gain);
+      if(obj->obj_ovc == NULL) {
+         XLOGD_ERROR("Unable to allocate ovc memory");
+         return(NULL);
+      }
    }
-   #endif
 
    memset(obj->fifo_name, 0, sizeof(obj->fifo_name));
 
@@ -170,18 +172,14 @@ void xraudio_output_object_destroy(xraudio_output_object_t object) {
          // Close the speaker interface
          xraudio_output_close_locked(obj);
       }
-      #ifdef XRAUDIO_EOS_ENABLED
-      if(obj->obj_eos != NULL) {
-         xraudio_eos_object_destroy(obj->obj_eos);
+      if(obj->eos_plugin != NULL && obj->obj_eos != NULL) {
+         obj->eos_plugin->object_destroy(obj->obj_eos);
          obj->obj_eos = NULL;
       }
-      #endif
-      #ifdef XRAUDIO_OVC_ENABLED
-      if(obj->obj_ovc != NULL) {
-         xraudio_ovc_object_destroy(obj->obj_ovc);
+      if(obj->ovc_plugin != NULL && obj->obj_ovc != NULL) {
+         obj->ovc_plugin->object_destroy(obj->obj_ovc);
          obj->obj_ovc = NULL;
       }
-      #endif
       obj->identifier = 0;
       obj->state      = XRAUDIO_OUTPUT_STATE_INVALID;
       XRAUDIO_PLAY_MUTEX_UNLOCK();
@@ -359,8 +357,8 @@ xraudio_result_t xraudio_output_play_from_memory(xraudio_output_object_t object,
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
    if(format->container == XRAUDIO_CONTAINER_NONE) {
-      if(format->encoding != XRAUDIO_ENCODING_PCM) {
-         XLOGD_ERROR("unsupported encoding <%s>", xraudio_encoding_str(format->encoding));
+      if(format->encoding.type != XRAUDIO_ENCODING_PCM) {
+         XLOGD_ERROR("unsupported encoding <%s>", xraudio_encoding_str(format->encoding.type));
          XRAUDIO_PLAY_MUTEX_UNLOCK();
          return(XRAUDIO_RESULT_ERROR_ENCODING);
       }
@@ -430,8 +428,8 @@ xraudio_result_t xraudio_output_play_from_pipe(xraudio_output_object_t object, x
       XRAUDIO_PLAY_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
-   if(format->container != XRAUDIO_CONTAINER_NONE || format->encoding != XRAUDIO_ENCODING_PCM) {
-      XLOGD_ERROR("unsupported container <%s> encoding <%s>", xraudio_container_str(format->container), xraudio_encoding_str(format->encoding));
+   if(format->container != XRAUDIO_CONTAINER_NONE || format->encoding.type != XRAUDIO_ENCODING_PCM) {
+      XLOGD_ERROR("unsupported container <%s> encoding <%s>", xraudio_container_str(format->container), xraudio_encoding_str(format->encoding.type));
       XRAUDIO_PLAY_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_CONTAINER);
    }
@@ -497,8 +495,8 @@ xraudio_result_t xraudio_output_play_from_user(xraudio_output_object_t object, x
       XRAUDIO_PLAY_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
-   if(format->container != XRAUDIO_CONTAINER_NONE || format->encoding != XRAUDIO_ENCODING_PCM) {
-      XLOGD_ERROR("unsupported container <%s> encoding <%s>", xraudio_container_str(format->container), xraudio_encoding_str(format->encoding));
+   if(format->container != XRAUDIO_CONTAINER_NONE || format->encoding.type != XRAUDIO_ENCODING_PCM) {
+      XLOGD_ERROR("unsupported container <%s> encoding <%s>", xraudio_container_str(format->container), xraudio_encoding_str(format->encoding.type));
       XRAUDIO_PLAY_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_CONTAINER);
    }
@@ -724,7 +722,7 @@ xraudio_result_t xraudio_output_dispatch_stop(xraudio_output_obj_t *obj, audio_o
 }
 
 bool xraudio_output_audio_hal_open(xraudio_output_obj_t *obj) {
-   obj->hal_output_obj = xraudio_hal_output_open(obj->hal_obj, obj->device, obj->resource_id, obj->user_id, &obj->format, obj->volume_left, obj->volume_right);
+   obj->hal_output_obj = obj->hal_plugin->output_open(obj->hal_obj, obj->device, obj->resource_id, obj->user_id, &obj->format, obj->volume_left, obj->volume_right);
 
    XLOGD_INFO("stream handle %p", obj->hal_output_obj);
 
@@ -737,7 +735,7 @@ void xraudio_output_audio_hal_close(xraudio_output_obj_t *obj) {
       return;
    }
    XLOGD_INFO("");
-   xraudio_hal_output_close(obj->hal_output_obj, obj->device);
+   obj->hal_plugin->output_close(obj->hal_output_obj, obj->device);
    obj->hal_output_obj = NULL;
 }
 
@@ -763,7 +761,7 @@ xraudio_result_t xraudio_output_volume_set(xraudio_output_object_t object, xraud
    case 2:  // volume control library currently does not support separate channel controls
       // increase or decrease volume if different from current volume
       if(obj->hal_output_obj != NULL && obj->capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL) {
-         xraudio_hal_output_volume_set_int(obj->hal_output_obj, obj->device, left, right);
+         obj->hal_plugin->output_volume_set_int(obj->hal_output_obj, obj->device, left, right);
       }
 
       obj->volume_right = right;
@@ -794,68 +792,67 @@ xraudio_result_t xraudio_output_volume_gain_apply(xraudio_output_object_t object
 
       if(obj->ramp_enable == 0) {
          obj->volume_mono_cur = obj->volume_right;
-         #ifdef XRAUDIO_OVC_ENABLED
-         float gain = obj->volume_mono_cur * vol_step_dB;
-         xraudio_ovc_set_gain(obj->obj_ovc, gain);
-         #endif
+         if(obj->ovc_plugin != NULL) {
+            float gain = obj->volume_mono_cur * vol_step_dB;
+            obj->ovc_plugin->set_gain(obj->obj_ovc, gain);
+         }
          XLOGD_DEBUG("right <%d> left <%d> cur <%d> NO RAMP", obj->volume_right,  obj->volume_left,  obj->volume_mono_cur);
       } else {
          bool ramp_is_active = false;
-         #ifdef XRAUDIO_OVC_ENABLED
-         ramp_is_active = xraudio_ovc_is_ramp_active(obj->obj_ovc);
-         #endif
+         if(obj->ovc_plugin != NULL) {
+            ramp_is_active = obj->ovc_plugin->is_ramp_active(obj->obj_ovc);
+         }
          if(!ramp_is_active) {
             if(obj->volume_mono_cur < obj->volume_right) {
                obj->volume_mono_cur++;
                if(obj->volume_mono_cur > max_volume) {
                   obj->volume_mono_cur = max_volume;
                }
-               #ifdef XRAUDIO_OVC_ENABLED
-               xraudio_ovc_increase(obj->obj_ovc);
-               #endif
+               if(obj->ovc_plugin != NULL) {
+                  obj->ovc_plugin->increase(obj->obj_ovc);
+               }
             } else if(obj->volume_mono_cur > obj->volume_right) {
                obj->volume_mono_cur--;
                if(obj->volume_mono_cur < min_volume) {
                   obj->volume_mono_cur = min_volume;
                }
-               #ifdef XRAUDIO_OVC_ENABLED
-               xraudio_ovc_decrease(obj->obj_ovc);
-               #endif
+               if(obj->ovc_plugin != NULL) {
+                  obj->ovc_plugin->decrease(obj->obj_ovc);
+               }
             }
             XLOGD_DEBUG("right <%d> left <%d> cur <%d> RAMP", obj->volume_right,  obj->volume_left, obj->volume_mono_cur);
          }
       }
    } else if(obj->play_bumper) {
       XLOGD_INFO("PLAY BUMPER");
-      #ifdef XRAUDIO_OVC_ENABLED
-      if(obj->volume_mono_cur == XRAUDIO_VOLUME_MAX) {
-         xraudio_ovc_increase(obj->obj_ovc);
-      } else if(obj->volume_mono_cur == XRAUDIO_VOLUME_MIN) {
-         xraudio_ovc_decrease(obj->obj_ovc);
+      if(obj->ovc_plugin != NULL) {
+         if(obj->volume_mono_cur == XRAUDIO_VOLUME_MAX) {
+            obj->ovc_plugin->increase(obj->obj_ovc);
+         } else if(obj->volume_mono_cur == XRAUDIO_VOLUME_MIN) {
+            obj->ovc_plugin->decrease(obj->obj_ovc);
+         }
       }
-      #endif
       obj->play_bumper = 0;
    }
 
    //XLOGD_DEBUG("right <%d> cur <%d> ramp <%d> ramp_act <%s>", obj->volume_right, obj->volume_mono_cur, obj->ramp_enable, ramp_is_active ? "YES" : "NO");
-   #ifdef XRAUDIO_OVC_ENABLED
-   uint32_t sample_qty = (bytes / sizeof(int16_t));
-   if(!xraudio_ovc_apply_gain_multichannel(obj->obj_ovc, (int16_t *)buffer, (int16_t *)buffer, chans, sample_qty)) {
-      XLOGD_ERROR("error applying gain");
-      result = XRAUDIO_RESULT_ERROR_OUTPUT_VOLUME;
+   if(obj->ovc_plugin != NULL) {
+      uint32_t sample_qty = (bytes / sizeof(int16_t));
+      if(!obj->ovc_plugin->apply_gain_multichannel(obj->obj_ovc, (int16_t *)buffer, (int16_t *)buffer, chans, sample_qty)) {
+         XLOGD_ERROR("error applying gain");
+         result = XRAUDIO_RESULT_ERROR_OUTPUT_VOLUME;
+      }
    }
-   #endif
    if(obj->hal_output_obj != NULL && (obj->capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL)) {
       float vol_left_scale  = 1.0;
       float vol_right_scale = 1.0;
-      #ifdef XRAUDIO_OVC_ENABLED
-      if(obj->use_external_gain != 0) {
-         vol_left_scale  = xraudio_ovc_get_scale(obj->obj_ovc);
-         vol_right_scale = xraudio_ovc_get_scale(obj->obj_ovc);
+      
+      if(obj->ovc_plugin != NULL && obj->use_external_gain != 0) {
+         vol_left_scale  = obj->ovc_plugin->get_scale(obj->obj_ovc);
+         vol_right_scale = obj->ovc_plugin->get_scale(obj->obj_ovc);
       }
-      #endif
 
-      if(!xraudio_hal_output_volume_set_float(obj->hal_output_obj, obj->device, vol_left_scale, vol_right_scale)) {
+      if(!obj->hal_plugin->output_volume_set_float(obj->hal_output_obj, obj->device, vol_left_scale, vol_right_scale)) {
          XLOGD_ERROR("unable to set volume");
          result = XRAUDIO_RESULT_ERROR_OUTPUT_VOLUME;
       }
@@ -882,13 +879,13 @@ xraudio_result_t xraudio_output_volume_config_set(xraudio_output_object_t object
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
 
-   #ifdef XRAUDIO_OVC_ENABLED
-   xraudio_volume_step_t volume_step;
-   xraudio_ovc_config_set(obj->obj_ovc, obj->format, max_volume, min_volume, volume_step_dB, use_ext_gain, &volume_step);
+   if(obj->ovc_plugin != NULL) {
+      xraudio_volume_step_t volume_step;
+      obj->ovc_plugin->config_set(obj->obj_ovc, obj->format, max_volume, min_volume, volume_step_dB, use_ext_gain, &volume_step);
 
-   obj->volume_right = volume_step;
-   obj->volume_left  = obj->volume_right;
-   #endif
+      obj->volume_right = volume_step;
+      obj->volume_left  = obj->volume_right;
+   }
 
    obj->use_external_gain = (use_ext_gain > 0) ? 1 : 0;
 
@@ -902,9 +899,9 @@ xraudio_result_t xraudio_output_volume_config_get(xraudio_output_object_t object
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
 
-   #ifdef XRAUDIO_OVC_ENABLED
-   xraudio_ovc_config_get(obj, max_volume, min_volume, volume_step_dB);
-   #endif
+   if(obj->ovc_plugin != NULL) {
+      obj->ovc_plugin->config_get(obj, max_volume, min_volume, volume_step_dB);
+   }
 
    if(use_ext_gain != NULL) {
       *use_ext_gain = obj->use_external_gain;
@@ -981,11 +978,11 @@ xraudio_eos_event_t xraudio_output_eos_run(xraudio_output_object_t object, int16
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_EOS_EVENT_NONE);
    }
-   #ifdef XRAUDIO_EOS_ENABLED
-   return (obj->dsp_config.eos_enabled) ? xraudio_eos_run_int16(obj->obj_eos, input_samples, sample_qty) : XRAUDIO_EOS_EVENT_NONE;
-   #else
+   
+   if(obj->eos_plugin != NULL) {
+      return (obj->dsp_config.eos_enabled) ? obj->eos_plugin->run_int16(obj->obj_eos, input_samples, sample_qty) : XRAUDIO_EOS_EVENT_NONE;
+   }
    return(XRAUDIO_EOS_EVENT_NONE);
-   #endif
 }
 
 unsigned char xraudio_output_signal_level_get(xraudio_output_object_t object) {
@@ -994,11 +991,11 @@ unsigned char xraudio_output_signal_level_get(xraudio_output_object_t object) {
       XLOGD_ERROR("Invalid object.");
       return(0);
    }
-   #ifdef XRAUDIO_EOS_ENABLED
-   if(obj->state == XRAUDIO_OUTPUT_STATE_PLAYING && obj->dsp_config.eos_enabled) {
-      return(xraudio_eos_signal_level_get(obj->obj_eos));
+   
+   if(obj->eos_plugin != NULL && obj->state == XRAUDIO_OUTPUT_STATE_PLAYING && obj->dsp_config.eos_enabled) {
+      return(obj->eos_plugin->signal_level_get(obj->obj_eos));
    }
-   #endif
+   
    return(0);
 }
 
@@ -1045,7 +1042,7 @@ static void xraudio_output_stats_general_clear(xraudio_output_obj_t *obj) {
 
 static void xraudio_output_stats_general_print(xraudio_output_obj_t *obj) {
    if(obj->hal_output_obj != NULL) {
-      XLOGD_INFO("output latency estimate %u ms", xraudio_hal_output_latency_get(obj->hal_output_obj));
+      XLOGD_INFO("output latency estimate %u ms", obj->hal_plugin->output_latency_get(obj->hal_output_obj));
    }
 }
 
@@ -1136,7 +1133,7 @@ xraudio_result_t xraudio_output_hfp_mute(xraudio_output_object_t object, unsigne
 
    XLOGD_INFO("qahw_set_mic_mute <%s>", enable ? "TRUE" : "FALSE");
 
-   if(!xraudio_hal_input_mute(NULL, XRAUDIO_DEVICE_INPUT_HFP, enable)) {
+   if(!obj->hal_plugin->input_mute(NULL, XRAUDIO_DEVICE_INPUT_HFP, enable)) {
      XLOGD_ERROR("hal mic mute failed");
    }
 

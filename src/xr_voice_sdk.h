@@ -46,7 +46,7 @@
 /// @details The voice SDK provides macros for some parameters which may change in the future.  User applications should use
 /// these names to allow the application code to function correctly if the values change.
 
-#define VSDK_VERSION_QTY_MAX (2 + XRSR_VERSION_QTY_MAX) ///< The quantity of version information structures.
+#define VSDK_VERSION_QTY_MAX (2) ///< The quantity of version information structures.
 
 /// @}
 

@@ -31,27 +31,13 @@
 #include <jansson.h>
 #include "xraudio_hal.h"
 #include "xraudio_config.h"
-#ifdef XRAUDIO_EOS_ENABLED
 #include "xraudio_eos.h"
-#endif
-#ifdef XRAUDIO_KWD_ENABLED
 #include "xraudio_kwd.h"
-#endif
-#ifdef XRAUDIO_DGA_ENABLED
 #include "xraudio_dga.h"
-#endif
-#ifdef XRAUDIO_SDF_ENABLED
 #include "xraudio_sdf.h"
-#endif
-#ifdef XRAUDIO_OVC_ENABLED
 #include "xraudio_ovc.h"
-#endif
-#ifdef XRAUDIO_PPR_ENABLED
 #include "xraudio_ppr.h"
-#endif
-#ifdef XRAUDIO_OUTPUT_ENABLED
 #include "xraudio_output.h"
-#endif
 #include "xraudio_input.h"
 
 #define XLOG_MODULE_ID XLOG_MODULE_ID_XRAUDIO
@@ -156,16 +142,18 @@ typedef struct {
 typedef struct {
    xr_mq_t                           msgq;
    sem_t *                           semaphore;
+   bool                              eos_enabled;
+   bool                              ppr_enabled;
+   bool                              out_enabled;
+   xraudio_hal_plugin_api_t *        hal_plugin;
+   xraudio_kwd_plugin_api_t *        kwd_plugin;
+   xraudio_dga_plugin_api_t *        dga_plugin;
    xraudio_input_object_t            obj_input;
-   #ifdef XRAUDIO_OUTPUT_ENABLED
    xraudio_output_object_t           obj_output;
    json_t*                           json_obj_output;
-   #endif
-   #ifdef XRAUDIO_KWD_ENABLED
    xraudio_hal_obj_t                 hal_obj;
    xraudio_hal_input_obj_t           hal_input_obj;
    xraudio_hal_dsp_config_t          dsp_config;
-   #endif
    xraudio_internal_capture_params_t internal_capture_params;
    json_t*                           json_obj_input;
 } xraudio_main_thread_params_t;

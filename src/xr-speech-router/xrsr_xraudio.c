@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <xrsr_private.h>
+#include <vsdk_private.h>
 #include <xraudio.h>
 
 #define XRSR_XRAUDIO_IDENTIFIER (0x93482578)
@@ -42,6 +43,7 @@ typedef struct {
    xrsr_xraudio_stream_t         xraudio_streams[XRSR_SESSION_GROUP_QTY];
    xraudio_power_mode_t          xraudio_power_mode;
    bool                          xraudio_privacy_mode;
+   bool                          allow_input_failure;
    xraudio_devices_input_t       device_input;
    xraudio_devices_output_t      device_output;
    bool                          detect_active;
@@ -86,6 +88,7 @@ xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_sensitivity_t keyword_
    obj->xraudio_state        = XRSR_XRAUDIO_STATE_CREATED;
    obj->xraudio_power_mode   = power_mode;
    obj->xraudio_privacy_mode = privacy_mode;
+   obj->allow_input_failure  = vsdk_xraudio_allow_input_failure();
    obj->device_input         = XRAUDIO_DEVICE_INPUT_NONE;
    obj->device_output        = XRAUDIO_DEVICE_OUTPUT_NONE;
    obj->detect_active        = true;
@@ -328,24 +331,24 @@ void xrsr_xraudio_device_granted(xrsr_xraudio_object_t object) {
 
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
 
-   #ifdef XRSR_ALLOW_INPUT_FAILURE
-   do {
-      result = xraudio_open(obj->xraudio_obj, obj->xraudio_power_mode, obj->xraudio_privacy_mode, obj->device_input, obj->device_output, &format);
+   if(obj->allow_input_failure) {
+      do {
+         result = xraudio_open(obj->xraudio_obj, obj->xraudio_power_mode, obj->xraudio_privacy_mode, obj->device_input, obj->device_output, &format);
 
-      if(XRAUDIO_RESULT_ERROR_MIC_OPEN == result) {
-         if(obj->xraudio_power_mode == XRAUDIO_POWER_MODE_FULL) {
-            obj->device_input &= ~g_local_mic_full_power;
-         } else {
-            obj->device_input &= ~g_local_mic_low_power;
+         if(XRAUDIO_RESULT_ERROR_MIC_OPEN == result) {
+            if(obj->xraudio_power_mode == XRAUDIO_POWER_MODE_FULL) {
+               obj->device_input &= ~g_local_mic_full_power;
+            } else {
+               obj->device_input &= ~g_local_mic_low_power;
+            }
+            XLOGD_INFO("mic error, device_input now <%s>", xraudio_devices_input_str(obj->device_input));
+            continue;
          }
-         XLOGD_INFO("mic error, device_input now <%s>", xraudio_devices_input_str(obj->device_input));
-         continue;
-      }
-      break;
-   }while(1);
-   #else
-   result = xraudio_open(obj->xraudio_obj, obj->xraudio_power_mode, obj->xraudio_privacy_mode, obj->device_input, obj->device_output, &format);
-   #endif
+         break;
+      } while(1);
+   } else {
+      result = xraudio_open(obj->xraudio_obj, obj->xraudio_power_mode, obj->xraudio_privacy_mode, obj->device_input, obj->device_output, &format);
+   }
 
    if(result != XRAUDIO_RESULT_OK) {
       XLOGD_ERROR("xraudio open <%s>", xraudio_result_str(result));
@@ -666,11 +669,9 @@ bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_
 }
 
 xrsr_session_group_t xrsr_xraudio_source_to_group(xraudio_devices_input_t source) {
-   #ifdef MICROPHONE_TAP_ENABLED
    if(source == XRAUDIO_DEVICE_INPUT_MIC_TAP) {
       return(XRSR_SESSION_GROUP_MIC_TAP);
    }
-   #endif
    return(XRSR_SESSION_GROUP_DEFAULT);
 }
 
