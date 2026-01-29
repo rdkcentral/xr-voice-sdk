@@ -29,7 +29,8 @@ target_link_libraries(xr-voice-sdk-xlog c jansson)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_vendor.json TYPE SYSCONF)
 
 # HEADER FILES
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_vendor.h TYPE INCLUDE)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_vendor.h TYPE INCLUDE RENAME rdkx_logger.h)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_vendor_modules.h TYPE INCLUDE)
 
 # LIBRARY FILES
 install(TARGETS xr-voice-sdk-xlog LIBRARY DESTINATION lib)
