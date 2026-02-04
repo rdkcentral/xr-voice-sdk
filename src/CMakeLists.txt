@@ -171,8 +171,8 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT rdkx_logger_level.c
-   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=rdkx_logger_level.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger_level.hash
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger_level.hash
+   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=rdkx_logger_level.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger_level_mw.hash
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger_level_mw.hash
    VERBATIM)
 
 add_custom_command(
