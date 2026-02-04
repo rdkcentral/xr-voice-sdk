@@ -1,7 +1,7 @@
 %language=ANSI-C
 %struct-type
 %includes
-%define lookup-function-name xlog_vd_logger_level_str_to_num
+%define lookup-function-name xlog_vd_level_str_to_num
 %{
 #include "rdkx_logger_private.h"
 %}

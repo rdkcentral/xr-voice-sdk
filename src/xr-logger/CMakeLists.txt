@@ -21,7 +21,7 @@ target_sources(xr-voice-sdk-xlog PUBLIC
 
 target_compile_options(xr-voice-sdk-xlog PUBLIC -fPIC -rdynamic -Wall -Werror)
 
-target_compile_definitions(xr-voice-sdk-xlog PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE)
+target_compile_definitions(xr-voice-sdk-xlog PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE -DVSDK_VENDOR_XLOG)
 
 target_link_libraries(xr-voice-sdk-xlog c jansson)
 

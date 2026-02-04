@@ -59,13 +59,14 @@
 #define XLOG_CONFIG_FILE_DIR_NAME_DEV "/opt"
 #endif
 
-#define XLOG_CONFIG_FILE_PRD      XLOG_CONFIG_FILE_DIR_NAME_PRD "/rdkx_logger.json"
-#define XLOG_CONFIG_FILE_PRD_ROOT XLOG_CONFIG_FILE_DIR_NAME_PRD "/rdkx_logger_"
-#define XLOG_CONFIG_FILE_DEV      XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger.json"
-#define XLOG_CONFIG_FILE_DEV_ROOT XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger_"
-
 // Define different global variable and function names for vendor and middleware builds
 #ifdef VSDK_VENDOR_XLOG
+
+#define XLOG_CONFIG_FILE_PRD      XLOG_CONFIG_FILE_DIR_NAME_PRD "/rdkx_logger_vd.json"
+#define XLOG_CONFIG_FILE_PRD_ROOT XLOG_CONFIG_FILE_DIR_NAME_PRD "/rdkx_logger_vd_"
+#define XLOG_CONFIG_FILE_DEV      XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger_vd.json"
+#define XLOG_CONFIG_FILE_DEV_ROOT XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger_vd_"
+
 #define G_XLOG_MODULES           g_xlog_vd_modules
 #define G_XLOG_INIT              g_xlog_vd_init
 #define G_XLOG_CURTAIL           g_xlog_vd_curtail
@@ -74,6 +75,8 @@
 #define G_XLOG_ANSI_COLOR        g_xlog_vd_ansi_color
 #define G_XLOG_CRTL_INIT         g_xlog_vd_crtl_init
 #define G_XLOG_ARGS_DEFAULT      g_xlog_vd_args_default
+
+#define G_XLOG_MODULE_ID_TO_STR  g_xlog_vd_module_id_to_str
 
 #define XLOG_INIT_INT            xlog_vd_init_int
 #define XLOG_DATE_TIME           xlog_vd_date_time
@@ -111,6 +114,11 @@
 
 #else
 
+#define XLOG_CONFIG_FILE_PRD      XLOG_CONFIG_FILE_DIR_NAME_PRD "/rdkx_logger.json"
+#define XLOG_CONFIG_FILE_PRD_ROOT XLOG_CONFIG_FILE_DIR_NAME_PRD "/rdkx_logger_"
+#define XLOG_CONFIG_FILE_DEV      XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger.json"
+#define XLOG_CONFIG_FILE_DEV_ROOT XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger_"
+
 #define G_XLOG_MODULES           g_xlog_mw_modules
 #define G_XLOG_INIT              g_xlog_mw_init
 #define G_XLOG_CURTAIL           g_xlog_mw_curtail
@@ -119,6 +127,8 @@
 #define G_XLOG_ANSI_COLOR        g_xlog_mw_ansi_color
 #define G_XLOG_CRTL_INIT         g_xlog_mw_crtl_init
 #define G_XLOG_ARGS_DEFAULT      g_xlog_mw_args_default
+
+#define G_XLOG_MODULE_ID_TO_STR  g_xlog_mw_module_id_to_str
 
 #define XLOG_INIT_INT            xlog_mw_init_int
 #define XLOG_DATE_TIME           xlog_mw_date_time
@@ -179,7 +189,7 @@ static const xlog_args_t G_XLOG_ARGS_DEFAULT = {
    .size_max  = XLOG_BUF_SIZE_DEFAULT
 };
 
-extern const char * const g_xlog_module_id_to_str[];
+extern const char * const G_XLOG_MODULE_ID_TO_STR[];
 
 static int      XLOG_INIT_INT(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool ansi_color, bool use_curtail);
 static uint32_t XLOG_DATE_TIME(const xlog_args_t *args, char *buffer);
@@ -339,8 +349,8 @@ json_t *XLOG_CONFIG_LOAD(xlog_module_id_t id) {
       XLOGD_WARN("invalid module id <%d>", id);
       module_valid = false;
    } else {
-      snprintf(config_fn_dev_mod, sizeof(config_fn_dev_mod), "%s%s.json", XLOG_CONFIG_FILE_DEV_ROOT, g_xlog_module_id_to_str[id]);
-      snprintf(config_fn_prd_mod, sizeof(config_fn_prd_mod), "%s%s.json", XLOG_CONFIG_FILE_PRD_ROOT, g_xlog_module_id_to_str[id]);
+      snprintf(config_fn_dev_mod, sizeof(config_fn_dev_mod), "%s%s.json", XLOG_CONFIG_FILE_DEV_ROOT, G_XLOG_MODULE_ID_TO_STR[id]);
+      snprintf(config_fn_prd_mod, sizeof(config_fn_prd_mod), "%s%s.json", XLOG_CONFIG_FILE_PRD_ROOT, G_XLOG_MODULE_ID_TO_STR[id]);
    }
 
    if(!is_production && module_valid && (0 == access(config_fn_dev_mod, F_OK)) && XLOG_FILE_GET_CONTENTS(config_fn_dev_mod, &contents)) {
@@ -490,7 +500,7 @@ bool XLOG_LEVEL_ENABLED(xlog_module_id_t id, xlog_level_t level) {
       XLOGD_WARN("invalid level <%d>", level);
       return(false);
    }
-   //printf("%s: module <%s> id <%d> level <%d> log level <%u> enabled <%s>\n", __FUNCTION__, g_xlog_module_id_to_str[id], id, G_XLOG_MODULES[id], level, (level >= G_XLOG_MODULES[id]) ? "YES" : "NO");
+   //printf("%s: module <%s> id <%d> level <%d> log level <%u> enabled <%s>\n", __FUNCTION__, G_XLOG_MODULE_ID_TO_STR[id], id, G_XLOG_MODULES[id], level, (level >= G_XLOG_MODULES[id]) ? "YES" : "NO");
    return(level >= G_XLOG_MODULES[id]);
 }
 #endif
@@ -613,9 +623,9 @@ int XLOG_PREFIX(const xlog_args_t *args, char *str, size_t size) {
    }
 
    // Module Name
-   uint32_t name_len = strlen(g_xlog_module_id_to_str[args->id]); // TODO: create lookup table for this
+   uint32_t name_len = strlen(G_XLOG_MODULE_ID_TO_STR[args->id]); // TODO: create lookup table for this
    if((args->options & XLOG_OPTS_MOD_NAME) && ((size - used) > name_len)) {
-      memcpy(&str[used], g_xlog_module_id_to_str[args->id], name_len);
+      memcpy(&str[used], G_XLOG_MODULE_ID_TO_STR[args->id], name_len);
       used += name_len;
       str[used++] = ' ';
    }
