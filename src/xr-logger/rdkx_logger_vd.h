@@ -132,33 +132,33 @@ typedef struct {
 typedef int (*xlog_print_t)(xlog_level_t level, const char *buffer, uint32_t size);
 
 // Internal use only.  This is required to avoid parameter expansion when using XLOGD macros below.
-extern xlog_level_t  g_xlog_modules[];
+extern xlog_level_t  g_xlog_vd_modules[];
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
-int          xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail);
-int          xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail);
-void         xlog_term(void);
-xlog_level_t xlog_level_get(xlog_module_id_t id);
-void         xlog_level_set(xlog_module_id_t id, xlog_level_t level);
-void         xlog_level_set_all(xlog_level_t level);
-bool         xlog_level_active(xlog_module_id_t id, xlog_level_t level);
+int          xlog_vd_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail);
+int          xlog_vd_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail);
+void         xlog_vd_term(void);
+xlog_level_t xlog_vd_level_get(xlog_module_id_t id);
+void         xlog_vd_level_set(xlog_module_id_t id, xlog_level_t level);
+void         xlog_vd_level_set_all(xlog_level_t level);
+bool         xlog_vd_level_active(xlog_module_id_t id, xlog_level_t level);
 
 // Asynchronous safe - can be used in signal handlers
-int xlog_printf_safe(const xlog_args_t *args, const char *string);
-int xlog_fprintf_safe(const xlog_args_t *args, FILE *stream, const char *string);
+int xlog_vd_printf_safe(const xlog_args_t *args, const char *string);
+int xlog_vd_fprintf_safe(const xlog_args_t *args, FILE *stream, const char *string);
 
-int xlog_printf(const xlog_args_t *args, const char *format, ...);
-int xlog_fprintf(const xlog_args_t *args, FILE *stream, const char *format, ...);
-int xlog_dprintf(const xlog_args_t *args, int fd, const char *format, ...);
-int xlog_snprintf(const xlog_args_t *args, char *str, size_t size, const char *format, ...);
+int xlog_vd_printf(const xlog_args_t *args, const char *format, ...);
+int xlog_vd_fprintf(const xlog_args_t *args, FILE *stream, const char *format, ...);
+int xlog_vd_dprintf(const xlog_args_t *args, int fd, const char *format, ...);
+int xlog_vd_snprintf(const xlog_args_t *args, char *str, size_t size, const char *format, ...);
 
-#define xlog_vprintf(args, format, ap) xlog_vfprintf(args, stdout, format, ap)
-int xlog_vfprintf(const xlog_args_t *args, FILE *stream, const char *format, va_list ap);
-int xlog_vdprintf(const xlog_args_t *args, int fd, const char *format, va_list ap);
-int xlog_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap);
+#define xlog_vd_vprintf(args, format, ap) xlog_vfprintf(args, stdout, format, ap)
+int xlog_vd_vfprintf(const xlog_args_t *args, FILE *stream, const char *format, va_list ap);
+int xlog_vd_vdprintf(const xlog_args_t *args, int fd, const char *format, va_list ap);
+int xlog_vd_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap);
 
 #ifdef __cplusplus
 }
@@ -168,7 +168,7 @@ int xlog_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *
 #define XLOG_RAW(...)            fprintf(XLOGD_OUTPUT, __VA_ARGS__)
 
 // Formatted logging to FILE *
-#define XLOG(LEVEL, OPTS, COLOR, BUF_SIZE, FORMAT, ...) do { if(LEVEL < g_xlog_modules[XLOG_MODULE_ID]) { break; } XLOG_STATIC_ARGS const xlog_args_t xlog_args__ = {.options = OPTS, .color = COLOR, .function = XLOG_PARAM_FUNCTION, .line = XLOG_PARAM_LINE, .level = LEVEL, .id = XLOG_MODULE_ID, .size_max = BUF_SIZE}; xlog_fprintf(&xlog_args__, XLOGD_OUTPUT, FORMAT, ##__VA_ARGS__);} while(0)
+#define XLOG(LEVEL, OPTS, COLOR, BUF_SIZE, FORMAT, ...) do { if(LEVEL < g_xlog_vd_modules[XLOG_MODULE_ID]) { break; } XLOG_STATIC_ARGS const xlog_args_t xlog_args__ = {.options = OPTS, .color = COLOR, .function = XLOG_PARAM_FUNCTION, .line = XLOG_PARAM_LINE, .level = LEVEL, .id = XLOG_MODULE_ID, .size_max = BUF_SIZE}; xlog_vd_fprintf(&xlog_args__, XLOGD_OUTPUT, FORMAT, ##__VA_ARGS__);} while(0)
 #define XLOG_NO_LF(FORMAT, ...)        XLOG(XLOG_LEVEL_INVALID, (XLOG_OPTS_DEFAULT & ~XLOG_OPTS_LF), XLOG_COLOR_NONE, XLOG_BUF_SIZE_DEFAULT, FORMAT, ##__VA_ARGS__)
 
 // Dynamic log macros
@@ -201,7 +201,7 @@ int xlog_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *
 #define XLOGD_ERROR_OPTS(OPTS, BUF_SIZE, ...)  XLOGD(XLOG_LEVEL_ERROR,  OPTS, XLOG_COLOR_RED,  BUF_SIZE, __VA_ARGS__)
 #define XLOGD_FATAL_OPTS(OPTS, BUF_SIZE, ...)  do { XLOGD(XLOG_LEVEL_FATAL,  OPTS, XLOG_COLOR_RED, BUF_SIZE, __VA_ARGS__); XLOG_FLUSH(); } while(0)
 
-#define XLOGD_SAFE(LEVEL, OPTS, COLOR, BUF_SIZE, STRING) do { if(LEVEL < g_xlog_modules[XLOG_MODULE_ID]) { break; } XLOG_STATIC_ARGS const xlog_args_t xlog_args__ = {.options = OPTS, .color = COLOR, .function = XLOG_PARAM_FUNCTION, .line = XLOG_PARAM_LINE, .level = LEVEL, .id = XLOG_MODULE_ID, .size_max = BUF_SIZE}; xlog_fprintf_safe(&xlog_args__, XLOGD_OUTPUT, STRING);} while(0)
+#define XLOGD_SAFE(LEVEL, OPTS, COLOR, BUF_SIZE, STRING) do { if(LEVEL < g_xlog_vd_modules[XLOG_MODULE_ID]) { break; } XLOG_STATIC_ARGS const xlog_args_t xlog_args__ = {.options = OPTS, .color = COLOR, .function = XLOG_PARAM_FUNCTION, .line = XLOG_PARAM_LINE, .level = LEVEL, .id = XLOG_MODULE_ID, .size_max = BUF_SIZE}; xlog_vd_fprintf_safe(&xlog_args__, XLOGD_OUTPUT, STRING);} while(0)
 
 #define XLOGD_SAFE_DEBUG(STRING) XLOGD_SAFE(XLOG_LEVEL_DEBUG, XLOG_OPTS_DEFAULT, XLOG_COLOR_GRN,  XLOG_BUF_SIZE_DEFAULT, STRING)
 #define XLOGD_SAFE_INFO(STRING)  XLOGD_SAFE(XLOG_LEVEL_INFO,  XLOG_OPTS_DEFAULT, XLOG_COLOR_NONE, XLOG_BUF_SIZE_DEFAULT, STRING)

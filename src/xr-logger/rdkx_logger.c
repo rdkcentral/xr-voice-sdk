@@ -36,7 +36,13 @@
 #include "rdkversion.h"
 #endif
 #define XLOG_MODULE_ID XLOG_MODULE_ID_XLOG
-#include "rdkx_logger.h"
+
+#ifdef VSDK_VENDOR_XLOG
+#include "rdkx_logger_vd.h"
+#else
+#include "rdkx_logger_mw.h"
+#endif
+
 #include "rdkx_logger_private.h"
 #include "errno.h"
 #ifdef VSDK_CURTAIL_ENABLED
@@ -58,19 +64,112 @@
 #define XLOG_CONFIG_FILE_DEV      XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger.json"
 #define XLOG_CONFIG_FILE_DEV_ROOT XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger_"
 
-xlog_level_t  g_xlog_modules[XLOG_MODULE_QTY_MAX];
+// Define different global variable and function names for vendor and middleware builds
+#ifdef VSDK_VENDOR_XLOG
+#define G_XLOG_MODULES           g_xlog_vd_modules
+#define G_XLOG_INIT              g_xlog_vd_init
+#define G_XLOG_CURTAIL           g_xlog_vd_curtail
+#define G_XLOG_PRINT             g_xlog_vd_print
+#define G_XLOG_PRINT_SAFE        g_xlog_vd_print_safe
+#define G_XLOG_ANSI_COLOR        g_xlog_vd_ansi_color
+#define G_XLOG_CRTL_INIT         g_xlog_vd_crtl_init
+#define G_XLOG_ARGS_DEFAULT      g_xlog_vd_args_default
 
-static bool          g_xlog_init       = false;
-static bool          g_xlog_curtail    = false;
-static xlog_print_t  g_xlog_print      = NULL;
-static xlog_print_t  g_xlog_print_safe = NULL;
-static bool          g_xlog_ansi_color = false;
+#define XLOG_INIT_INT            xlog_vd_init_int
+#define XLOG_DATE_TIME           xlog_vd_date_time
+#define XLOG_PREFIX              xlog_vd_prefix
+#define XLOG_POSTFIX             xlog_vd_postfix
+#define XLOG_LEVEL_ENABLED       xlog_vd_level_enabled
+#define XLOG_VFPRINTF_DVI        xlog_vd_vfprintf_dvi
+#define XLOG_VDPRINTF_DVI        xlog_vd_vdprintf_dvi
+#define XLOG_VSNPRINTF_DVI       xlog_vd_vsnprintf_dvi
+#define XLOG_LEVEL_STR_TO_ENUM   xlog_vd_level_str_to_enum
+#define XLOG_MODULE_TO_ID        xlog_vd_module_to_id
+#define XLOG_CONFIG_LOAD         xlog_vd_config_load
+#define XLOG_FILE_GET_CONTENTS   xlog_vd_file_get_contents
 
-#ifdef VSDK_CURTAIL_ENABLED
-static bool g_crtl_init = false;
+#define XLOG_MODULE_STR_TO_INDEX xlog_vd_module_str_to_index
+#define XLOG_LEVEL_STR_TO_NUM    xlog_vd_level_str_to_num
+
+#define XLOG_INIT                xlog_vd_init
+#define XLOG_INIT_USER_PRINT     xlog_vd_init_user_print
+#define XLOG_TERM                xlog_vd_term
+#define XLOG_LEVEL_GET           xlog_vd_level_get
+#define XLOG_LEVEL_SET           xlog_vd_level_set
+#define XLOG_LEVEL_SET_ALL       xlog_vd_level_set_all
+#define XLOG_LEVEL_ACTIVE        xlog_vd_level_active
+
+#define XLOG_PRINTF_SAFE         xlog_vd_printf_safe
+#define XLOG_FPRINTF_SAFE        xlog_vd_fprintf_safe
+#define XLOG_PRINTF              xlog_vd_printf
+#define XLOG_FPRINTF             xlog_vd_fprintf
+#define XLOG_DPRINTF             xlog_vd_dprintf
+#define XLOG_SNPRINTF            xlog_vd_snprintf
+#define XLOG_VFPRINTF            xlog_vd_vfprintf
+#define XLOG_VDPRINTF            xlog_vd_vdprintf
+#define XLOG_VSNPRINTF           xlog_vd_vsnprintf
+
+#else
+
+#define G_XLOG_MODULES           g_xlog_mw_modules
+#define G_XLOG_INIT              g_xlog_mw_init
+#define G_XLOG_CURTAIL           g_xlog_mw_curtail
+#define G_XLOG_PRINT             g_xlog_mw_print
+#define G_XLOG_PRINT_SAFE        g_xlog_mw_print_safe
+#define G_XLOG_ANSI_COLOR        g_xlog_mw_ansi_color
+#define G_XLOG_CRTL_INIT         g_xlog_mw_crtl_init
+#define G_XLOG_ARGS_DEFAULT      g_xlog_mw_args_default
+
+#define XLOG_INIT_INT            xlog_mw_init_int
+#define XLOG_DATE_TIME           xlog_mw_date_time
+#define XLOG_PREFIX              xlog_mw_prefix
+#define XLOG_POSTFIX             xlog_mw_postfix
+#define XLOG_LEVEL_ENABLED       xlog_mw_level_enabled
+#define XLOG_VFPRINTF_DVI        xlog_mw_vfprintf_dvi
+#define XLOG_VDPRINTF_DVI        xlog_mw_vdprintf_dvi
+#define XLOG_VSNPRINTF_DVI       xlog_mw_vsnprintf_dvi
+#define XLOG_LEVEL_STR_TO_ENUM   xlog_mw_level_str_to_enum
+#define XLOG_MODULE_TO_ID        xlog_mw_module_to_id
+#define XLOG_CONFIG_LOAD         xlog_mw_config_load
+#define XLOG_FILE_GET_CONTENTS   xlog_mw_file_get_contents
+
+#define XLOG_MODULE_STR_TO_INDEX xlog_mw_module_str_to_index
+#define XLOG_LEVEL_STR_TO_NUM    xlog_mw_level_str_to_num
+
+#define XLOG_INIT                xlog_init
+#define XLOG_INIT_USER_PRINT     xlog_init_user_print
+#define XLOG_TERM                xlog_term
+#define XLOG_LEVEL_GET           xlog_level_get
+#define XLOG_LEVEL_SET           xlog_level_set
+#define XLOG_LEVEL_SET_ALL       xlog_level_set_all
+#define XLOG_LEVEL_ACTIVE        xlog_level_active
+
+#define XLOG_PRINTF_SAFE         xlog_printf_safe
+#define XLOG_FPRINTF_SAFE        xlog_fprintf_safe
+#define XLOG_PRINTF              xlog_printf
+#define XLOG_FPRINTF             xlog_fprintf
+#define XLOG_DPRINTF             xlog_dprintf
+#define XLOG_SNPRINTF            xlog_snprintf
+#define XLOG_VFPRINTF            xlog_vfprintf
+#define XLOG_VDPRINTF            xlog_vdprintf
+#define XLOG_VSNPRINTF           xlog_vsnprintf
+
 #endif
 
-static const xlog_args_t g_xlog_args_default = {
+
+xlog_level_t  G_XLOG_MODULES[XLOG_MODULE_QTY_MAX];
+
+static bool          G_XLOG_INIT       = false;
+static bool          G_XLOG_CURTAIL    = false;
+static xlog_print_t  G_XLOG_PRINT      = NULL;
+static xlog_print_t  G_XLOG_PRINT_SAFE = NULL;
+static bool          G_XLOG_ANSI_COLOR = false;
+
+#ifdef VSDK_CURTAIL_ENABLED
+static bool G_XLOG_CRTL_INIT = false;
+#endif
+
+static const xlog_args_t G_XLOG_ARGS_DEFAULT = {
    .options   = XLOG_OPTS_DEFAULT,
    .color     = XLOG_COLOR_NONE,
    .function  = XLOG_FUNCTION_NONE,
@@ -82,24 +181,24 @@ static const xlog_args_t g_xlog_args_default = {
 
 extern const char * const g_xlog_module_id_to_str[];
 
-static int      xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool ansi_color, bool use_curtail);
-static uint32_t xlog_date_time(const xlog_args_t *args, char *buffer);
-static int      xlog_prefix(const xlog_args_t *args, char *str, size_t size);
-static int      xlog_postfix(const xlog_args_t *args, char *str, size_t size);
+static int      XLOG_INIT_INT(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool ansi_color, bool use_curtail);
+static uint32_t XLOG_DATE_TIME(const xlog_args_t *args, char *buffer);
+static int      XLOG_PREFIX(const xlog_args_t *args, char *str, size_t size);
+static int      XLOG_POSTFIX(const xlog_args_t *args, char *str, size_t size);
 
-#define MACRO_LEVEL_CHECK
+//#define MACRO_LEVEL_CHECK
 #ifndef MACRO_LEVEL_CHECK
-static __inline bool xlog_level_enabled(xlog_module_id_t id, xlog_level_t level);
+static __inline bool XLOG_LEVEL_ENABLED(xlog_module_id_t id, xlog_level_t level);
 #endif
 
-static __inline int     xlog_vfprintf_dvi(const xlog_args_t *args, FILE *stream, const char *format, va_list ap);
-static __inline int     xlog_vdprintf_dvi(const xlog_args_t *args, int fd, const char *format, va_list ap);
-static __inline int     xlog_vsnprintf_dvi(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap);
+static __inline int     XLOG_VFPRINTF_DVI(const xlog_args_t *args, FILE *stream, const char *format, va_list ap);
+static __inline int     XLOG_VDPRINTF_DVI(const xlog_args_t *args, int fd, const char *format, va_list ap);
+static __inline int     XLOG_VSNPRINTF_DVI(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap);
 
-static xlog_level_t     xlog_level_str_to_enum(const char *level);
-static xlog_module_id_t xlog_module_to_id(const char *module);
-static json_t *         xlog_config_load(xlog_module_id_t id);
-static bool             xlog_file_get_contents(const char *file, char **contents);
+static xlog_level_t     XLOG_LEVEL_STR_TO_ENUM(const char *level);
+static xlog_module_id_t XLOG_MODULE_TO_ID(const char *module);
+static json_t *         XLOG_CONFIG_LOAD(xlog_module_id_t id);
+static bool             XLOG_FILE_GET_CONTENTS(const char *file, char **contents);
 
 #ifndef XLOG_PREFIX_SIZE
 #error XLOG_PREFIX_SIZE is not defined
@@ -107,33 +206,33 @@ static bool             xlog_file_get_contents(const char *file, char **contents
 #error XLOG_PREFIX_SIZE is too small
 #endif
 
-int xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail) {
-   return(xlog_init_int(id, filename, file_size_max, NULL, NULL, ansi_color, use_curtail));
+int XLOG_INIT(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail) {
+   return(XLOG_INIT_INT(id, filename, file_size_max, NULL, NULL, ansi_color, use_curtail));
 }
 
-int xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail) {
-   return(xlog_init_int(id, filename, file_size_max, print, print_safe, ansi_color, use_curtail));
+int XLOG_INIT_USER_PRINT(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail) {
+   return(XLOG_INIT_INT(id, filename, file_size_max, print, print_safe, ansi_color, use_curtail));
 }
 
-int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool ansi_color, bool use_curtail) {
-   if(g_xlog_init) {
+int XLOG_INIT_INT(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool ansi_color, bool use_curtail) {
+   if(G_XLOG_INIT) {
       XLOGD_WARN("Already initialized");
       return(-1);
    }
-   g_xlog_init    = true;
-   g_xlog_curtail = use_curtail;
+   G_XLOG_INIT    = true;
+   G_XLOG_CURTAIL = use_curtail;
    XLOGD_INFO("Initializing...");
 
    if(filename != NULL) {
       #ifndef VSDK_CURTAIL_ENABLED
       XLOGD_WARN("curtail is not enabled (compile time). ignoring filename parameter.");
       #else
-      if(!g_xlog_curtail) {
+      if(!G_XLOG_CURTAIL) {
          XLOGD_WARN("curtail is not enabled (run time). ignoring filename parameter.");
       } else {
          XLOGD_INFO("crtl_init... filename <%s> max size <%u>", filename, file_size_max);
-         g_crtl_init = crtl_init(filename, file_size_max, CRTL_LEVEL_WARN, false);
-         if(!g_crtl_init) {
+         G_XLOG_CRTL_INIT = crtl_init(filename, file_size_max, CRTL_LEVEL_WARN, false);
+         if(!G_XLOG_CRTL_INIT) {
             int errsv = errno;
             XLOGD_WARN("curtail init error <%s>", strerror(errsv));
             return(-1);
@@ -141,17 +240,17 @@ int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_
       }
       #endif
    }
-   g_xlog_print_safe = print_safe;
-   g_xlog_print      = print;
-   g_xlog_ansi_color = ansi_color;
+   G_XLOG_PRINT_SAFE = print_safe;
+   G_XLOG_PRINT      = print;
+   G_XLOG_ANSI_COLOR = ansi_color;
 
    // First, initialize to INFO level
    for(uint32_t index = 0; index < XLOG_MODULE_QTY_MAX; index++) {
-      g_xlog_modules[index] = XLOG_LEVEL_INFO;
+      G_XLOG_MODULES[index] = XLOG_LEVEL_INFO;
    }
 
    // Load module name and level from config file
-   json_t *obj = xlog_config_load(id);
+   json_t *obj = XLOG_CONFIG_LOAD(id);
 
    if(obj == NULL) {
       return(0);
@@ -167,8 +266,8 @@ int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_
    json_object_foreach(obj, module, value) {
        if(json_is_boolean(value)) { // Handle boolean values
           if(strcmp(module, "ANSI_COLOR") == 0) {
-             g_xlog_ansi_color = json_is_true(value);
-             XLOGD_INFO("ANSI Color <%s>", g_xlog_ansi_color ? "TRUE" : "FALSE");
+             G_XLOG_ANSI_COLOR = json_is_true(value);
+             XLOGD_INFO("ANSI Color <%s>", G_XLOG_ANSI_COLOR ? "TRUE" : "FALSE");
           } else {
              XLOGD_WARN("module <%s> is not a valid boolean", module);
           }
@@ -183,18 +282,18 @@ int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_
           XLOGD_WARN("module <%s> value string is NULL", module);
           continue;
        }
-       xlog_module_id_t module_id = xlog_module_to_id(module);
+       xlog_module_id_t module_id = XLOG_MODULE_TO_ID(module);
        if(((uint32_t)module_id) >= XLOG_MODULE_QTY_MAX) {
           XLOGD_WARN("module <%s> not found", module);
           continue;
        }
-       xlog_level_t level = xlog_level_str_to_enum(level_str);
+       xlog_level_t level = XLOG_LEVEL_STR_TO_ENUM(level_str);
        if(((uint32_t)level) >= XLOG_LEVEL_INVALID) {
           XLOGD_WARN("module <%s> level <%s> is invalid", module, level_str);
           continue;
        }
 
-       g_xlog_modules[module_id] = level;
+       G_XLOG_MODULES[module_id] = level;
        XLOGD_INFO("module <%s> level <%s>", module, level_str);
    }
 
@@ -203,16 +302,16 @@ int xlog_init_int(xlog_module_id_t id, const char *filename, uint32_t file_size_
    return(0);
 }
 
-void xlog_term(void) {
+void XLOG_TERM(void) {
    #ifdef VSDK_CURTAIL_ENABLED
-   if(g_crtl_init) {
+   if(G_XLOG_CRTL_INIT) {
       crtl_term();
-      g_crtl_init = false;
+      G_XLOG_CRTL_INIT = false;
    }
    #endif
 }
 
-json_t *xlog_config_load(xlog_module_id_t id) {
+json_t *XLOG_CONFIG_LOAD(xlog_module_id_t id) {
    const char *config_fn_dev   = XLOG_CONFIG_FILE_DEV;
    const char *config_fn_prd   = XLOG_CONFIG_FILE_PRD;
    char config_fn_dev_mod[128] = { '\0' };
@@ -244,13 +343,13 @@ json_t *xlog_config_load(xlog_module_id_t id) {
       snprintf(config_fn_prd_mod, sizeof(config_fn_prd_mod), "%s%s.json", XLOG_CONFIG_FILE_PRD_ROOT, g_xlog_module_id_to_str[id]);
    }
 
-   if(!is_production && module_valid && (0 == access(config_fn_dev_mod, F_OK)) && xlog_file_get_contents(config_fn_dev_mod, &contents)) {
+   if(!is_production && module_valid && (0 == access(config_fn_dev_mod, F_OK)) && XLOG_FILE_GET_CONTENTS(config_fn_dev_mod, &contents)) {
       XLOGD_INFO("Read configuration from <%s>", config_fn_dev_mod);
-   } else if(!is_production && (0 == access(config_fn_dev, F_OK)) && xlog_file_get_contents(config_fn_dev, &contents)) {
+   } else if(!is_production && (0 == access(config_fn_dev, F_OK)) && XLOG_FILE_GET_CONTENTS(config_fn_dev, &contents)) {
       XLOGD_INFO("Read configuration from <%s>", config_fn_dev);
-   } else if(module_valid && (0 == access(config_fn_prd_mod, F_OK)) && xlog_file_get_contents(config_fn_prd_mod, &contents)) {
+   } else if(module_valid && (0 == access(config_fn_prd_mod, F_OK)) && XLOG_FILE_GET_CONTENTS(config_fn_prd_mod, &contents)) {
       XLOGD_INFO("Read configuration from <%s>", config_fn_prd_mod);
-   } else if((0 == access(config_fn_prd, F_OK)) && xlog_file_get_contents(config_fn_prd, &contents)) {
+   } else if((0 == access(config_fn_prd, F_OK)) && XLOG_FILE_GET_CONTENTS(config_fn_prd, &contents)) {
       XLOGD_INFO("Read configuration from <%s>", config_fn_prd);
    } else {
       XLOGD_WARN("Configuration error. Configuration file(s) missing, using defaults");
@@ -272,7 +371,7 @@ json_t *xlog_config_load(xlog_module_id_t id) {
    return(obj);
 }
 
-bool xlog_file_get_contents(const char *file, char **contents) {
+bool XLOG_FILE_GET_CONTENTS(const char *file, char **contents) {
    int fd = -1;
    if(file == NULL || contents == NULL) {
       XLOGD_ERROR("invalid params");
@@ -374,15 +473,15 @@ bool xlog_file_get_contents(const char *file, char **contents) {
 #ifdef MACRO_LEVEL_CHECK
 // NOTE: The level check has been removed from the macro for a small speedup as no adverse effects should occur.  If level is
 //       invalid, the result will be to print the message.
-#define xlog_level_enabled(id, level) ({          \
+#define XLOG_LEVEL_ENABLED(id, level) ({          \
    if(((uint32_t)id) >= XLOG_MODULE_ID_INVALID) { \
       XLOGD_WARN("invalid module id <%d>", id);   \
       return(false);                              \
    }                                              \
-   (level >= g_xlog_modules[id]);                 \
+   (level >= G_XLOG_MODULES[id]);                 \
 })
 #else
-bool xlog_level_enabled(xlog_module_id_t id, xlog_level_t level) {
+bool XLOG_LEVEL_ENABLED(xlog_module_id_t id, xlog_level_t level) {
    if(((uint32_t)id) >= XLOG_MODULE_ID_INVALID) {
       XLOGD_WARN("invalid module id <%d>", id);
       return(false);
@@ -391,13 +490,13 @@ bool xlog_level_enabled(xlog_module_id_t id, xlog_level_t level) {
       XLOGD_WARN("invalid level <%d>", level);
       return(false);
    }
-   //printf("%s: module <%s> id <%d> level <%d> log level <%u> enabled <%s>\n", __FUNCTION__, g_xlog_module_id_to_str[id], id, g_xlog_modules[id], level, (level >= g_xlog_modules[id]) ? "YES" : "NO");
-   return(level >= g_xlog_modules[id]);
+   //printf("%s: module <%s> id <%d> level <%d> log level <%u> enabled <%s>\n", __FUNCTION__, g_xlog_module_id_to_str[id], id, G_XLOG_MODULES[id], level, (level >= G_XLOG_MODULES[id]) ? "YES" : "NO");
+   return(level >= G_XLOG_MODULES[id]);
 }
 #endif
 
-xlog_level_t xlog_level_str_to_enum(const char *level) {
-   rdkx_logger_level_t *mod = rdkx_logger_level_str_to_num(level, strlen(level));
+xlog_level_t XLOG_LEVEL_STR_TO_ENUM(const char *level) {
+   rdkx_logger_level_t *mod = XLOG_LEVEL_STR_TO_NUM(level, strlen(level));
 
    if(mod == NULL || ((uint32_t)mod->level) >= XLOG_LEVEL_INVALID) {
       return(XLOG_LEVEL_INVALID);
@@ -406,8 +505,8 @@ xlog_level_t xlog_level_str_to_enum(const char *level) {
    return((xlog_level_t)mod->level);
 }
 
-xlog_module_id_t xlog_module_to_id(const char *module) {
-   rdkx_logger_module_t *mod = rdkx_logger_module_str_to_index(module, strlen(module));
+xlog_module_id_t XLOG_MODULE_TO_ID(const char *module) {
+   rdkx_logger_module_t *mod = XLOG_MODULE_STR_TO_INDEX(module, strlen(module));
 
    if(mod == NULL) {
       return(XLOG_MODULE_QTY_MAX);
@@ -416,18 +515,18 @@ xlog_module_id_t xlog_module_to_id(const char *module) {
    return(mod->id);
 }
 
-xlog_level_t xlog_level_get(xlog_module_id_t id) {
+xlog_level_t XLOG_LEVEL_GET(xlog_module_id_t id) {
    if(((uint32_t)id) >= XLOG_MODULE_ID_INVALID) {
       return(XLOG_LEVEL_INVALID);
    }
 
-   if(((uint32_t)g_xlog_modules[id]) >= XLOG_LEVEL_INVALID) {
+   if(((uint32_t)G_XLOG_MODULES[id]) >= XLOG_LEVEL_INVALID) {
       return(XLOG_LEVEL_INVALID);
    }
-   return(g_xlog_modules[id]);
+   return(G_XLOG_MODULES[id]);
 }
 
-void xlog_level_set(xlog_module_id_t id, xlog_level_t level) {
+void XLOG_LEVEL_SET(xlog_module_id_t id, xlog_level_t level) {
    if(((uint32_t)level) >= XLOG_LEVEL_INVALID) {
       XLOGD_ERROR("invalid log level <%d>", level);
       return;
@@ -438,24 +537,24 @@ void xlog_level_set(xlog_module_id_t id, xlog_level_t level) {
       return;
    }
 
-   g_xlog_modules[id] = level;
+   G_XLOG_MODULES[id] = level;
 }
 
-void xlog_level_set_all(xlog_level_t level) {
+void XLOG_LEVEL_SET_ALL(xlog_level_t level) {
    if(((uint32_t)level) >= XLOG_LEVEL_INVALID) {
       XLOGD_ERROR("invalid log level <%d>", level);
       return;
    }
    for(uint32_t id = 0; id < XLOG_MODULE_QTY_MAX; id++) {
-      g_xlog_modules[id] = level;
+      G_XLOG_MODULES[id] = level;
    }
 }
 
-bool xlog_level_active(xlog_module_id_t id, xlog_level_t level) {
-   return(xlog_level_enabled(id, level));
+bool XLOG_LEVEL_ACTIVE(xlog_module_id_t id, xlog_level_t level) {
+   return(XLOG_LEVEL_ENABLED(id, level));
 }
 
-uint32_t xlog_date_time(const xlog_args_t *args, char *buffer) {
+uint32_t XLOG_DATE_TIME(const xlog_args_t *args, char *buffer) {
    if(buffer == NULL) {
       return(0);
    }
@@ -496,10 +595,10 @@ uint32_t xlog_date_time(const xlog_args_t *args, char *buffer) {
    return(rc + 4);
 }
 
-int xlog_prefix(const xlog_args_t *args, char *str, size_t size) {
+int XLOG_PREFIX(const xlog_args_t *args, char *str, size_t size) {
    int used = 0;
    // Color Begin (copy direct to destination)
-   if(g_xlog_ansi_color && (args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size >= (sizeof(XLOG_COLOR_NRM) + 1))) {
+   if(G_XLOG_ANSI_COLOR && (args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size >= (sizeof(XLOG_COLOR_NRM) + 1))) {
       size_t len = strlen(args->color);
       if(len < 4 || len > 5) {
          return(-1);
@@ -509,7 +608,7 @@ int xlog_prefix(const xlog_args_t *args, char *str, size_t size) {
    }
    // Date and Time
    if(args->options & (XLOG_OPTS_DATE | XLOG_OPTS_TIME) && ((size - used) > XLOG_PREFIX_SIZE)) {
-      used += xlog_date_time(args, &str[used]);
+      used += XLOG_DATE_TIME(args, &str[used]);
       str[used++] = ' ';
    }
 
@@ -613,10 +712,10 @@ int xlog_prefix(const xlog_args_t *args, char *str, size_t size) {
    return(used);
 }
 
-int xlog_postfix(const xlog_args_t *args, char *str, size_t size) {
+int XLOG_POSTFIX(const xlog_args_t *args, char *str, size_t size) {
    int used = 0;
    // Color End (copy direct to destination)
-   if(g_xlog_ansi_color && (args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size_t)(used + sizeof(XLOG_COLOR_NRM) - 1) < size) {
+   if(G_XLOG_ANSI_COLOR && (args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size_t)(used + sizeof(XLOG_COLOR_NRM) - 1) < size) {
       memcpy(&str[used], XLOG_COLOR_NRM, sizeof(XLOG_COLOR_NRM));
       used += sizeof(XLOG_COLOR_NRM) - 1;
    }
@@ -629,14 +728,14 @@ int xlog_postfix(const xlog_args_t *args, char *str, size_t size) {
    return(used);
 }
 
-int xlog_printf_safe(const xlog_args_t *args, const char *string) {
-   return(xlog_fprintf_safe(args, stdout, string));
+int XLOG_PRINTF_SAFE(const xlog_args_t *args, const char *string) {
+   return(XLOG_FPRINTF_SAFE(args, stdout, string));
 }
 
-int xlog_fprintf_safe(const xlog_args_t *args, FILE *stream, const char *string) {
+int XLOG_FPRINTF_SAFE(const xlog_args_t *args, FILE *stream, const char *string) {
    if(args == NULL) {
-      args = &g_xlog_args_default;
-   } else if(!xlog_level_enabled(args->id, args->level)) {
+      args = &G_XLOG_ARGS_DEFAULT;
+   } else if(!XLOG_LEVEL_ENABLED(args->id, args->level)) {
       return(0);
    }
    if(string == NULL) {
@@ -644,7 +743,7 @@ int xlog_fprintf_safe(const xlog_args_t *args, FILE *stream, const char *string)
    }
    char buffer[(args->size_max == 0) ? XLOG_BUF_SIZE_DEFAULT : args->size_max];
 
-   int rc = xlog_prefix(args, buffer, sizeof(buffer));
+   int rc = XLOG_PREFIX(args, buffer, sizeof(buffer));
 
    if(rc < 0) {
       return(rc);
@@ -658,24 +757,24 @@ int xlog_fprintf_safe(const xlog_args_t *args, FILE *stream, const char *string)
       used += str_len;
    }
 
-   rc = xlog_postfix(args, &buffer[used], sizeof(buffer) - used);
+   rc = XLOG_POSTFIX(args, &buffer[used], sizeof(buffer) - used);
 
    if(rc < 0) {
       return(rc);
    }
    used += rc;
 
-   if(g_xlog_print_safe != NULL) {
-      return(g_xlog_print_safe(args->level, buffer, ((size_t)used > sizeof(buffer)) ? sizeof(buffer) : used));
+   if(G_XLOG_PRINT_SAFE != NULL) {
+      return(G_XLOG_PRINT_SAFE(args->level, buffer, ((size_t)used > sizeof(buffer)) ? sizeof(buffer) : used));
    }
 
    return(fwrite(buffer, 1, ((size_t)used > sizeof(buffer)) ? sizeof(buffer) : used, stream));
 }
 
-int xlog_printf(const xlog_args_t *args, const char *format, ...) {
+int XLOG_PRINTF(const xlog_args_t *args, const char *format, ...) {
    if(args == NULL) {
-      args = &g_xlog_args_default;
-   } else if(!xlog_level_enabled(args->id, args->level)) {
+      args = &G_XLOG_ARGS_DEFAULT;
+   } else if(!XLOG_LEVEL_ENABLED(args->id, args->level)) {
       return(0);
    }
    if(format == NULL) {
@@ -684,15 +783,15 @@ int xlog_printf(const xlog_args_t *args, const char *format, ...) {
    }
    va_list ap;
    va_start(ap, format);
-   int rc = xlog_vfprintf_dvi(args, stdout, format, ap);
+   int rc = XLOG_VFPRINTF_DVI(args, stdout, format, ap);
    va_end(ap);
    return(rc);
 }
 
-int xlog_fprintf(const xlog_args_t *args, FILE *stream, const char *format, ...) {
+int XLOG_FPRINTF(const xlog_args_t *args, FILE *stream, const char *format, ...) {
    if(args == NULL) {
-      args = &g_xlog_args_default;
-   } else if(!xlog_level_enabled(args->id, args->level)) {
+      args = &G_XLOG_ARGS_DEFAULT;
+   } else if(!XLOG_LEVEL_ENABLED(args->id, args->level)) {
       return(0);
    }
    if(format == NULL) {
@@ -706,15 +805,15 @@ int xlog_fprintf(const xlog_args_t *args, FILE *stream, const char *format, ...)
 
    va_list ap;
    va_start(ap, format);
-   int rc = xlog_vfprintf_dvi(args, stream, format, ap);
+   int rc = XLOG_VFPRINTF_DVI(args, stream, format, ap);
    va_end(ap);
    return(rc);
 }
 
-int xlog_dprintf(const xlog_args_t *args, int fd, const char *format, ...) {
+int XLOG_DPRINTF(const xlog_args_t *args, int fd, const char *format, ...) {
    if(args == NULL) {
-      args = &g_xlog_args_default;
-   } else if(!xlog_level_enabled(args->id, args->level)) {
+      args = &G_XLOG_ARGS_DEFAULT;
+   } else if(!XLOG_LEVEL_ENABLED(args->id, args->level)) {
       return(0);
    }
    if(format == NULL) {
@@ -728,16 +827,16 @@ int xlog_dprintf(const xlog_args_t *args, int fd, const char *format, ...) {
 
    va_list ap;
    va_start(ap, format);
-   int rc = xlog_vdprintf_dvi(args, fd, format, ap);
+   int rc = XLOG_VDPRINTF_DVI(args, fd, format, ap);
    va_end(ap);
    
    return(rc);
 }
 
-int xlog_snprintf(const xlog_args_t *args, char *str, size_t size, const char *format, ...) {
+int XLOG_SNPRINTF(const xlog_args_t *args, char *str, size_t size, const char *format, ...) {
    if(args == NULL) {
-      args = &g_xlog_args_default;
-   } else if(!xlog_level_enabled(args->id, args->level)) {
+      args = &G_XLOG_ARGS_DEFAULT;
+   } else if(!XLOG_LEVEL_ENABLED(args->id, args->level)) {
       return(0);
    }
    if(format == NULL) {
@@ -751,16 +850,16 @@ int xlog_snprintf(const xlog_args_t *args, char *str, size_t size, const char *f
 
    va_list ap;
    va_start(ap, format);
-   int rc = xlog_vsnprintf_dvi(args, str, size, format, ap);
+   int rc = XLOG_VSNPRINTF_DVI(args, str, size, format, ap);
    va_end(ap);
 
    return(rc);
 }
 
-int xlog_vfprintf(const xlog_args_t *args, FILE *stream, const char *format, va_list ap) {
+int XLOG_VFPRINTF(const xlog_args_t *args, FILE *stream, const char *format, va_list ap) {
    if(args == NULL) {
-      args = &g_xlog_args_default;
-   } else if(!xlog_level_enabled(args->id, args->level)) {
+      args = &G_XLOG_ARGS_DEFAULT;
+   } else if(!XLOG_LEVEL_ENABLED(args->id, args->level)) {
       return(0);
    }
    if(format == NULL) {
@@ -772,13 +871,13 @@ int xlog_vfprintf(const xlog_args_t *args, FILE *stream, const char *format, va_
       return(-1);
    }
 
-   return(xlog_vfprintf_dvi(args, stream, format, ap));
+   return(XLOG_VFPRINTF_DVI(args, stream, format, ap));
 }
 
-int xlog_vfprintf_dvi(const xlog_args_t *args, FILE *stream, const char *format, va_list ap) {
+int XLOG_VFPRINTF_DVI(const xlog_args_t *args, FILE *stream, const char *format, va_list ap) {
    char buffer[(args->size_max == 0) ? XLOG_BUF_SIZE_DEFAULT : args->size_max];
    
-   int rc = xlog_prefix(args, buffer, sizeof(buffer));
+   int rc = XLOG_PREFIX(args, buffer, sizeof(buffer));
 
    if(rc < 0) {
       return(rc);
@@ -800,7 +899,7 @@ int xlog_vfprintf_dvi(const xlog_args_t *args, FILE *stream, const char *format,
       if(used >= sizeof(buffer)) {
          break;
       }
-      rc = xlog_postfix(args, &buffer[used], sizeof(buffer) - used);
+      rc = XLOG_POSTFIX(args, &buffer[used], sizeof(buffer) - used);
    
       if(rc < 0) {
          break;
@@ -812,17 +911,17 @@ int xlog_vfprintf_dvi(const xlog_args_t *args, FILE *stream, const char *format,
       return(rc);
    }
 
-   if(g_xlog_print != NULL) {
-      return(g_xlog_print(args->level, buffer, ((size_t)used > sizeof(buffer)) ? sizeof(buffer) : used));
+   if(G_XLOG_PRINT != NULL) {
+      return(G_XLOG_PRINT(args->level, buffer, ((size_t)used > sizeof(buffer)) ? sizeof(buffer) : used));
    }
 
    return(fwrite(buffer, 1, ((size_t)used > sizeof(buffer)) ? sizeof(buffer) : used, stream));
 }
 
-int xlog_vdprintf(const xlog_args_t *args, int fd, const char *format, va_list ap) {
+int XLOG_VDPRINTF(const xlog_args_t *args, int fd, const char *format, va_list ap) {
    if(args == NULL) {
-      args = &g_xlog_args_default;
-   } else if(!xlog_level_enabled(args->id, args->level)) {
+      args = &G_XLOG_ARGS_DEFAULT;
+   } else if(!XLOG_LEVEL_ENABLED(args->id, args->level)) {
       return(0);
    }
    if(format == NULL) {
@@ -834,13 +933,13 @@ int xlog_vdprintf(const xlog_args_t *args, int fd, const char *format, va_list a
       return(-1);
    }
 
-   return(xlog_vdprintf_dvi(args, fd, format, ap));
+   return(XLOG_VDPRINTF_DVI(args, fd, format, ap));
 }
 
-int xlog_vdprintf_dvi(const xlog_args_t *args, int fd, const char *format, va_list ap) {
+int XLOG_VDPRINTF_DVI(const xlog_args_t *args, int fd, const char *format, va_list ap) {
    char buffer[(args->size_max == 0) ? XLOG_BUF_SIZE_DEFAULT : args->size_max];
 
-   int rc = xlog_prefix(args, buffer, sizeof(buffer));
+   int rc = XLOG_PREFIX(args, buffer, sizeof(buffer));
 
    if(rc < 0) {
       return(rc);
@@ -862,7 +961,7 @@ int xlog_vdprintf_dvi(const xlog_args_t *args, int fd, const char *format, va_li
       if((size_t)used >= sizeof(buffer)) {
          break;
       }
-      rc = xlog_postfix(args, &buffer[used], sizeof(buffer) - used);
+      rc = XLOG_POSTFIX(args, &buffer[used], sizeof(buffer) - used);
    
       if(rc < 0) {
          break;
@@ -877,10 +976,10 @@ int xlog_vdprintf_dvi(const xlog_args_t *args, int fd, const char *format, va_li
    return(write(fd, buffer, (used > sizeof(buffer)) ? sizeof(buffer) : used));
 }
 
-int xlog_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap) {
+int XLOG_VSNPRINTF(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap) {
    if(args == NULL) {
-      args = &g_xlog_args_default;
-   } else if(!xlog_level_enabled(args->id, args->level)) {
+      args = &G_XLOG_ARGS_DEFAULT;
+   } else if(!XLOG_LEVEL_ENABLED(args->id, args->level)) {
       return(0);
    }
    if(format == NULL) {
@@ -892,11 +991,11 @@ int xlog_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *
       return(-1);
    }
 
-   return(xlog_vsnprintf_dvi(args, str, size, format, ap));
+   return(XLOG_VSNPRINTF_DVI(args, str, size, format, ap));
 }
 
-int xlog_vsnprintf_dvi(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap) {
-   int used = xlog_prefix(args, str, size);
+int XLOG_VSNPRINTF_DVI(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap) {
+   int used = XLOG_PREFIX(args, str, size);
 
    if(used < 0) {
       return(used);
@@ -916,7 +1015,7 @@ int xlog_vsnprintf_dvi(const xlog_args_t *args, char *str, size_t size, const ch
    if((size_t)used >= size) {
       return(used);
    }
-   rc = xlog_postfix(args, &str[used], size - used);
+   rc = XLOG_POSTFIX(args, &str[used], size - used);
 
    if(rc < 0) {
       return(rc);

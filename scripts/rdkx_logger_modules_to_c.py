@@ -19,13 +19,14 @@
 ##########################################################################
 import os,sys,json
 
-if len(sys.argv) != 3:
+if len(sys.argv) != 4:
    raise ValueError('Invalid input quantity {}'.format(len(sys.argv)))
 
 file_json = sys.argv[1]
 file_hash = sys.argv[2] + ".hash"
 file_hdr  = sys.argv[2] + ".h"
 file_c    = sys.argv[2] + "_lookup.c"
+layer     = sys.argv[3]
 
 if not os.path.isfile(file_json):
    raise ValueError("The platform specific configuration file ({}) was not found. Please append the recipe for this platform and add the config file.".format(file_json))
@@ -43,7 +44,7 @@ f = open(file_hash, "w")
 f.write("%language=ANSI-C\n")
 f.write("%struct-type\n")
 f.write("%includes\n")
-f.write("%define lookup-function-name rdkx_logger_module_str_to_index\n")
+f.write("%define lookup-function-name xlog_{}_logger_module_str_to_index\n".format(layer))
 f.write("%{\n")
 f.write("#include \"rdkx_logger_private.h\"\n")
 f.write("%}\n")
@@ -78,13 +79,13 @@ fh.write("#endif\n")
 
 # C file
 fc = open(file_c, "w")
-fc.write("const char * const g_xlog_module_id_to_str[{}] = {{\n".format(id))
+fc.write("const char * const g_xlog_{}_module_id_to_str[{}] = {{\n".format(layer, id))
 id = 0
 for key in sorted(data):
    fc.write("   \"{}\",\n".format(key))
    id += 1
 fc.write("};\n")
-fc.write("unsigned long g_xlog_module_id_to_strlen[{}] = {{\n".format(id))
+fc.write("unsigned long g_xlog_{}_module_id_to_strlen[{}] = {{\n".format(layer, id))
 id = 0
 for key in sorted(data):
    fc.write("   {},\n".format(len(key)))

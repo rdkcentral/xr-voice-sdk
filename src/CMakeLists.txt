@@ -159,7 +159,7 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT rdkx_logger_modules.hash rdkx_logger_modules_lookup.c
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/rdkx_logger_modules_to_c.py" ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger_modules
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/rdkx_logger_modules_to_c.py" ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger_modules "mw"
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
 
