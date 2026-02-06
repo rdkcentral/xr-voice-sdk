@@ -155,7 +155,7 @@ int xlog_vd_fprintf(const xlog_args_t *args, FILE *stream, const char *format, .
 int xlog_vd_dprintf(const xlog_args_t *args, int fd, const char *format, ...);
 int xlog_vd_snprintf(const xlog_args_t *args, char *str, size_t size, const char *format, ...);
 
-#define xlog_vd_vprintf(args, format, ap) xlog_vfprintf(args, stdout, format, ap)
+#define xlog_vd_vprintf(args, format, ap) xlog_vd_vfprintf(args, stdout, format, ap)
 int xlog_vd_vfprintf(const xlog_args_t *args, FILE *stream, const char *format, va_list ap);
 int xlog_vd_vdprintf(const xlog_args_t *args, int fd, const char *format, va_list ap);
 int xlog_vd_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap);

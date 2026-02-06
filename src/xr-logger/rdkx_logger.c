@@ -321,7 +321,7 @@ void XLOG_TERM(void) {
    #endif
 }
 
-json_t *XLOG_CONFIG_LOAD(xlog_module_id_t id) {
+static json_t *XLOG_CONFIG_LOAD(xlog_module_id_t id) {
    const char *config_fn_dev   = XLOG_CONFIG_FILE_DEV;
    const char *config_fn_prd   = XLOG_CONFIG_FILE_PRD;
    char config_fn_dev_mod[128] = { '\0' };
@@ -381,7 +381,7 @@ json_t *XLOG_CONFIG_LOAD(xlog_module_id_t id) {
    return(obj);
 }
 
-bool XLOG_FILE_GET_CONTENTS(const char *file, char **contents) {
+static bool XLOG_FILE_GET_CONTENTS(const char *file, char **contents) {
    int fd = -1;
    if(file == NULL || contents == NULL) {
       XLOGD_ERROR("invalid params");
@@ -460,7 +460,7 @@ bool XLOG_FILE_GET_CONTENTS(const char *file, char **contents) {
          break;
       }
       if(bytes_read != file_size) {
-         XLOGD_ERROR("read error <%u> <%u>", bytes_read, file_size);
+         XLOGD_ERROR("read error <%zd> <%ld>", bytes_read, file_size);
          break;
       }
       // Null terminate the contents

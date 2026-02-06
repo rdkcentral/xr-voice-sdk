@@ -11,8 +11,8 @@ set_target_properties(xr-voice-sdk-xlog PROPERTIES
 target_include_directories(xr-voice-sdk-xlog PUBLIC 
                            ${CMAKE_CURRENT_BINARY_DIR}
                            ./
-                           ./src/
-                           ./src/xr-logger/
+                           ${CMAKE_SOURCE_DIR}/src/
+                           ${CMAKE_SOURCE_DIR}/src/xr-logger/
                           )
 
 target_sources(xr-voice-sdk-xlog PUBLIC
@@ -23,7 +23,7 @@ target_sources(xr-voice-sdk-xlog PUBLIC
 
 target_compile_options(xr-voice-sdk-xlog PUBLIC -fPIC -rdynamic -Wall -Werror)
 
-target_compile_definitions(xr-voice-sdk-xlog PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE -DVSDK_VENDOR_XLOG)
+target_compile_definitions(xr-voice-sdk-xlog PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE VSDK_VENDOR_XLOG)
 
 target_link_libraries(xr-voice-sdk-xlog c jansson)
 
