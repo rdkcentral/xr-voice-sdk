@@ -24,18 +24,17 @@ set_target_properties(xr-voice-sdk PROPERTIES
 target_include_directories(xr-voice-sdk PUBLIC 
                            ${CMAKE_CURRENT_BINARY_DIR}
                            ./
-                           ./src/
-                           ./src/xr-mq/
-                           ./src/xr-fdc/
-                           ./src/xr-timestamp/
-                           ./src/xr-timer/
-                           ./src/xr-audio/
-                           ./src/xr-sm-engine/
-                           ./src/xr-speech-router/
-                           ./src/xr-speech-vrex/
-                           ./src/xr-speech-vrex/xrsv_http/
-                           ./src/xr-speech-vrex/xrsv_ws_nextgen/
-                           ./src/xr-logger/
+                           ./xr-mq/
+                           ./xr-fdc/
+                           ./xr-timestamp/
+                           ./xr-timer/
+                           ./xr-audio/
+                           ./xr-sm-engine/
+                           ./xr-speech-router/
+                           ./xr-speech-vrex/
+                           ./xr-speech-vrex/xrsv_http/
+                           ./xr-speech-vrex/xrsv_ws_nextgen/
+                           ./xr-logger/
                            ${CMAKE_SYSROOT}/usr/include/safeclib/
                            ${CMAKE_SYSROOT}/usr/include/libsafec/
                           )
@@ -44,31 +43,32 @@ target_sources(xr-voice-sdk PUBLIC
                vsdk_version.h
                xrsr_config.h
                xraudio_config.h
-               src/vsdk.c
+               rdkx_logger.h
+               vsdk.c
                rdkx_logger_modules.c
                rdkx_logger_level.c
                rdkx_logger_modules_lookup.c
-               src/xr-logger/rdkx_logger.c
-               src/xr-timer/xr_timer.c
-               src/xr-timestamp/xr_timestamp.c
-               src/xr-mq/xr_mq.c
-               src/xr-fdc/xr_fdc.c
-               src/xr-sm-engine/xr_sm_engine.c
-               src/xr-speech-router/xrsr.c
-               src/xr-speech-router/xrsr_msgq.c
-               src/xr-speech-router/xrsr_xraudio.c
-               src/xr-speech-router/xrsr_utils.c
-               src/xr-speech-vrex/xrsv_utils.c
-               src/xr-speech-vrex/xrsv_http/xrsv_http.c
-               src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.c
+               xr-logger/rdkx_logger.c
+               xr-timer/xr_timer.c
+               xr-timestamp/xr_timestamp.c
+               xr-mq/xr_mq.c
+               xr-fdc/xr_fdc.c
+               xr-sm-engine/xr_sm_engine.c
+               xr-speech-router/xrsr.c
+               xr-speech-router/xrsr_msgq.c
+               xr-speech-router/xrsr_xraudio.c
+               xr-speech-router/xrsr_utils.c
+               xr-speech-vrex/xrsv_utils.c
+               xr-speech-vrex/xrsv_http/xrsv_http.c
+               xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.c
                xrsv_ws_nextgen_msgtype.c
                xrsv_ws_nextgen_tv_control.c
-               src/xr-audio/xraudio.c
-               src/xr-audio/xraudio_input.c
-               src/xr-audio/xraudio_output.c
-               src/xr-audio/xraudio_thread.c
-               src/xr-audio/xraudio_utils.c
-               src/xr-audio/xraudio_atomic.c)
+               xr-audio/xraudio.c
+               xr-audio/xraudio_input.c
+               xr-audio/xraudio_output.c
+               xr-audio/xraudio_thread.c
+               xr-audio/xraudio_utils.c
+               xr-audio/xraudio_atomic.c)
 
 target_compile_options(xr-voice-sdk PUBLIC -fPIC -rdynamic -Wall -Werror)
 
@@ -76,27 +76,22 @@ target_compile_definitions(xr-voice-sdk PUBLIC _REENTRANT _POSIX_C_SOURCE=200809
 
 target_link_libraries(xr-voice-sdk c bsd m pthread anl rdkversion uuid jansson)
 
-#CFLAGS_append = " -std=c11 -fPIC -D_REENTRANT -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE -Wall -Werror -rdynamic"
-
-# TODO MAY NEED THESE LINK FLAGS AROUND HAL
-#  -Wl,-whole-archive -lxraudio-hal -Wl,-no-whole-archive
-
 # BUILD OPTIONS
 
 if(HTTP_ENABLED)
-   target_sources(xr-voice-sdk PUBLIC src/xr-speech-router/xrsr_protocol_http.c xrsr_protocol_http_log_filter.c)
+   target_sources(xr-voice-sdk PUBLIC xr-speech-router/xrsr_protocol_http.c xrsr_protocol_http_log_filter.c)
    target_compile_definitions(xr-voice-sdk PUBLIC HTTP_ENABLED)
    target_link_libraries(xr-voice-sdk curl)
 
    add_custom_command(
    OUTPUT xrsr_protocol_http_log_filter.c
-   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=xrsr_protocol_http_log_filter.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_protocol_http_log_filter.hash
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_protocol_http_log_filter.hash
+   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=xrsr_protocol_http_log_filter.c ${CMAKE_CURRENT_SOURCE_DIR}/xr-speech-router/xrsr_protocol_http_log_filter.hash
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-speech-router/xrsr_protocol_http_log_filter.hash
    VERBATIM)
 endif()
 
 if(WS_ENABLED)
-   target_sources(xr-voice-sdk PUBLIC src/xr-speech-router/xrsr_protocol_ws.c)
+   target_sources(xr-voice-sdk PUBLIC xr-speech-router/xrsr_protocol_ws.c)
    target_compile_definitions(xr-voice-sdk PUBLIC WS_ENABLED)
    if(WS_NOPOLL_PATCHES)
       target_compile_definitions(xr-voice-sdk PUBLIC WS_NOPOLL_PATCHES)
@@ -106,20 +101,20 @@ if(WS_ENABLED)
 endif()
 
 if(SDT_ENABLED)
-   target_sources(xr-voice-sdk PUBLIC src/xr-speech-router/xrsr_protocol_sdt.c)
+   target_sources(xr-voice-sdk PUBLIC xr-speech-router/xrsr_protocol_sdt.c)
    target_compile_definitions(xr-voice-sdk PUBLIC SDT_ENABLED)
 endif()
    
-target_sources(xr-voice-sdk PUBLIC src/xr-audio/adpcm/adpcm_decode.c)
+target_sources(xr-voice-sdk PUBLIC xr-audio/adpcm/adpcm_decode.c)
 target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_ADPCM)
-target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/adpcm/)
+target_include_directories(xr-voice-sdk PUBLIC xr-audio/adpcm/)
    
 find_library(OPUS_LIBRARY NAMES opus)
 if(OPUS_LIBRARY)
-   target_sources(xr-voice-sdk PUBLIC src/xr-audio/opus/xraudio_opus.c)
+   target_sources(xr-voice-sdk PUBLIC xr-audio/opus/xraudio_opus.c)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_DECODE_OPUS)
    target_link_libraries(xr-voice-sdk ${OPUS_LIBRARY})
-   target_include_directories(xr-voice-sdk PUBLIC src/xr-audio/opus/)
+   target_include_directories(xr-voice-sdk PUBLIC xr-audio/opus/)
 endif()
    
 find_library(CURTAIL_LIBRARY NAMES curtail)
@@ -134,11 +129,11 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xrsr_config.json TYPE INCLUDE)
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
 
 # HEADER FILES
-install(FILES src/xr_voice_sdk.h TYPE INCLUDE)
-install(FILES src/xr-speech-router/xrsr.h TYPE INCLUDE)
-install(FILES src/xr-speech-vrex/xrsv.h TYPE INCLUDE)
-install(FILES src/xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE)
-install(FILES src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE)
+install(FILES xr_voice_sdk.h TYPE INCLUDE)
+install(FILES xr-speech-router/xrsr.h TYPE INCLUDE)
+install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE)
+install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE)
+install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE)
 
 # LIBRARY FILES
 install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
@@ -147,20 +142,20 @@ install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
 
 add_custom_command(
    OUTPUT vsdk_version.h
-   COMMAND echo -n "#define VSDK_BRANCH    \"" >> vsdk_version.h
-   COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} branch --all --contains | sed -n -e "s/^\\s*remotes\\/origin\\///" -e "2p" | tr -d "\\n" >> vsdk_version.h
+   COMMAND echo -n "#define VSDK_BRANCH    \"" > vsdk_version.h
+   COMMAND git -C ${CMAKE_SOURCE_DIR} branch --all --contains | sed -n -e "s/^\\s*remotes\\/origin\\///" -e "2p" | tr -d "\\n" >> vsdk_version.h
    COMMAND echo "\"" >> vsdk_version.h
    COMMAND echo -n "#define VSDK_COMMIT_ID " >> vsdk_version.h
-   COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} log --format=\"%H\" -n 1 >> vsdk_version.h
+   COMMAND git -C ${CMAKE_SOURCE_DIR} log --format=\"%H\" -n 1 >> vsdk_version.h
    COMMAND echo -n "#define VSDK_VERSION   \"${CMAKE_PROJECT_VERSION}" >> vsdk_version.h
-   COMMAND git -C ${CMAKE_CURRENT_SOURCE_DIR} diff --quiet || echo -n "++" >> vsdk_version.h
+   COMMAND git -C ${CMAKE_SOURCE_DIR} diff --quiet || echo -n "++" >> vsdk_version.h
    COMMAND echo "\"" >> vsdk_version.h
    VERBATIM)
 
 add_custom_command(
    OUTPUT rdkx_logger_modules.hash rdkx_logger_modules_lookup.c
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/rdkx_logger_modules_to_c.py" ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger_modules "mw"
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json
+   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/rdkx_logger_modules_to_c.py" ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger_modules "mw"
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
 
 add_custom_command(
@@ -171,48 +166,54 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT rdkx_logger_level.c
-   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=rdkx_logger_level.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger_level_mw.hash
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkx_logger_level_mw.hash
+   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=rdkx_logger_level.c ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkx_logger_level_mw.hash
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkx_logger_level_mw.hash
    VERBATIM)
 
 add_custom_command(
    OUTPUT rdkx_logger.json
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json -a ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_global.json -o rdkx_logger.json
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-logger/rdkv/rdkx_logger_modules.json
+   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json -a ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_global.json -o rdkx_logger.json
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
 
 add_custom_command(
    OUTPUT xraudio_config.json
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json -a "${XRAUDIO_CONFIG_JSON_HAL}:hal" -a "${XRAUDIO_CONFIG_JSON_KWD}:input,kwd" -a "${XRAUDIO_CONFIG_JSON_EOS}:input,eos" -a "${XRAUDIO_CONFIG_JSON_DGA}:input,dga" -a "${XRAUDIO_CONFIG_JSON_SDF}:input,sdf" -a "${XRAUDIO_CONFIG_JSON_OVC}:output,ovc" -a "${XRAUDIO_CONFIG_JSON_PPR}:input,ppr" -s "${XRAUDIO_CONFIG_JSON_SUB}" -a "${XRAUDIO_CONFIG_JSON_ADD}" -o xraudio_config.json
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json
+   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/xr-audio/xraudio_config_default.json -a "${XRAUDIO_CONFIG_JSON_HAL}:hal" -a "${XRAUDIO_CONFIG_JSON_KWD}:input,kwd" -a "${XRAUDIO_CONFIG_JSON_EOS}:input,eos" -a "${XRAUDIO_CONFIG_JSON_DGA}:input,dga" -a "${XRAUDIO_CONFIG_JSON_SDF}:input,sdf" -a "${XRAUDIO_CONFIG_JSON_OVC}:output,ovc" -a "${XRAUDIO_CONFIG_JSON_PPR}:input,ppr" -s "${XRAUDIO_CONFIG_JSON_SUB}" -a "${XRAUDIO_CONFIG_JSON_ADD}" -o xraudio_config.json
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-audio/xraudio_config_default.json
    VERBATIM)
 
 add_custom_command(
    OUTPUT xraudio_config.h
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i xraudio_config.json -o xraudio_config.h -m 2
+   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i xraudio_config.json -o xraudio_config.h -m 2
    DEPENDS xraudio_config.json
    VERBATIM)
 
 add_custom_command(
    OUTPUT xrsr_config.json
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_config_default.json -a "xraudio_config.json:xraudio" -s "${XRSR_CONFIG_JSON_SUB}" -a "${XRSR_CONFIG_JSON_ADD}" -o xrsr_config.json
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_config_default.json xraudio_config.json
+   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/xr-speech-router/xrsr_config_default.json -a "xraudio_config.json:xraudio" -s "${XRSR_CONFIG_JSON_SUB}" -a "${XRSR_CONFIG_JSON_ADD}" -o xrsr_config.json
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-speech-router/xrsr_config_default.json xraudio_config.json
    VERBATIM)
 
 add_custom_command(
    OUTPUT xrsr_config.h
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i xrsr_config.json -o xrsr_config.h -v "ws,http"
+   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i xrsr_config.json -o xrsr_config.h -v "ws,http"
    DEPENDS xrsr_config.json
    VERBATIM)
 
 add_custom_command(
    OUTPUT xrsv_ws_nextgen_msgtype.c
-   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=xrsv_ws_nextgen_msgtype.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_msgtype.hash
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_msgtype.hash
+   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=xrsv_ws_nextgen_msgtype.c ${CMAKE_CURRENT_SOURCE_DIR}/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_msgtype.hash
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_msgtype.hash
    VERBATIM)
 
 add_custom_command(
    OUTPUT xrsv_ws_nextgen_tv_control.c
-   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=xrsv_ws_nextgen_tv_control.c ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_tv_control.hash
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_tv_control.hash
+   COMMAND ${STAGING_BINDIR_NATIVE}/gperf --output-file=xrsv_ws_nextgen_tv_control.c ${CMAKE_CURRENT_SOURCE_DIR}/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_tv_control.hash
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen_tv_control.hash
+   VERBATIM)
+
+add_custom_command(
+   OUTPUT rdkx_logger.h
+   COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkx_logger_mw.h rdkx_logger.h
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkx_logger_mw.h
    VERBATIM)
