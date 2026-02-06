@@ -1,5 +1,6 @@
 project(xr-voice-sdk VERSION ${CMAKE_PROJECT_VERSION})
 
+option(RDK_VERSION_ENABLED,     "Build with RDK versioning support"           OFF)
 option(HTTP_ENABLED,            "speech router http protocol"                 OFF)
 option(WS_ENABLED,              "speech router websocket protocol"            OFF)
 option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
@@ -74,9 +75,14 @@ target_compile_options(xr-voice-sdk PUBLIC -fPIC -rdynamic -Wall -Werror)
 
 target_compile_definitions(xr-voice-sdk PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE)
 
-target_link_libraries(xr-voice-sdk c bsd m pthread anl rdkversion uuid jansson)
+target_link_libraries(xr-voice-sdk c bsd m pthread anl uuid jansson)
 
 # BUILD OPTIONS
+
+if(RDK_VERSION_ENABLED)
+   target_link_libraries(xr-voice-sdk rdkversion)
+   target_compile_definitions(xr-voice-sdk PUBLIC VSDK_RDK_VERSION)
+endif()
 
 if(HTTP_ENABLED)
    target_sources(xr-voice-sdk PUBLIC xr-speech-router/xrsr_protocol_http.c xrsr_protocol_http_log_filter.c)
