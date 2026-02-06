@@ -32,6 +32,8 @@ set(STAGING_BINDIR_NATIVE,     "invalid" CACHE PATH "staging bin dir native")
 
 option(VSDK_VENDOR_XLOG,        "vendor layer logging"                        OFF)
 
+project(xr-voice-sdk VERSION ${CMAKE_PROJECT_VERSION})
+
 if(VSDK_VENDOR_XLOG)
    add_subdirectory(src/xr-logger)
 else()

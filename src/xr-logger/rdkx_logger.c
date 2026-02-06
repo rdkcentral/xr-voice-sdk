@@ -491,7 +491,7 @@ static bool XLOG_FILE_GET_CONTENTS(const char *file, char **contents) {
    (level >= G_XLOG_MODULES[id]);                 \
 })
 #else
-bool XLOG_LEVEL_ENABLED(xlog_module_id_t id, xlog_level_t level) {
+static bool XLOG_LEVEL_ENABLED(xlog_module_id_t id, xlog_level_t level) {
    if(((uint32_t)id) >= XLOG_MODULE_ID_INVALID) {
       XLOGD_WARN("invalid module id <%d>", id);
       return(false);
@@ -884,7 +884,7 @@ int XLOG_VFPRINTF(const xlog_args_t *args, FILE *stream, const char *format, va_
    return(XLOG_VFPRINTF_DVI(args, stream, format, ap));
 }
 
-int XLOG_VFPRINTF_DVI(const xlog_args_t *args, FILE *stream, const char *format, va_list ap) {
+static int XLOG_VFPRINTF_DVI(const xlog_args_t *args, FILE *stream, const char *format, va_list ap) {
    char buffer[(args->size_max == 0) ? XLOG_BUF_SIZE_DEFAULT : args->size_max];
    
    int rc = XLOG_PREFIX(args, buffer, sizeof(buffer));
@@ -946,7 +946,7 @@ int XLOG_VDPRINTF(const xlog_args_t *args, int fd, const char *format, va_list a
    return(XLOG_VDPRINTF_DVI(args, fd, format, ap));
 }
 
-int XLOG_VDPRINTF_DVI(const xlog_args_t *args, int fd, const char *format, va_list ap) {
+static int XLOG_VDPRINTF_DVI(const xlog_args_t *args, int fd, const char *format, va_list ap) {
    char buffer[(args->size_max == 0) ? XLOG_BUF_SIZE_DEFAULT : args->size_max];
 
    int rc = XLOG_PREFIX(args, buffer, sizeof(buffer));
@@ -1004,7 +1004,7 @@ int XLOG_VSNPRINTF(const xlog_args_t *args, char *str, size_t size, const char *
    return(XLOG_VSNPRINTF_DVI(args, str, size, format, ap));
 }
 
-int XLOG_VSNPRINTF_DVI(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap) {
+static int XLOG_VSNPRINTF_DVI(const xlog_args_t *args, char *str, size_t size, const char *format, va_list ap) {
    int used = XLOG_PREFIX(args, str, size);
 
    if(used < 0) {
