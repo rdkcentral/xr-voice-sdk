@@ -18,6 +18,8 @@
 # limitations under the License.
 ##########################################################################
 */
+#ifndef __RDKX_LOGGER_PRIVATE__
+#define __RDKX_LOGGER_PRIVATE__
 
 #include <stddef.h>
 
@@ -34,4 +36,5 @@ struct rdkx_logger_level_s * xlog_vd_level_str_to_num(const char *str, size_t le
 struct rdkx_logger_module_s *xlog_mw_module_str_to_index(const char *str, size_t len);
 struct rdkx_logger_level_s * xlog_mw_level_str_to_num(const char *str, size_t len);
 
+#endif
 #endif
