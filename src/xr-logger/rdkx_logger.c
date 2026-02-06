@@ -224,7 +224,7 @@ int XLOG_INIT_USER_PRINT(xlog_module_id_t id, xlog_print_t print, xlog_print_t p
    return(XLOG_INIT_INT(id, filename, file_size_max, print, print_safe, ansi_color, use_curtail));
 }
 
-int XLOG_INIT_INT(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool ansi_color, bool use_curtail) {
+static int XLOG_INIT_INT(xlog_module_id_t id, const char *filename, uint32_t file_size_max, xlog_print_t print, xlog_print_t print_safe, bool ansi_color, bool use_curtail) {
    if(G_XLOG_INIT) {
       XLOGD_WARN("Already initialized");
       return(-1);
@@ -442,7 +442,7 @@ static bool XLOG_FILE_GET_CONTENTS(const char *file, char **contents) {
    *contents = malloc(file_size + 1);
 
    if(*contents == NULL) {
-      XLOGD_ERROR("out of memory <%u>", file_size);
+      XLOGD_ERROR("out of memory <%ld>", file_size);
       close(fd);
       return(false);
    }
@@ -564,7 +564,7 @@ bool XLOG_LEVEL_ACTIVE(xlog_module_id_t id, xlog_level_t level) {
    return(XLOG_LEVEL_ENABLED(id, level));
 }
 
-uint32_t XLOG_DATE_TIME(const xlog_args_t *args, char *buffer) {
+static uint32_t XLOG_DATE_TIME(const xlog_args_t *args, char *buffer) {
    if(buffer == NULL) {
       return(0);
    }
@@ -605,7 +605,7 @@ uint32_t XLOG_DATE_TIME(const xlog_args_t *args, char *buffer) {
    return(rc + 4);
 }
 
-int XLOG_PREFIX(const xlog_args_t *args, char *str, size_t size) {
+static int XLOG_PREFIX(const xlog_args_t *args, char *str, size_t size) {
    int used = 0;
    // Color Begin (copy direct to destination)
    if(G_XLOG_ANSI_COLOR && (args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size >= (sizeof(XLOG_COLOR_NRM) + 1))) {
@@ -722,7 +722,7 @@ int XLOG_PREFIX(const xlog_args_t *args, char *str, size_t size) {
    return(used);
 }
 
-int XLOG_POSTFIX(const xlog_args_t *args, char *str, size_t size) {
+static int XLOG_POSTFIX(const xlog_args_t *args, char *str, size_t size) {
    int used = 0;
    // Color End (copy direct to destination)
    if(G_XLOG_ANSI_COLOR && (args->options & XLOG_OPTS_COLOR) && args->color != NULL && (size_t)(used + sizeof(XLOG_COLOR_NRM) - 1) < size) {
