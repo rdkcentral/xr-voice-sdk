@@ -18,8 +18,8 @@
 # limitations under the License.
 ##########################################################################
 */
-#ifndef __RDKX_LOGGER__
-#define __RDKX_LOGGER__
+#ifndef __RDKX_LOGGER_VD__
+#define __RDKX_LOGGER_VD__
 
 #include <stdio.h>
 #include <stdarg.h>

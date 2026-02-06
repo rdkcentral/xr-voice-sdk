@@ -442,7 +442,7 @@ static bool XLOG_FILE_GET_CONTENTS(const char *file, char **contents) {
    *contents = malloc(file_size + 1);
 
    if(*contents == NULL) {
-      XLOGD_ERROR("out of memory <%ld>", file_size);
+      XLOGD_ERROR("out of memory <%jd>", (intmax_t)file_size);
       close(fd);
       return(false);
    }
@@ -460,7 +460,7 @@ static bool XLOG_FILE_GET_CONTENTS(const char *file, char **contents) {
          break;
       }
       if(bytes_read != file_size) {
-         XLOGD_ERROR("read error <%zd> <%ld>", bytes_read, file_size);
+         XLOGD_ERROR("read error <%zd> <%jd>", bytes_read, (intmax_t)file_size);
          break;
       }
       // Null terminate the contents
@@ -505,7 +505,7 @@ static bool XLOG_LEVEL_ENABLED(xlog_module_id_t id, xlog_level_t level) {
 }
 #endif
 
-xlog_level_t XLOG_LEVEL_STR_TO_ENUM(const char *level) {
+static xlog_level_t XLOG_LEVEL_STR_TO_ENUM(const char *level) {
    rdkx_logger_level_t *mod = XLOG_LEVEL_STR_TO_NUM(level, strlen(level));
 
    if(mod == NULL || ((uint32_t)mod->level) >= XLOG_LEVEL_INVALID) {
@@ -515,7 +515,7 @@ xlog_level_t XLOG_LEVEL_STR_TO_ENUM(const char *level) {
    return((xlog_level_t)mod->level);
 }
 
-xlog_module_id_t XLOG_MODULE_TO_ID(const char *module) {
+static xlog_module_id_t XLOG_MODULE_TO_ID(const char *module) {
    rdkx_logger_module_t *mod = XLOG_MODULE_STR_TO_INDEX(module, strlen(module));
 
    if(mod == NULL) {
