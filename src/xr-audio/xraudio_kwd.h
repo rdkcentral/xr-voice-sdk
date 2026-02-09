@@ -138,13 +138,13 @@ typedef void                 (*xraudio_kwd_func_object_destroy_t)(xraudio_kwd_ob
 /// @param[in] object   Reference to an xraudio KWD object.
 /// @param[in]
 /// @param[in]
-typedef bool                 (*xraudio_kwd_func_init_t)(xraudio_kwd_object_t object, uint8_t chan_qty, xraudio_keyword_sensitivity_t sensitivity, int *spot_delay, xraudio_kwd_criterion_t *criterion);
+typedef bool                 (*xraudio_kwd_func_init_t)(xraudio_kwd_object_t object, uint8_t chan_qty, xraudio_keyword_sensitivity_t *sensitivity, int *spot_delay, xraudio_kwd_criterion_t *criterion);
 
 /// @brief Update xraudio KWD parameters
 /// @details Update an xraudio KWD object with the provided parameters.  Returns true for success and false for failure.
 /// @param[in] object   Reference to an xraudio KWD object.
 /// @param[in]
-typedef bool                 (*xraudio_kwd_func_update_t)(xraudio_kwd_object_t object, xraudio_keyword_sensitivity_t sensitivity);
+typedef bool                 (*xraudio_kwd_func_update_t)(xraudio_kwd_object_t object, xraudio_keyword_sensitivity_t *sensitivity);
 
 /// @brief Run an xraudio KWD
 /// @details Run the keyword detector with the provided input parameters.  Returns true for success and false for failure.

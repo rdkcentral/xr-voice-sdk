@@ -37,16 +37,6 @@ option(WS_ENABLED,              "speech router websocket protocol"            OF
 option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
 
-set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
-set(XRAUDIO_CONFIG_JSON_KWD, "" CACHE FILEPATH "xraudio config kwd")
-set(XRAUDIO_CONFIG_JSON_EOS, "" CACHE FILEPATH "xraudio config eos")
-set(XRAUDIO_CONFIG_JSON_DGA, "" CACHE FILEPATH "xraudio config dga")
-set(XRAUDIO_CONFIG_JSON_SDF, "" CACHE FILEPATH "xraudio config sdf")
-set(XRAUDIO_CONFIG_JSON_OVC, "" CACHE FILEPATH "xraudio config ovc")
-set(XRAUDIO_CONFIG_JSON_PPR, "" CACHE FILEPATH "xraudio config ppr")
-set(XRAUDIO_CONFIG_JSON_SUB, "" CACHE FILEPATH "xraudio config sub")
-set(XRAUDIO_CONFIG_JSON_ADD, "" CACHE FILEPATH "xraudio config add")
-
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
     SOVERSION ${CMAKE_PROJECT_VERSION_MAJOR} # Major version number
@@ -108,11 +98,6 @@ target_compile_definitions(xr-voice-sdk PUBLIC _REENTRANT _POSIX_C_SOURCE=200809
 
 target_link_libraries(xr-voice-sdk c bsd m pthread anl rdkversion uuid jansson)
 
-#CFLAGS_append = " -std=c11 -fPIC -D_REENTRANT -D_POSIX_C_SOURCE=200809L -D_GNU_SOURCE -Wall -Werror -rdynamic"
-
-# TODO MAY NEED THESE LINK FLAGS AROUND HAL
-#  -Wl,-whole-archive -lxraudio-hal -Wl,-no-whole-archive
-
 # BUILD OPTIONS
 
 if(HTTP_ENABLED)
@@ -161,7 +146,7 @@ if(CURTAIL_LIBRARY)
 endif()
 
 # CONFIG FILES
-install(FILES ${CMAKE_CURRENT_BINARY_DIR}/xrsr_config.json TYPE INCLUDE)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_INSTALL_SYSCONFDIR} COMPONENT config )
 
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
 
@@ -215,27 +200,21 @@ add_custom_command(
    VERBATIM)
 
 add_custom_command(
-   OUTPUT xraudio_config.json
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json -a "${XRAUDIO_CONFIG_JSON_HAL}:hal" -a "${XRAUDIO_CONFIG_JSON_KWD}:input,kwd" -a "${XRAUDIO_CONFIG_JSON_EOS}:input,eos" -a "${XRAUDIO_CONFIG_JSON_DGA}:input,dga" -a "${XRAUDIO_CONFIG_JSON_SDF}:input,sdf" -a "${XRAUDIO_CONFIG_JSON_OVC}:output,ovc" -a "${XRAUDIO_CONFIG_JSON_PPR}:input,ppr" -s "${XRAUDIO_CONFIG_JSON_SUB}" -a "${XRAUDIO_CONFIG_JSON_ADD}" -o xraudio_config.json
+   OUTPUT xraudio_config.h
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json -o xraudio_config.h -m 2
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json
    VERBATIM)
 
 add_custom_command(
-   OUTPUT xraudio_config.h
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i xraudio_config.json -o xraudio_config.h -m 2
-   DEPENDS xraudio_config.json
-   VERBATIM)
-
-add_custom_command(
-   OUTPUT xrsr_config.json
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_config_default.json -a "xraudio_config.json:xraudio" -s "${XRSR_CONFIG_JSON_SUB}" -a "${XRSR_CONFIG_JSON_ADD}" -o xrsr_config.json
-   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_config_default.json xraudio_config.json
+   OUTPUT vsdk_config.json
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_combine.py" -i ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_config_default.json -a ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json:xraudio -o vsdk_config.json
+   DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-speech-router/xrsr_config_default.json ${CMAKE_CURRENT_SOURCE_DIR}/src/xr-audio/xraudio_config_default.json
    VERBATIM)
 
 add_custom_command(
    OUTPUT xrsr_config.h
-   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i xrsr_config.json -o xrsr_config.h -v "ws,http"
-   DEPENDS xrsr_config.json
+   COMMAND python3 "${CMAKE_CURRENT_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i vsdk_config.json -o xrsr_config.h -v "ws,http"
+   DEPENDS vsdk_config.json
    VERBATIM)
 
 add_custom_command(
