@@ -321,7 +321,7 @@ bool xrsr_speech_stream_end(const uuid_t uuid, xrsr_src_t src, uint32_t dst_inde
 void xrsr_session_stream_begin(const uuid_t uuid, const char *uuid_str, xrsr_src_t src, uint32_t dst_index);
 void xrsr_session_end(const uuid_t uuid, const char *uuid_str, xrsr_src_t src, uint32_t dst_index, xrsr_session_stats_t *stats);
 
-xrsr_xraudio_object_t xrsr_xraudio_create(xraudio_keyword_sensitivity_t keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio);
+xrsr_xraudio_object_t xrsr_xraudio_create(const xraudio_keyword_sensitivity_t *keyword_sensitivity, xraudio_power_mode_t power_mode, bool privacy_mode, const json_t *json_obj_xraudio);
 void xrsr_xraudio_destroy(xrsr_xraudio_object_t object);
 void xrsr_xraudio_internal_capture_params_set(xrsr_xraudio_object_t object, xraudio_internal_capture_params_t *params);
 void xrsr_xraudio_internal_capture_delete_files(xrsr_xraudio_object_t object, const char *dir_path);

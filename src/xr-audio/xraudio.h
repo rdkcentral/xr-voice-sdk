@@ -89,7 +89,7 @@
 
 #define XRAUDIO_STREAM_ID_SIZE_MAX             (64)
 
-#define XRAUDIO_INPUT_DEFAULT_KEYWORD_SENSITIVITY  (0.3)                           ///< Default keyword detector sensitivity
+#define XRAUDIO_INPUT_DEFAULT_KEYWORD_SENSITIVITY  (0.0)                           ///< Default keyword detector sensitivity
 /// @}
 
 /// @addtogroup XRAUDIO_ENUMS
@@ -374,7 +374,7 @@ xraudio_result_t xraudio_privacy_mode_get(xraudio_object_t object, xraudio_devic
 // Recording APIs - Synchronous if callback is NULL
 /// @brief Set keyword detection parameters
 /// @details Sets the keyword detection parameters.  The parameters will remain persistent until the xraudio object is destroyed.  The parameters will take effect on the next call to xraudio_keyword_detect.
-xraudio_result_t xraudio_detect_params(xraudio_object_t object, xraudio_keyword_sensitivity_t keyword_sensitivity);
+xraudio_result_t xraudio_detect_params(xraudio_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity);
 /// @brief Start keyword detection
 /// @details Starts a keyword detection session.  The detector begins processing incoming audio data and provides keyword detection events by invoking the callback.
 xraudio_result_t xraudio_detect_keyword(xraudio_object_t object, keyword_callback_t callback, void *param);
