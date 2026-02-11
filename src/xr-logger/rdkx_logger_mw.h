@@ -18,8 +18,8 @@
 # limitations under the License.
 ##########################################################################
 */
-#ifndef __RDKX_LOGGER__
-#define __RDKX_LOGGER__
+#ifndef __RDKX_LOGGER_MW__
+#define __RDKX_LOGGER_MW__
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -132,7 +132,7 @@ typedef struct {
 typedef int (*xlog_print_t)(xlog_level_t level, const char *buffer, uint32_t size);
 
 // Internal use only.  This is required to avoid parameter expansion when using XLOGD macros below.
-extern xlog_level_t  g_xlog_modules[];
+extern xlog_level_t  g_xlog_mw_modules[];
 
 #ifdef __cplusplus
 extern "C" {
@@ -168,7 +168,7 @@ int xlog_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *
 #define XLOG_RAW(...)            fprintf(XLOGD_OUTPUT, __VA_ARGS__)
 
 // Formatted logging to FILE *
-#define XLOG(LEVEL, OPTS, COLOR, BUF_SIZE, FORMAT, ...) do { if(LEVEL < g_xlog_modules[XLOG_MODULE_ID]) { break; } XLOG_STATIC_ARGS const xlog_args_t xlog_args__ = {.options = OPTS, .color = COLOR, .function = XLOG_PARAM_FUNCTION, .line = XLOG_PARAM_LINE, .level = LEVEL, .id = XLOG_MODULE_ID, .size_max = BUF_SIZE}; xlog_fprintf(&xlog_args__, XLOGD_OUTPUT, FORMAT, ##__VA_ARGS__);} while(0)
+#define XLOG(LEVEL, OPTS, COLOR, BUF_SIZE, FORMAT, ...) do { if(LEVEL < g_xlog_mw_modules[XLOG_MODULE_ID]) { break; } XLOG_STATIC_ARGS const xlog_args_t xlog_args__ = {.options = OPTS, .color = COLOR, .function = XLOG_PARAM_FUNCTION, .line = XLOG_PARAM_LINE, .level = LEVEL, .id = XLOG_MODULE_ID, .size_max = BUF_SIZE}; xlog_fprintf(&xlog_args__, XLOGD_OUTPUT, FORMAT, ##__VA_ARGS__);} while(0)
 #define XLOG_NO_LF(FORMAT, ...)        XLOG(XLOG_LEVEL_INVALID, (XLOG_OPTS_DEFAULT & ~XLOG_OPTS_LF), XLOG_COLOR_NONE, XLOG_BUF_SIZE_DEFAULT, FORMAT, ##__VA_ARGS__)
 
 // Dynamic log macros
@@ -182,12 +182,12 @@ int xlog_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *
 #define XLOGD_FATAL(...)     do { XLOGD(XLOG_LEVEL_FATAL, XLOG_OPTS_DEFAULT, XLOG_COLOR_RED, XLOG_BUF_SIZE_DEFAULT, __VA_ARGS__); XLOG_FLUSH(); } while(0)
 #define XLOGD_TELEMETRY(...) XLOGD(XLOG_LEVEL_TELEMETRY, XLOG_OPTS_DEFAULT, XLOG_COLOR_BLU,  XLOG_BUF_SIZE_DEFAULT, __VA_ARGS__)
 
-#define XLOGD_AUTOMATION_DEBUG(...)     XLOGD_DEBUG(__VA_ARGS__);
-#define XLOGD_AUTOMATION_INFO(...)      XLOGD_INFO(__VA_ARGS__);
-#define XLOGD_AUTOMATION_WARN(...)      XLOGD_WARN(__VA_ARGS__);
-#define XLOGD_AUTOMATION_ERROR(...)     XLOGD_ERROR(__VA_ARGS__);
-#define XLOGD_AUTOMATION_FATAL(...)     XLOGD_FATAL(__VA_ARGS__);
-#define XLOGD_AUTOMATION_TELEMETRY(...) XLOGD_TELEMETRY(__VA_ARGS__);
+#define XLOGD_AUTOMATION_DEBUG(...)     XLOGD_DEBUG(__VA_ARGS__)
+#define XLOGD_AUTOMATION_INFO(...)      XLOGD_INFO(__VA_ARGS__)
+#define XLOGD_AUTOMATION_WARN(...)      XLOGD_WARN(__VA_ARGS__)
+#define XLOGD_AUTOMATION_ERROR(...)     XLOGD_ERROR(__VA_ARGS__)
+#define XLOGD_AUTOMATION_FATAL(...)     XLOGD_FATAL(__VA_ARGS__)
+#define XLOGD_AUTOMATION_TELEMETRY(...) XLOGD_TELEMETRY(__VA_ARGS__)
 
 #define XLOGD_DEBUG_COLOR(COLOR, ...)  XLOGD(XLOG_LEVEL_DEBUG,  XLOG_OPTS_DEFAULT, COLOR, XLOG_BUF_SIZE_DEFAULT, __VA_ARGS__)
 #define XLOGD_INFO_COLOR(COLOR, ...)   XLOGD(XLOG_LEVEL_INFO,   XLOG_OPTS_DEFAULT, COLOR, XLOG_BUF_SIZE_DEFAULT, __VA_ARGS__)
@@ -201,7 +201,7 @@ int xlog_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *
 #define XLOGD_ERROR_OPTS(OPTS, BUF_SIZE, ...)  XLOGD(XLOG_LEVEL_ERROR,  OPTS, XLOG_COLOR_RED,  BUF_SIZE, __VA_ARGS__)
 #define XLOGD_FATAL_OPTS(OPTS, BUF_SIZE, ...)  do { XLOGD(XLOG_LEVEL_FATAL,  OPTS, XLOG_COLOR_RED, BUF_SIZE, __VA_ARGS__); XLOG_FLUSH(); } while(0)
 
-#define XLOGD_SAFE(LEVEL, OPTS, COLOR, BUF_SIZE, STRING) do { if(LEVEL < g_xlog_modules[XLOG_MODULE_ID]) { break; } XLOG_STATIC_ARGS const xlog_args_t xlog_args__ = {.options = OPTS, .color = COLOR, .function = XLOG_PARAM_FUNCTION, .line = XLOG_PARAM_LINE, .level = LEVEL, .id = XLOG_MODULE_ID, .size_max = BUF_SIZE}; xlog_fprintf_safe(&xlog_args__, XLOGD_OUTPUT, STRING);} while(0)
+#define XLOGD_SAFE(LEVEL, OPTS, COLOR, BUF_SIZE, STRING) do { if(LEVEL < g_xlog_mw_modules[XLOG_MODULE_ID]) { break; } XLOG_STATIC_ARGS const xlog_args_t xlog_args__ = {.options = OPTS, .color = COLOR, .function = XLOG_PARAM_FUNCTION, .line = XLOG_PARAM_LINE, .level = LEVEL, .id = XLOG_MODULE_ID, .size_max = BUF_SIZE}; xlog_fprintf_safe(&xlog_args__, XLOGD_OUTPUT, STRING);} while(0)
 
 #define XLOGD_SAFE_DEBUG(STRING) XLOGD_SAFE(XLOG_LEVEL_DEBUG, XLOG_OPTS_DEFAULT, XLOG_COLOR_GRN,  XLOG_BUF_SIZE_DEFAULT, STRING)
 #define XLOGD_SAFE_INFO(STRING)  XLOGD_SAFE(XLOG_LEVEL_INFO,  XLOG_OPTS_DEFAULT, XLOG_COLOR_NONE, XLOG_BUF_SIZE_DEFAULT, STRING)
