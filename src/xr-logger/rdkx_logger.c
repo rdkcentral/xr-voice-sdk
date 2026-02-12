@@ -119,7 +119,7 @@
 #define XLOG_CONFIG_FILE_DEV      XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger.json"
 #define XLOG_CONFIG_FILE_DEV_ROOT XLOG_CONFIG_FILE_DIR_NAME_DEV "/rdkx_logger_"
 
-#define G_XLOG_MODULES           g_xlog_mw_modules
+#define G_XLOG_MODULES           g_xlog_modules
 #define G_XLOG_INIT              g_xlog_mw_init
 #define G_XLOG_CURTAIL           g_xlog_mw_curtail
 #define G_XLOG_PRINT             g_xlog_mw_print
