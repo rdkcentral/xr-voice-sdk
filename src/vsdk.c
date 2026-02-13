@@ -492,7 +492,7 @@ void *vsdk_load_plugin_ffv_kwd(void) {
 
 void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    void *handle = NULL;
-   const char *so_path_vd = "/vendor/lib/libxraudio-ffv-algorithms.so";
+   const char *so_path_vd = "/opt/mount/vendor/lib/libxr-ffv-hal-dsp-algorithms.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-algorithms.so";
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
@@ -644,7 +644,7 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
 void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
    void *handle = NULL;
-   const char *so_path_vd = "/vendor/lib/libxraudio-ffv-hal.so";
+   const char *so_path_vd = "/opt/mount/vendor/lib/libxr-ffv-hal.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-hal.so";
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
