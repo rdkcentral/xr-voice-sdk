@@ -312,6 +312,8 @@ int xrsr_sdt_send_text(xrsr_state_sdt_t *sdt, const uint8_t *buffer, uint32_t le
 void xrsr_sdt_speech_stream_end(xrsr_state_sdt_t *sdt, xrsr_stream_end_reason_t reason, bool detect_resume) {
    XLOGD_INFO("fd <%d> reason <%s>", sdt->audio_pipe_fd_read, xrsr_stream_end_reason_str(reason));
 
+   sdt->stats.stream_end_reason = reason;
+
    xrsr_speech_stream_end(sdt->uuid, sdt->audio_src, sdt->dst_index, reason, detect_resume, &sdt->audio_stats);
 
    if(sdt->audio_pipe_fd_read >= 0) {
@@ -323,7 +325,7 @@ void xrsr_sdt_speech_stream_end(xrsr_state_sdt_t *sdt, xrsr_stream_end_reason_t 
 void xrsr_sdt_speech_session_end(xrsr_state_sdt_t *sdt, xrsr_session_end_reason_t reason) {
    XLOGD_INFO("fd <%d> reason <%s>", sdt->audio_pipe_fd_read, xrsr_session_end_reason_str(reason));
 
-   sdt->stats.reason = reason;
+   sdt->stats.session_end_reason = reason;
 
    char uuid_str[37] = {'\0'};
    uuid_unparse_lower(sdt->uuid, uuid_str);
