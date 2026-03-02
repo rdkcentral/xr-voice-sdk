@@ -753,6 +753,7 @@ void xrsr_ws_speech_session_end(xrsr_state_ws_t *ws, xrsr_session_end_reason_t r
    XLOGD_INFO("src <%s> fd <%d> reason <%s> close code <%d>", xrsr_src_str(ws->audio_src), ws->audio_pipe_fd_read, xrsr_session_end_reason_str(reason), ws->close_status);
 
    ws->stats.session_end_reason = reason;
+   ws->stats.ret_code_protocol = ws->close_status;
 
    char uuid_str[37] = {'\0'};
    uuid_unparse_lower(ws->uuid, uuid_str);
