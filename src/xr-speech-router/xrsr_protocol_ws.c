@@ -883,6 +883,7 @@ void xrsr_ws_reset(xrsr_state_ws_t *ws) {
          close(ws->audio_pipe_fd_read);
          ws->audio_pipe_fd_read = -1;
       }
+      memset(&ws->stats, 0, sizeof(ws->stats));
       xrsr_ws_clear_msg_out(ws);
    }
 }
