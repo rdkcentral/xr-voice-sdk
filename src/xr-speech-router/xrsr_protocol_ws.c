@@ -453,6 +453,7 @@ bool xrsr_ws_connect(xrsr_state_ws_t *ws, xrsr_url_parts_t *url_parts, xrsr_src_
    ws->close_status       = -1;
    memset(&ws->stats, 0, sizeof(ws->stats));
    memset(&ws->audio_stats, 0, sizeof(ws->audio_stats));
+   ws->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
 
    if(!deferred) {
       xrsr_ws_event(ws, SM_EVENT_SESSION_BEGIN, false);

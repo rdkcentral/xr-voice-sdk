@@ -200,6 +200,7 @@ bool xrsr_sdt_connect(xrsr_state_sdt_t *sdt, xrsr_url_parts_t *url_parts, xrsr_s
    sdt->on_close           = false;
    memset(&sdt->stats, 0, sizeof(sdt->stats));
    memset(&sdt->audio_stats, 0, sizeof(sdt->audio_stats));
+   sdt->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
 
    if(!deferred) {
       xrsr_sdt_event(sdt, SM_EVENT_SESSION_BEGIN, false);

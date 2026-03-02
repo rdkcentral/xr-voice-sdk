@@ -757,6 +757,7 @@ void xrsr_http_reset(xrsr_state_http_t *http) {
         http->audio_src          = XRSR_SRC_INVALID;
         memset(&http->audio_stats, 0, sizeof(http->audio_stats));
         memset(&http->session_stats, 0, sizeof(http->session_stats));
+        http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
         http->detect_resume      = true;
         http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_EOS;
         http->is_session_by_text   = false;
