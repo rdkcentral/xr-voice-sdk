@@ -740,6 +740,7 @@ void xrsr_ws_speech_stream_end(xrsr_state_ws_t *ws, xrsr_stream_end_reason_t rea
    XLOGD_INFO("src <%s> fd <%d> reason <%s>", xrsr_src_str(ws->audio_src), ws->audio_pipe_fd_read, xrsr_stream_end_reason_str(reason));
 
    xrsr_speech_stream_end(ws->uuid, ws->audio_src, ws->dst_index, reason, detect_resume, &ws->audio_stats);
+   ws->stats.stream_end_reason = reason;
 
    if(ws->audio_pipe_fd_read >= 0) {
       close(ws->audio_pipe_fd_read);

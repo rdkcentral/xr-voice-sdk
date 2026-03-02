@@ -832,11 +832,13 @@ void St_Http_Buffering(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardRe
                 case SM_EVENT_EOS: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_DID_NOT_BEGIN, http->detect_resume, &http->audio_stats);
                     http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
+                    http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
                     break;
                 }
                 case SM_EVENT_TERMINATE: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_DID_NOT_BEGIN, http->detect_resume, &http->audio_stats);
                     http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_TERMINATE;
+                    http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
                     break;
                 }
                 default: {
@@ -873,6 +875,7 @@ void St_Http_Connecting(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardR
                 case SM_EVENT_DISCONNECTED: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_DID_NOT_BEGIN, http->detect_resume, &http->audio_stats);
                     http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_ERROR_CONNECT_FAILURE;
+                    http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
                     break;
                 }
                 case SM_EVENT_CONNECTED: {
@@ -966,15 +969,18 @@ void St_Http_Streaming(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardRe
                 case SM_EVENT_TERMINATE: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_DISCONNECT_LOCAL, http->detect_resume, &http->audio_stats);
                     http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_TERMINATE;
+                    http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_DISCONNECT_LOCAL;
                     break;
                 }
                 case SM_EVENT_MSG_RECV: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_DISCONNECT_REMOTE, http->detect_resume, &http->audio_stats);
                     http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_ERROR_CONNECT_FAILURE;
+                    http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_DISCONNECT_REMOTE;
                     break;
                 }
                 case SM_EVENT_PIPE_EOS: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_AUDIO_EOF, http->detect_resume, &http->audio_stats);
+                    http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_AUDIO_EOF;
                     break;
                 }
                 case SM_EVENT_TEXT_SESSION_SUCCESS: {
@@ -1010,15 +1016,18 @@ void St_Http_TextOnlySession(tStateEvent *pEvent, eStateAction eAction, BOOL *bG
                 case SM_EVENT_TERMINATE: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_DISCONNECT_LOCAL, http->detect_resume, &http->audio_stats);
                     http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_TERMINATE;
+                    http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_DISCONNECT_LOCAL;
                     break;
                 }
                 case SM_EVENT_MSG_RECV: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_INVALID, http->detect_resume, &http->audio_stats);
                     http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_EOT;
+                    http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_INVALID;
                     break;
                 }
                 case SM_EVENT_PIPE_EOS: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_AUDIO_EOF, http->detect_resume, &http->audio_stats);
+                    http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_AUDIO_EOF;
                     break;
                 }
                 default: {
