@@ -739,8 +739,6 @@ void xrsr_ws_on_close(noPollCtx *ctx, noPollConn *conn, noPollPtr user_data) {
 void xrsr_ws_speech_stream_end(xrsr_state_ws_t *ws, xrsr_stream_end_reason_t reason, bool detect_resume) {
    XLOGD_INFO("src <%s> fd <%d> reason <%s>", xrsr_src_str(ws->audio_src), ws->audio_pipe_fd_read, xrsr_stream_end_reason_str(reason));
 
-   ws->stats.stream_end_reason = reason;
-
    xrsr_speech_stream_end(ws->uuid, ws->audio_src, ws->dst_index, reason, detect_resume, &ws->audio_stats);
 
    if(ws->audio_pipe_fd_read >= 0) {

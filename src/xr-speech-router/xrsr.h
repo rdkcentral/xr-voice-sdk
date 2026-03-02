@@ -384,7 +384,10 @@ typedef struct {
 /// @brief XRSR session stats structure
 /// @details The session statistics data structure indicates the statistics for an audio session.
 typedef struct {
-   xrsr_session_end_reason_t session_end_reason;                 ///< Reason why the session ended
+   union {
+      xrsr_session_end_reason_t session_end_reason;              ///< Reason why the session ended (preferred usage)
+      xrsr_session_end_reason_t reason;                          ///< Reason why the session ended (maintained alias for compatibility)
+   };
    xrsr_ret_code_internal_t  ret_code_internal;                  ///< Internal return code (speech router)
    long                      ret_code_protocol;                  ///< Protocol return code (HTTP, WS, etc)
    long                      ret_code_library;                   ///< Library return code (curl, nopoll, etc)

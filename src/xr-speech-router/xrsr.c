@@ -3264,6 +3264,8 @@ bool xrsr_speech_stream_end(const uuid_t uuid, xrsr_src_t src, uint32_t dst_inde
 
    xrsr_session_t *session = &g_xrsr.sessions[xrsr_source_to_group(src)];
 
+   session->stats.stream_end_reason = reason;
+
    // Need to know when all streams have ended to call xraudio stream end?
    session->pipe_fds_rd[dst_index] = -1;
 
