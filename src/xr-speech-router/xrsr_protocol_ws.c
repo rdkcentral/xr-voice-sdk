@@ -884,6 +884,7 @@ void xrsr_ws_reset(xrsr_state_ws_t *ws) {
          ws->audio_pipe_fd_read = -1;
       }
       memset(&ws->stats, 0, sizeof(ws->stats));
+      ws->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
       xrsr_ws_clear_msg_out(ws);
    }
 }

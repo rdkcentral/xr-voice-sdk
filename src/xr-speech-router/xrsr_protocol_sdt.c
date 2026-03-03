@@ -400,6 +400,8 @@ void xrsr_sdt_reset(xrsr_state_sdt_t *sdt) {
       sdt->detect_resume         = true;
       sdt->on_close              = false;
       sdt->retry_cnt             = 1;
+      memset(&sdt->stats, 0, sizeof(sdt->stats));
+      sdt->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
       if(sdt->audio_pipe_fd_read > -1) {
          close(sdt->audio_pipe_fd_read);
          sdt->audio_pipe_fd_read = -1;
