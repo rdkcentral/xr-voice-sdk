@@ -955,6 +955,7 @@ void St_Ws_Disconnecting(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuard
             // only call close if network is available
             XLOG_DEBUG("src <%s> nopoll ref count %d, should be 2...", xrsr_src_str(ws->audio_src), nopoll_conn_ref_count(ws->obj_conn));
             if(ws->on_close == false) {
+               ws->close_status = nopoll_conn_get_close_status(conn);
                nopoll_conn_close(ws->obj_conn);
             } else {
                XLOG_DEBUG("src <%s> server closed the connection", xrsr_src_str(ws->audio_src));
