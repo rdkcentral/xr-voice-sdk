@@ -69,7 +69,6 @@
 #define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_RF_PROTOCOL              "rfProtocol"
 #define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_LANG                           "language"
 #define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_MAC                            "mac"
-#define XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_EXPERIENCE                     "experience"
 #define XRSV_WS_NEXTGEN_JSON_KEY_CREATED                                "created"
 #define XRSV_WS_NEXTGEN_JSON_KEY_TRX                                    "trx"
 #define XRSV_WS_NEXTGEN_JSON_KEY_REASON                                 "reason"
@@ -216,10 +215,6 @@ xrsv_ws_nextgen_object_t xrsv_ws_nextgen_create(const xrsv_ws_nextgen_params_t *
    }
    if(params->bypass_wuw_verify_failure) {
       rc |= json_array_append_new(obj_capabilities, json_string("BYPASS_WUW_FORCE_FAILURE"));
-   }
-
-   if(params->experience) {
-      rc |= json_object_set_new_nocheck(obj->obj_init_stb, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_EXPERIENCE, json_string(params->experience));
    }
 
    if(params->language) {
@@ -492,15 +487,6 @@ bool xrsv_ws_nextgen_update_partner_id(xrsv_ws_nextgen_object_t object, const ch
    return(xrsv_ws_nextgen_update_json_str(obj->obj_init_stb_id, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_ID_PARTNER, partner_id));
 }
  
-bool xrsv_ws_nextgen_update_experience(xrsv_ws_nextgen_object_t object, const char *experience) {
-   xrsv_ws_nextgen_obj_t *obj = (xrsv_ws_nextgen_obj_t *)object;
-   if(!xrsv_ws_nextgen_object_is_valid(obj)) {
-      XLOGD_ERROR("invalid object");
-      return(false);
-   }
-   return(xrsv_ws_nextgen_update_json_str(obj->obj_init_stb, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_EXPERIENCE, experience));
-}
-
 bool xrsv_ws_nextgen_update_audio_profile(xrsv_ws_nextgen_object_t object, const char *audio_profile) {
    xrsv_ws_nextgen_obj_t *obj = (xrsv_ws_nextgen_obj_t *)object;
    if(!xrsv_ws_nextgen_object_is_valid(obj)) {
