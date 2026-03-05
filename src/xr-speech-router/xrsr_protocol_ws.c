@@ -453,6 +453,7 @@ bool xrsr_ws_connect(xrsr_state_ws_t *ws, xrsr_url_parts_t *url_parts, xrsr_src_
    ws->close_status       = -1;
    memset(&ws->stats, 0, sizeof(ws->stats));
    memset(&ws->audio_stats, 0, sizeof(ws->audio_stats));
+   ws->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
 
    if(!deferred) {
       xrsr_ws_event(ws, SM_EVENT_SESSION_BEGIN, false);
@@ -740,6 +741,7 @@ void xrsr_ws_speech_stream_end(xrsr_state_ws_t *ws, xrsr_stream_end_reason_t rea
    XLOGD_INFO("src <%s> fd <%d> reason <%s>", xrsr_src_str(ws->audio_src), ws->audio_pipe_fd_read, xrsr_stream_end_reason_str(reason));
 
    xrsr_speech_stream_end(ws->uuid, ws->audio_src, ws->dst_index, reason, detect_resume, &ws->audio_stats);
+   ws->stats.stream_end_reason = reason;
 
    if(ws->audio_pipe_fd_read >= 0) {
       close(ws->audio_pipe_fd_read);
@@ -750,7 +752,8 @@ void xrsr_ws_speech_stream_end(xrsr_state_ws_t *ws, xrsr_stream_end_reason_t rea
 void xrsr_ws_speech_session_end(xrsr_state_ws_t *ws, xrsr_session_end_reason_t reason) {
    XLOGD_INFO("src <%s> fd <%d> reason <%s> close code <%d>", xrsr_src_str(ws->audio_src), ws->audio_pipe_fd_read, xrsr_session_end_reason_str(reason), ws->close_status);
 
-   ws->stats.reason = reason;
+   ws->stats.session_end_reason = reason;
+   ws->stats.ret_code_protocol = ws->close_status;
 
    char uuid_str[37] = {'\0'};
    uuid_unparse_lower(ws->uuid, uuid_str);
@@ -880,6 +883,8 @@ void xrsr_ws_reset(xrsr_state_ws_t *ws) {
          close(ws->audio_pipe_fd_read);
          ws->audio_pipe_fd_read = -1;
       }
+      memset(&ws->stats, 0, sizeof(ws->stats));
+      ws->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
       xrsr_ws_clear_msg_out(ws);
    }
 }
@@ -950,6 +955,7 @@ void St_Ws_Disconnecting(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuard
             // only call close if network is available
             XLOG_DEBUG("src <%s> nopoll ref count %d, should be 2...", xrsr_src_str(ws->audio_src), nopoll_conn_ref_count(ws->obj_conn));
             if(ws->on_close == false) {
+               ws->close_status = nopoll_conn_get_close_status(ws->obj_conn);
                nopoll_conn_close(ws->obj_conn);
             } else {
                XLOG_DEBUG("src <%s> server closed the connection", xrsr_src_str(ws->audio_src));
