@@ -55,7 +55,7 @@
 #define XRSR_SESSION_BY_TEXT_MAX_LENGTH    (128)   ///< Maximum text string length for text-only sessions
 #define XRSR_SESSION_AUDIO_FILE_MAX_LENGTH (256)   ///< Maximum string length for audio file name
 
-#define XRSR_QUERY_STRING_QTY_MAX          (16)    ///< Maximum quantity of query strings supported
+#define XRSR_QUERY_STRING_QTY_MAX          (24)    ///< Maximum quantity of query strings supported
 
 /// @}
 
