@@ -68,6 +68,7 @@ target_include_directories(xr-voice-sdk PUBLIC
                            ./src/xr-speech-vrex/xrsv_http/
                            ./src/xr-speech-vrex/xrsv_ws_nextgen/
                            ./src/xr-logger/
+                           ./src/xr-ffv-hal/
                            ${CMAKE_SYSROOT}/usr/include/safeclib/
                            ${CMAKE_SYSROOT}/usr/include/libsafec/
                           )
@@ -158,6 +159,11 @@ find_library(CURTAIL_LIBRARY NAMES curtail)
 if(CURTAIL_LIBRARY)
    target_compile_definitions(xr-voice-sdk PUBLIC VSDK_CURTAIL_ENABLED)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
+endif()
+
+if(FFV_HAL_V2)
+   target_sources(xr-voice-sdk PUBLIC src/xr-ffv-hal/xr_ffv_hal.c)
+   target_compile_definitions(xr-voice-sdk PUBLIC FFV_HAL_V2)
 endif()
 
 # CONFIG FILES

@@ -424,8 +424,13 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
 void *vsdk_load_plugin_ffv_kwd(void) {
    void *handle = NULL;
+   #ifdef FFV_HAL_V2
    const char *so_path_vd = ""; // /vendor/lib/libxraudio-ffv-kwd.so";
    const char *so_path_mw = ""; // /usr/lib/libxraudio-ffv-kwd.so";
+   #else
+   const char *so_path_vd = "/vendor/lib/libxraudio-ffv-kwd.so";
+   const char *so_path_mw = "/usr/lib/libxraudio-ffv-kwd.so";
+   #endif
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
    } else if(vsdk_file_exists(so_path_mw)) {
@@ -492,8 +497,13 @@ void *vsdk_load_plugin_ffv_kwd(void) {
 
 void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    void *handle = NULL;
+   #ifdef FFV_HAL_V2
    const char *so_path_vd = "/opt/mount/vendor/lib/libxr-ffv-hal-dsp-algorithms.so";
-   const char *so_path_mw = ""; // /usr/lib/libxraudio-ffv-algorithms.so";
+   const char *so_path_mw = "";
+   #else
+   const char *so_path_vd = "/vendor/lib/libxraudio-ffv-algorithms.so";
+   const char *so_path_mw = "/usr/lib/libxraudio-ffv-algorithms.so";
+   #endif
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
    } else if(vsdk_file_exists(so_path_mw)) {
@@ -644,8 +654,13 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
 void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
    void *handle = NULL;
+   #ifdef FFV_HAL_V2
    const char *so_path_vd = "/opt/mount/vendor/lib/libxr-ffv-hal.so";
-   const char *so_path_mw = ""; // "/usr/lib/libxraudio-ffv-hal.so";
+   const char *so_path_mw = "";
+   #else
+   const char *so_path_vd = "/vendor/lib/libxraudio-ffv-hal.so";
+   const char *so_path_mw = "/usr/lib/libxraudio-ffv-hal.so";
+   #endif
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
    } else if(vsdk_file_exists(so_path_mw)) {
