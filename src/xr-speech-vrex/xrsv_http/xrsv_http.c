@@ -44,7 +44,6 @@ typedef struct {
    char                 query_element_codec[17];
    char                 query_element_app_id[64];
    char                 query_element_partner_id[32];
-   char                 query_element_experience[32];
    char                 query_element_language[32];
    char                 query_element_aspect_ratio[16];
    char                 query_element_vrex_filters[40];
@@ -97,9 +96,6 @@ xrsv_http_object_t xrsv_http_create(const xrsv_http_params_t *params) {
    }
    if(params->partner_id != NULL) {
       xrsv_http_update_partner_id(obj, params->partner_id);
-   }
-   if(params->experience != NULL) {
-      xrsv_http_update_experience(obj, params->experience);
    }
    if(params->language != NULL) {
       xrsv_http_update_language(obj, params->language);
@@ -198,22 +194,6 @@ bool xrsv_http_update_partner_id(xrsv_http_object_t object, const char *partner_
    return(rv);
 }
  
-bool xrsv_http_update_experience(xrsv_http_object_t object, const char *experience) {
-   xrsv_http_obj_t *obj = (xrsv_http_obj_t *)object;
-   if(!xrsv_http_object_is_valid(obj)) {
-      XLOGD_ERROR("invalid object");
-      return(false);
-   }
-   bool rv = false;
-   int rc = snprintf(obj->query_element_experience, sizeof(obj->query_element_experience), "experienceTag=%s", experience);
-   if(rc >= sizeof(obj->query_element_experience)) {
-      XLOGD_WARN("truncated experience id <%d>", rc);
-   } else {
-      rv = true;
-   }
-   return(rv);
-}
-
 bool xrsv_http_update_app_id(xrsv_http_object_t object, const char *app_id) {
    xrsv_http_obj_t *obj = (xrsv_http_obj_t *)object;
    if(!xrsv_http_object_is_valid(obj)) {
@@ -270,7 +250,6 @@ void xrsv_http_destroy(xrsv_http_object_t object) {
    obj->query_element_trx[0]           = '\0';
    obj->query_element_app_id[0]        = '\0';
    obj->query_element_partner_id[0]    = '\0';
-   obj->query_element_experience[0]    = '\0';
    obj->query_element_language[0]      = '\0';
    obj->query_element_aspect_ratio[0]  = '\0';
    obj->identifier                     = 0;
@@ -346,21 +325,20 @@ void xrsv_http_handler_session_begin(xrsv_http_object_t object, const uuid_t uui
    config_in->http.query_strs[0] = obj->query_element_app_id;
    config_in->http.query_strs[1] = obj->query_element_device_id;
    config_in->http.query_strs[2] = obj->query_element_partner_id;
-   config_in->http.query_strs[3] = obj->query_element_experience;
-   config_in->http.query_strs[4] = obj->query_element_language;
-   config_in->http.query_strs[5] = obj->query_element_aspect_ratio;
-   config_in->http.query_strs[6] = obj->query_element_trx;
-   config_in->http.query_strs[7] = obj->query_element_codec;
+   config_in->http.query_strs[3] = obj->query_element_language;
+   config_in->http.query_strs[4] = obj->query_element_aspect_ratio;
+   config_in->http.query_strs[5] = obj->query_element_trx;
+   config_in->http.query_strs[6] = obj->query_element_codec;
 
    if (transcription_in != NULL) {
       // For a text only session, remove SR (speech recognition) from the filter
       snprintf(obj->query_element_vrex_filters, sizeof(obj->query_element_vrex_filters), "vrexFilters=NLP,EVENT,AR,EXEC");
-      config_in->http.query_strs[8] = obj->query_element_vrex_filters;
-      config_in->http.query_strs[9] = NULL;
+      config_in->http.query_strs[7] = obj->query_element_vrex_filters;
+      config_in->http.query_strs[8] = NULL;
    } else {
       // Leave VREX filters at default
       obj->query_element_vrex_filters[0] = '\0';
-      config_in->http.query_strs[8] = NULL;
+      config_in->http.query_strs[7] = NULL;
    }
 
 }
