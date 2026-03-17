@@ -794,6 +794,10 @@ void xrsr_ws_handle_speech_event(xrsr_state_ws_t *ws, xrsr_speech_event_t *event
          xrsr_ws_event(ws, SM_EVENT_STM, false);
          break;
       }
+      case XRSR_EVENT_STREAM_VOICE_ACTIVITY: {
+         XLOGD_INFO("src <%s> voice activity detected <%s> confidence <%.2f>", xrsr_src_str(ws->audio_src), event->data.vad_info.voice_detected ? "YES" : "NO", event->data.vad_info.confidence);
+         break;
+      }
       default: {
          XLOGD_WARN("src <%s> unhandled speech event <%s>", xrsr_src_str(ws->audio_src), xrsr_event_str(event->event));
          break;

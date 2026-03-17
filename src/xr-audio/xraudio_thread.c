@@ -36,6 +36,7 @@
 #include "xraudio.h"
 #include "xraudio_private.h"
 #include "xraudio_atomic.h"
+#include "xraudio_vad.h"
 #include "adpcm.h"
 #ifdef XRAUDIO_DECODE_OPUS
 #include "xraudio_opus.h"
@@ -261,6 +262,13 @@ struct xraudio_session_record_inst_t {
    uint32_t                       raw_mic_frame_skip;
 
    xraudio_capture_instance_t     capture_internal;
+
+   // VAD integration
+   xraudio_input_vad_config_t     vad_config;             ///< VAD configuration for this session
+   xraudio_vad_object_t           vad_obj;                ///< VAD processing object
+   bool                           vad_enabled;            ///< VAD processing enabled for this session
+   xraudio_vad_event_data_t       vad_last_event;         ///< Last VAD event data
+
 };
 
 struct xraudio_session_record_t {
@@ -483,6 +491,10 @@ static void xraudio_msg_privacy_mode_get(xraudio_thread_state_t *state, void *ms
 static void xraudio_msg_capture_params_set(xraudio_thread_state_t *state, void *msg);
 static void xraudio_msg_input_source_fd_set(xraudio_thread_state_t *state, void *msg);
 
+// VAD helper functions
+static void xraudio_vad_session_init(xraudio_session_record_inst_t *instance, xraudio_input_vad_config_t vad_config, uint32_t sample_rate);
+static void xraudio_vad_session_cleanup(xraudio_session_record_inst_t *instance);
+
 static void xraudio_encoding_parameters_get(xraudio_input_format_t *format, uint32_t frame_duration, uint32_t *frame_size, uint16_t stream_time_min_ms, uint32_t *min_audio_data_len);
 static bool xraudio_in_aop_adjust_apply(int32_t *buffer, uint32_t sample_qty_frame, int8_t input_aop_adjust_shift);
 static void xraudio_capture_file_size_max_verify(uint32_t *file_size_max);
@@ -642,6 +654,11 @@ void *xraudio_main_thread(void *param) {
                                                                                       .sample_rate   = XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE,
                                                                                       .sample_size   = XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE,
                                                                                       .channel_qty   = XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY };
+
+      // Initialize VAD state
+      instance->vad_obj                    = NULL;
+      instance->vad_enabled                = false;
+      memset(&instance->vad_last_event,    0, sizeof(instance->vad_last_event));
 
    }
 
@@ -1209,6 +1226,15 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
          xraudio_encoding_parameters_get(&instance->format_out, frame_duration, &state->record.external_frame_size_out, record->stream_time_minimum, &instance->stream_time_min_value);
          XLOGD_INFO("decoding <%s> to <%s> frame size in <%u> out <%u>", xraudio_encoding_str(encoding_in), xraudio_encoding_str(encoding_out), state->record.external_frame_size_in, state->record.external_frame_size_out);
          decoding = true;
+
+         XLOGD_WARN("DAVE vad init before");
+         instance->vad_enabled = record->vad_enabled;
+         if(instance->vad_enabled) { // Initialize VAD if enabled in session
+            instance->vad_config = record->vad_config;
+            xraudio_vad_session_init(instance, instance->vad_config, state->record.external_format.sample_rate);
+         }
+         
+         XLOGD_WARN("DAVE vad init after");
       } else if(encoding_in == XRAUDIO_ENCODING_ADPCM_FRAME && encoding_out == XRAUDIO_ENCODING_ADPCM) {
          state->record.external_frame_size_in = adpcm_frame->size_packet;
          xraudio_encoding_parameters_get(&instance->format_out, frame_duration, &state->record.external_frame_size_out, record->stream_time_minimum, &instance->stream_time_min_value);
@@ -5047,11 +5073,45 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                      stats.decoder_failures     = adpcm_stats.failed_decodes;
                      stats.samples_buffered_max = 0;
                   }
+                  
+                  // Add VAD statistics if VAD is enabled and active
+                  if(instance->vad_enabled && instance->vad_obj != NULL) {
+                     xraudio_vad_stats_t vad_stats;
+                     if(xraudio_vad_get_stats(instance->vad_obj, &vad_stats) == XRAUDIO_RESULT_OK) {
+                        stats.vad_frames_processed = vad_stats.frames_processed;
+                        stats.vad_frames_voice = vad_stats.frames_voice;
+                        stats.vad_frames_silence = vad_stats.frames_silence;
+                        stats.vad_state_transitions = vad_stats.state_transitions;
+                        stats.vad_average_energy = vad_stats.average_energy;
+                        stats.vad_average_confidence = vad_stats.average_confidence;
+                        stats.vad_processing_time_us = vad_stats.total_processing_time_us;
+                     }
+                  }
+                  
                   (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, &stats, instance->param);
                   break;
                }
                default: {
-                  (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, NULL, instance->param);
+                  // For non-ADPCM encodings, still provide VAD statistics if available
+                  xraudio_audio_stats_t stats;
+                  memset(&stats, 0, sizeof(stats));
+                  
+                  // Add VAD statistics if VAD is enabled and active
+                  if(instance->vad_enabled && instance->vad_obj != NULL) {
+                     xraudio_vad_stats_t vad_stats;
+                     if(xraudio_vad_get_stats(instance->vad_obj, &vad_stats) == XRAUDIO_RESULT_OK) {
+                        stats.vad_frames_processed = vad_stats.frames_processed;
+                        stats.vad_frames_voice = vad_stats.frames_voice;
+                        stats.vad_frames_silence = vad_stats.frames_silence;
+                        stats.vad_state_transitions = vad_stats.state_transitions;
+                        stats.vad_average_energy = vad_stats.average_energy;
+                        stats.vad_average_confidence = vad_stats.average_confidence;
+                        stats.vad_processing_time_us = vad_stats.total_processing_time_us;
+                     }
+                     (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, &stats, instance->param);
+                  } else {
+                     (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, NULL, instance->param);
+                  }
                   break;
                }
             }
@@ -5083,6 +5143,36 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
       instance->callback) {
          (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_TIME_MINIMUM, NULL, instance->param);
    }
+
+   XLOGD_WARN("DAVE enabled <%s> <%s>", instance->vad_enabled ? "YES" : "NO", instance->vad_obj != NULL ? "with obj" : "no obj");
+   // VAD Processing - integrate after format conversion
+   if(instance->vad_enabled && instance->vad_obj != NULL) {
+      // Process VAD on the PCM output
+      uint8_t *inbuf = &session->external_frame_buffer[session->external_frame_group_index * session->external_frame_size_out];
+
+      XLOGD_WARN("DAVE size out <%d>", session->external_frame_size_out);
+
+      uint32_t frame_size = 160; // Default frame size for 16kHz 16-bit mono is 160 samples (10 ms)
+      // Calculate single-channel frame size (mic_frame_samples includes all channels)
+      xraudio_vad_event_data_t vad_event_data;
+      xraudio_result_t vad_result = xraudio_vad_process_frame(instance->vad_obj, (const xraudio_sample_t *)inbuf, frame_size, &vad_event_data);
+      
+      if(vad_result == XRAUDIO_RESULT_OK) {
+         // Check if VAD state changed
+         bool vad_state_changed = (vad_event_data.state != instance->vad_last_event.state);
+         instance->vad_last_event = vad_event_data;
+         
+         XLOGD_WARN("DAVE vad event <%s>", xraudio_vad_state_str(vad_event_data.state) );
+
+         // Generate VAD callback event on state changes
+         if(vad_state_changed) {
+            (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY, &vad_event_data, instance->param);
+         }
+      } else {
+         XLOGD_ERROR("VAD processing failed: %s", xraudio_result_str(vad_result));
+      }
+   }
+
 
    session->external_data_len += bytes_read;
 
@@ -5612,4 +5702,75 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
          ref_chan++;
       }
    }
+}
+
+// VAD helper functions implementation
+
+void xraudio_vad_session_init(xraudio_session_record_inst_t *instance, xraudio_input_vad_config_t vad_config, uint32_t sample_rate) {
+   if (instance == NULL) {
+      XLOGD_ERROR("invalid params");
+      return;
+   }
+
+   // Clean up any existing VAD object
+   xraudio_vad_session_cleanup(instance);
+
+   XLOGD_INFO("initializing VAD: sensitivity=%f, hysteresis=%ums, mode=%u, timeout=%ums", 
+              vad_config.sensitivity, vad_config.hysteresis_ms, vad_config.mode, vad_config.timeout_ms);
+
+   xraudio_vad_config_t internal_vad_config;
+   internal_vad_config.sample_rate   = sample_rate;
+   internal_vad_config.sensitivity   = vad_config.sensitivity;
+   internal_vad_config.hysteresis_ms = vad_config.hysteresis_ms;
+   internal_vad_config.mode          = vad_config.mode;
+   internal_vad_config.timeout_ms    = vad_config.timeout_ms;
+
+   // Create VAD object
+   instance->vad_obj = xraudio_vad_create(&internal_vad_config);
+   if (instance->vad_obj == NULL) {
+      XLOGD_ERROR("failed to create VAD object");
+      instance->vad_enabled = false;
+      return;
+   }
+
+   instance->vad_enabled = true;
+   memset(&instance->vad_last_event, 0, sizeof(instance->vad_last_event));
+   instance->vad_last_event.state = XRAUDIO_VAD_STATE_UNKNOWN;
+
+   XLOGD_INFO("VAD session initialized successfully");
+}
+
+void xraudio_vad_session_cleanup(xraudio_session_record_inst_t *instance) {
+   if (instance == NULL) {
+      XLOGD_ERROR("invalid params");
+      return;
+   }
+
+   if (instance->vad_obj != NULL) {
+      // Generate final VAD event with overall score before cleanup
+      if (instance->vad_enabled) {
+         xraudio_vad_event_data_t final_event;
+         xraudio_result_t result = xraudio_vad_finalize(instance->vad_obj, &final_event);
+         if (result == XRAUDIO_RESULT_OK) {
+            XLOGD_INFO("final VAD overall score: %f", final_event.overall_score);
+            
+            // Send final VAD event to all active instances
+            /*for(uint32_t group = XRAUDIO_INPUT_SESSION_GROUP_DEFAULT; group < XRAUDIO_INPUT_SESSION_GROUP_QTY; group++) {
+               xraudio_session_record_inst_t *instance = &session->instances[group];
+               if(instance->callback != NULL) {
+                  (*instance->callback)(XRAUDIO_DEVICE_INPUT_LOCAL_GET(session->devices_input), 
+                                       AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY, 
+                                       &final_event, 
+                                       instance->param);
+               }
+            }*/
+         }
+      }
+
+      xraudio_vad_destroy(instance->vad_obj);
+      instance->vad_obj = NULL;
+   }
+
+   instance->vad_enabled = false;
+   memset(&instance->vad_last_event, 0, sizeof(instance->vad_last_event));
 }

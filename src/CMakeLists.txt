@@ -56,6 +56,7 @@ target_sources(xr-voice-sdk PUBLIC
                xr-audio/xraudio_input.c
                xr-audio/xraudio_output.c
                xr-audio/xraudio_thread.c
+               xr-audio/xraudio_vad.cpp
                xr-audio/xraudio_utils.c
                xr-audio/xraudio_atomic.c)
 
@@ -116,6 +117,10 @@ if(CURTAIL_LIBRARY)
    target_compile_definitions(xr-voice-sdk PUBLIC VSDK_CURTAIL_ENABLED)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
 endif()
+
+target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/webrtc_audio_processing/)
+target_link_libraries(xr-voice-sdk webrtc_audio_processing)
+
 
 # CONFIG FILES
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_INSTALL_SYSCONFDIR} COMPONENT config )

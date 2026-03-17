@@ -156,16 +156,17 @@ typedef enum {
 /// @brief Audio In Callback Events
 /// @details The audio in callback event enumeration is used in audio_in_callback_t callbacks to indicate events while processing the incoming audio stream.
 typedef enum {
-   AUDIO_IN_CALLBACK_EVENT_OK                  = 0, ///< Event to indicate completion of asynchronous operation
-   AUDIO_IN_CALLBACK_EVENT_EOS                 = 1, ///< Event to indicate that the end of the stream has been reached
-   AUDIO_IN_CALLBACK_EVENT_EOS_TIMEOUT_INITIAL = 2, ///< Event to indicate that the end of the stream has been reached. No speech detected within timeout period
-   AUDIO_IN_CALLBACK_EVENT_EOS_TIMEOUT_END     = 3, ///< Event to indicate that the end of the stream has been reached. No EOS detected within timeout period
-   AUDIO_IN_CALLBACK_EVENT_FIRST_FRAME         = 4, ///< Event to indicate that the first frame has been recorded
-   AUDIO_IN_CALLBACK_EVENT_END_OF_BUFFER       = 5, ///< Event to indicate that the end of the record buffer was reached
-   AUDIO_IN_CALLBACK_EVENT_OVERFLOW            = 6, ///< Event to indicate that an overflow has occurred
-   AUDIO_IN_CALLBACK_EVENT_STREAM_TIME_MINIMUM = 7, ///< Event to indicate that the minimum audio threshold has been reached
-   AUDIO_IN_CALLBACK_EVENT_STREAM_KWD_INFO     = 8, ///< Event to indicate that the keyword information is available
-   AUDIO_IN_CALLBACK_EVENT_ERROR               = 9, ///< Event to indicate generic record error
+   AUDIO_IN_CALLBACK_EVENT_OK                    = 0, ///< Event to indicate completion of asynchronous operation
+   AUDIO_IN_CALLBACK_EVENT_EOS                   = 1, ///< Event to indicate that the end of the stream has been reached
+   AUDIO_IN_CALLBACK_EVENT_EOS_TIMEOUT_INITIAL   = 2, ///< Event to indicate that the end of the stream has been reached. No speech detected within timeout period
+   AUDIO_IN_CALLBACK_EVENT_EOS_TIMEOUT_END       = 3, ///< Event to indicate that the end of the stream has been reached. No EOS detected within timeout period
+   AUDIO_IN_CALLBACK_EVENT_FIRST_FRAME           = 4, ///< Event to indicate that the first frame has been recorded
+   AUDIO_IN_CALLBACK_EVENT_END_OF_BUFFER         = 5, ///< Event to indicate that the end of the record buffer was reached
+   AUDIO_IN_CALLBACK_EVENT_OVERFLOW              = 6, ///< Event to indicate that an overflow has occurred
+   AUDIO_IN_CALLBACK_EVENT_STREAM_TIME_MINIMUM   = 7, ///< Event to indicate that the minimum audio threshold has been reached
+   AUDIO_IN_CALLBACK_EVENT_STREAM_KWD_INFO       = 8, ///< Event to indicate that the keyword information is available
+   AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY = 9, ///< Event to indicate that voice activity has been detected
+   AUDIO_IN_CALLBACK_EVENT_ERROR                 = 10, ///< Event to indicate generic record error
 } audio_in_callback_event_t;
 
 /// @brief Keywork Callback Events
@@ -237,6 +238,11 @@ typedef struct {
 } xraudio_stream_keyword_info_t;
 
 typedef struct {
+   bool  voice_detected; // Voice activity detected (true) or silence (false)
+   float confidence;     // VAD confidence level (0.0-1.0)
+} xraudio_stream_vad_info_t;
+
+typedef struct {
    bool        enable;
    bool        use_curtail;
    uint32_t    file_qty_max;
@@ -251,6 +257,14 @@ typedef struct {
    uint32_t samples_lost;
    uint32_t decoder_failures;
    uint32_t samples_buffered_max;
+   // VAD Statistics
+   uint32_t vad_frames_processed;
+   uint32_t vad_frames_voice;
+   uint32_t vad_frames_silence;
+   uint32_t vad_state_transitions;
+   float    vad_average_energy;
+   float    vad_average_confidence;
+   uint64_t vad_processing_time_us;
 } xraudio_audio_stats_t;
 
 typedef struct {
@@ -405,6 +419,12 @@ xraudio_result_t xraudio_record_stop(xraudio_object_t object, xraudio_devices_in
 /// @brief Indicates the amount of audio data needed to event minimum audio threshold
 /// @details This function sets the amount of milliseconds of audio data will cause a minimum audio threshold event to occur.
 xraudio_result_t xraudio_stream_time_minimum(xraudio_object_t object, xraudio_devices_input_t source, uint16_t ms);
+/// @brief Configure Voice Activity Detection (VAD) for an input source
+/// @param[in] object Audio object
+/// @param[in] source Audio input source
+/// @param[in] vad_config Pointer to VAD configuration structure
+/// @return The result of the operation.
+xraudio_result_t xraudio_stream_vad_config(xraudio_object_t object, xraudio_devices_input_t source, xraudio_input_vad_config_t *vad_config);
 /// @brief Indicates information about the keyword present in the stream
 /// @details This function sets the keyword information.
 xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration);

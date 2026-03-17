@@ -709,6 +709,10 @@ void xrsr_http_handle_speech_event(xrsr_state_http_t *http, xrsr_speech_event_t 
         case XRSR_EVENT_STREAM_KWD_INFO: {
             break;
         }
+        case XRSR_EVENT_STREAM_VOICE_ACTIVITY: {
+            XLOGD_INFO("voice activity detected <%s> confidence <%.2f>", event->data.vad_info.voice_detected ? "YES" : "NO", event->data.vad_info.confidence);
+            break;
+        }
         default: {
             XLOGD_WARN("unhandled speech event <%s>", xrsr_event_str(event->event));
             break;

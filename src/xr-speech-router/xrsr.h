@@ -372,13 +372,21 @@ typedef struct {
 /// @brief XRSR audio stats structure
 /// @details The audio statistics data structure indicates the statistics for an audio stream.
 typedef struct {
-   bool     valid;                ///< True if audio stats are present
-   uint32_t packets_processed;    ///< Quantity of audio packets processed
-   uint32_t packets_lost;         ///< Quantity of audio packets lost during transmission
-   uint32_t samples_processed;    ///< Quantity of audio samples processed
-   uint32_t samples_lost;         ///< Quantity of audio samples lost during transmission
-   uint32_t decoder_failures;     ///< Number of audio decoder failures reported
-   uint32_t samples_buffered_max; ///< Maximum quantity of samples buffered
+   bool     valid;                  ///< True if audio stats are present
+   uint32_t packets_processed;      ///< Quantity of audio packets processed
+   uint32_t packets_lost;           ///< Quantity of audio packets lost during transmission
+   uint32_t samples_processed;      ///< Quantity of audio samples processed
+   uint32_t samples_lost;           ///< Quantity of audio samples lost during transmission
+   uint32_t decoder_failures;       ///< Number of audio decoder failures reported
+   uint32_t samples_buffered_max;   ///< Maximum quantity of samples buffered
+   // VAD Statistics
+   uint32_t vad_frames_processed;   ///< Quantity of VAD frames processed
+   uint32_t vad_frames_voice;       ///< Quantity of VAD frames classified as voice
+   uint32_t vad_frames_silence;     ///< Quantity of VAD frames classified as silence
+   uint32_t vad_state_transitions;  ///< Number of VAD state transitions
+   float    vad_average_energy;     ///< Average audio energy level
+   float    vad_average_confidence; ///< Average VAD confidence score
+   uint64_t vad_processing_time_us; ///< Total VAD processing time in microseconds
 } xrsr_audio_stats_t;
 
 /// @brief XRSR session stats structure

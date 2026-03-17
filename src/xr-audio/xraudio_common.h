@@ -62,6 +62,22 @@
 #define XRAUDIO_INPUT_OPUS_FRAME_SAMPLE_QTY        (320)
 #define XRAUDIO_INPUT_OPUS_BUFFER_SIZE              (95)
 
+// VAD (Voice Activity Detection) Constants
+#define XRAUDIO_VAD_DEFAULT_SENSITIVITY           (0.5)                             ///< Default VAD sensitivity threshold
+#define XRAUDIO_VAD_MIN_SENSITIVITY               (0.0)                             ///< Minimum VAD sensitivity threshold  
+#define XRAUDIO_VAD_MAX_SENSITIVITY               (1.0)                             ///< Maximum VAD sensitivity threshold
+#define XRAUDIO_VAD_DEFAULT_HYSTERESIS_MS         (100)                             ///< Default VAD hysteresis in milliseconds
+#define XRAUDIO_VAD_MIN_HYSTERESIS_MS             (0)                               ///< Minimum VAD hysteresis in milliseconds
+#define XRAUDIO_VAD_MAX_HYSTERESIS_MS             (1000)                            ///< Maximum VAD hysteresis in milliseconds
+#define XRAUDIO_VAD_DEFAULT_TIMEOUT_MS            (5000)                            ///< Default VAD timeout in milliseconds
+#define XRAUDIO_VAD_MIN_TIMEOUT_MS                (100)                             ///< Minimum VAD timeout in milliseconds
+#define XRAUDIO_VAD_MAX_TIMEOUT_MS                (30000)                           ///< Maximum VAD timeout in milliseconds
+
+// VAD frame-based constants (calculated from millisecond values assuming 20ms frames)
+#define XRAUDIO_VAD_DEFAULT_HYSTERESIS            (XRAUDIO_VAD_DEFAULT_HYSTERESIS_MS / XRAUDIO_INPUT_FRAME_PERIOD) ///< Default VAD hysteresis in frames
+#define XRAUDIO_VAD_MIN_HYSTERESIS                (XRAUDIO_VAD_MIN_HYSTERESIS_MS / XRAUDIO_INPUT_FRAME_PERIOD)     ///< Minimum VAD hysteresis in frames
+#define XRAUDIO_VAD_MAX_HYSTERESIS                (XRAUDIO_VAD_MAX_HYSTERESIS_MS / XRAUDIO_INPUT_FRAME_PERIOD)     ///< Maximum VAD hysteresis in frames
+
 /// @}
 
 /// @addtogroup XRAUDIO_ENUMS
@@ -152,6 +168,15 @@ typedef enum {
    XRAUDIO_STREAM_CPU_UTIL_INVALID     = 2, ///< Invalid cpu utilization type
 } xraudio_stream_cpu_util_mode_t;
 
+/// @brief VAD processing mode Types
+/// @details The VAD processing mode enumeration indicates all the VAD processing modes supported by xraudio.
+typedef enum {
+   XRAUDIO_VAD_MODE_LOW_POWER      = 0, ///< VAD processing optimized for low power consumption
+   XRAUDIO_VAD_MODE_BALANCED       = 1, ///< VAD processing with balanced accuracy and power consumption
+   XRAUDIO_VAD_MODE_HIGH_ACCURACY  = 2, ///< VAD processing optimized for high accuracy
+   XRAUDIO_VAD_MODE_INVALID        = 3, ///< Invalid VAD processing mode
+} xraudio_vad_mode_t;
+
 /// @brief xraudio interval type
 /// @details The interval type used with xraudio for time synchronization.
 typedef struct timeval  xraudio_interval_t;
@@ -190,6 +215,15 @@ typedef struct {
    } value;
 } xraudio_encoding_t;
 
+/// @brief xraudio VAD configuration structure
+/// @details Voice Activity Detection configuration parameters.
+typedef struct {
+   float               sensitivity;   ///< VAD sensitivity threshold (0.0-1.0)
+   uint16_t            hysteresis_ms; ///< VAD state change hysteresis in milliseconds
+   uint8_t             mode;          ///< VAD processing mode (0=low-power, 1=balanced, 2=high-accuracy)
+   uint16_t            timeout_ms;    ///< VAD processing timeout in milliseconds
+} xraudio_input_vad_config_t;
+
 /// @brief xraudio input format structure
 /// @details The input format for incoming audio data.
 typedef struct {
@@ -209,6 +243,25 @@ typedef struct {
    uint8_t             sample_size; ///< sample size (in bytes)
    uint8_t             channel_qty; ///< channel quantity (1=mono, 2=stereo, etc)
 } xraudio_output_format_t;
+
+/// @brief VAD state enumeration
+/// @details Voice activity detection state values
+typedef enum {
+   XRAUDIO_VAD_STATE_SILENCE = 0,   ///< No voice activity detected (silence)
+   XRAUDIO_VAD_STATE_VOICE   = 1,   ///< Voice activity detected
+   XRAUDIO_VAD_STATE_UNKNOWN = 2    ///< VAD state unknown or uninitialized
+} xraudio_vad_state_t;
+
+/// @brief VAD event data structure
+/// @details Voice activity detection event data passed through callback parameters
+typedef struct {
+   xraudio_vad_state_t state;           ///< Current VAD state (voice/silence)
+   float               confidence;      ///< VAD confidence level (0.0-1.0)
+   float               energy_level;    ///< Audio energy level (dB)
+   uint64_t            timestamp_us;    ///< Timestamp in microseconds since stream start
+   float               overall_score;   ///< Overall VAD score for the complete stream (0.0-1.0)
+   bool                is_final;        ///< True if this is the final VAD event for the stream (includes overall_score)
+} xraudio_vad_event_data_t;
 
 /// @brief Power Mode Types
 /// @details The power mode enumeration indicates the power modes which may be supported.
@@ -250,6 +303,8 @@ const char *     xraudio_container_str(xraudio_container_t type);
 const char *     xraudio_encoding_str(xraudio_encoding_type_t type);
 /// @brief Convert the xraudio_power_mode_t type to a string
 const char *     xraudio_power_mode_str(xraudio_power_mode_t type);
+/// @brief Convert the xraudio_power_mode_t type to a string
+const char *     xraudio_vad_state_str(xraudio_vad_state_t state);
 
 #ifdef __cplusplus
 }

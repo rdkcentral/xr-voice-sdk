@@ -66,11 +66,12 @@ typedef enum {
 } xrsr_xraudio_state_t;
 
 typedef enum {
-   XRSR_EVENT_EOS                 = 0,
-   XRSR_EVENT_STREAM_TIME_MINIMUM = 1,
-   XRSR_EVENT_STREAM_KWD_INFO     = 2,
-   XRSR_EVENT_STREAM_ERROR        = 3,
-   XRSR_EVENT_INVALID             = 4
+   XRSR_EVENT_EOS                   = 0,
+   XRSR_EVENT_STREAM_TIME_MINIMUM   = 1,
+   XRSR_EVENT_STREAM_KWD_INFO       = 2,
+   XRSR_EVENT_STREAM_VOICE_ACTIVITY = 3,
+   XRSR_EVENT_STREAM_ERROR          = 4,
+   XRSR_EVENT_INVALID               = 5
 } xrsr_event_t;
 
 typedef enum {
@@ -255,6 +256,10 @@ typedef struct {
    xrsr_event_t event;
    union {
       uint32_t  byte_qty;
+      struct {
+         bool  voice_detected;
+         float confidence;
+      } vad_info;
    } data;
 } xrsr_speech_event_t;
 

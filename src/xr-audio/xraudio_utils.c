@@ -495,16 +495,17 @@ const char *audio_out_callback_event_str(audio_out_callback_event_t type) {
 
 const char *audio_in_callback_event_str(audio_in_callback_event_t type) {
    switch(type) {
-      case AUDIO_IN_CALLBACK_EVENT_OK:                  return("OK");
-      case AUDIO_IN_CALLBACK_EVENT_EOS:                 return("EOS");
-      case AUDIO_IN_CALLBACK_EVENT_EOS_TIMEOUT_INITIAL: return("EOS TIMEOUT INITIAL");
-      case AUDIO_IN_CALLBACK_EVENT_EOS_TIMEOUT_END:     return("EOS TIMEOUT END");
-      case AUDIO_IN_CALLBACK_EVENT_FIRST_FRAME:         return("FIRST FRAME");
-      case AUDIO_IN_CALLBACK_EVENT_END_OF_BUFFER:       return("END OF BUFFER");
-      case AUDIO_IN_CALLBACK_EVENT_OVERFLOW:            return("OVERFLOW");
-      case AUDIO_IN_CALLBACK_EVENT_STREAM_TIME_MINIMUM: return("STREAM TIME MINIMUM");
-      case AUDIO_IN_CALLBACK_EVENT_STREAM_KWD_INFO:     return("STREAM KWD_INFO");
-      case AUDIO_IN_CALLBACK_EVENT_ERROR:               return("ERROR");
+      case AUDIO_IN_CALLBACK_EVENT_OK:                    return("OK");
+      case AUDIO_IN_CALLBACK_EVENT_EOS:                   return("EOS");
+      case AUDIO_IN_CALLBACK_EVENT_EOS_TIMEOUT_INITIAL:   return("EOS TIMEOUT INITIAL");
+      case AUDIO_IN_CALLBACK_EVENT_EOS_TIMEOUT_END:       return("EOS TIMEOUT END");
+      case AUDIO_IN_CALLBACK_EVENT_FIRST_FRAME:           return("FIRST FRAME");
+      case AUDIO_IN_CALLBACK_EVENT_END_OF_BUFFER:         return("END OF BUFFER");
+      case AUDIO_IN_CALLBACK_EVENT_OVERFLOW:              return("OVERFLOW");
+      case AUDIO_IN_CALLBACK_EVENT_STREAM_TIME_MINIMUM:   return("STREAM TIME MINIMUM");
+      case AUDIO_IN_CALLBACK_EVENT_STREAM_KWD_INFO:       return("STREAM KWD INFO");
+      case AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY: return("STREAM VOICE ACTIVITY");
+      case AUDIO_IN_CALLBACK_EVENT_ERROR:                 return("ERROR");
    }
    return(xraudio_invalid_return(type));
 }
@@ -650,6 +651,15 @@ const char *xraudio_power_mode_str(xraudio_power_mode_t type) {
       case XRAUDIO_POWER_MODE_INVALID: return("INVALID");
    }
    return(xraudio_invalid_return(type));
+}
+
+const char *xraudio_vad_state_str(xraudio_vad_state_t state) {
+   switch(state) {
+      case XRAUDIO_VAD_STATE_SILENCE: return("SILENCE");
+      case XRAUDIO_VAD_STATE_VOICE:   return("VOICE");
+      case XRAUDIO_VAD_STATE_UNKNOWN: return("UNKNOWN");
+   }
+   return(xraudio_invalid_return(state));
 }
 
 const char *xraudio_ppr_event_str(xraudio_ppr_event_t type) {

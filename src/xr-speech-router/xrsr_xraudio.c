@@ -656,6 +656,21 @@ bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_
       XLOGD_WARN("unable to set stream time min <%s>", xraudio_result_str(result));
    }
 
+   xraudio_input_vad_config_t vad_config;
+   vad_config.sensitivity   = 0.5;
+   vad_config.hysteresis_ms = 50;
+   vad_config.mode          = 1;
+   vad_config.timeout_ms    = 10000;
+
+   bool vad_enabled = true;
+   /* Configure VAD if enabled */
+   if(vad_enabled) {
+      result = xraudio_stream_vad_config(obj->xraudio_obj, source, &vad_config);
+      if(result != XRAUDIO_RESULT_OK) {
+         XLOGD_WARN("unable to configure VAD <%s>", xraudio_result_str(result));
+      }
+   }
+
    if(keyword_duration != 0) { // Keyword is present
       result = xraudio_stream_keyword_info(obj->xraudio_obj, source, keyword_begin, keyword_duration);
       if(result != XRAUDIO_RESULT_OK) {
@@ -744,12 +759,20 @@ void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback
          msg.event.event = XRSR_EVENT_EOS;
          if(event_param) {
             xraudio_audio_stats_t *xraudio_audio_stats = (xraudio_audio_stats_t *)event_param;
-            stream->audio_stats.packets_processed    = xraudio_audio_stats->packets_processed;
-            stream->audio_stats.packets_lost         = xraudio_audio_stats->packets_lost;
-            stream->audio_stats.samples_processed    = xraudio_audio_stats->samples_processed;
-            stream->audio_stats.samples_lost         = xraudio_audio_stats->samples_lost;
-            stream->audio_stats.decoder_failures     = xraudio_audio_stats->decoder_failures;
-            stream->audio_stats.samples_buffered_max = xraudio_audio_stats->samples_buffered_max;
+            stream->audio_stats.packets_processed      = xraudio_audio_stats->packets_processed;
+            stream->audio_stats.packets_lost           = xraudio_audio_stats->packets_lost;
+            stream->audio_stats.samples_processed      = xraudio_audio_stats->samples_processed;
+            stream->audio_stats.samples_lost           = xraudio_audio_stats->samples_lost;
+            stream->audio_stats.decoder_failures       = xraudio_audio_stats->decoder_failures;
+            stream->audio_stats.samples_buffered_max   = xraudio_audio_stats->samples_buffered_max;
+            // Copy VAD statistics
+            stream->audio_stats.vad_frames_processed   = xraudio_audio_stats->vad_frames_processed;
+            stream->audio_stats.vad_frames_voice       = xraudio_audio_stats->vad_frames_voice;
+            stream->audio_stats.vad_frames_silence     = xraudio_audio_stats->vad_frames_silence;
+            stream->audio_stats.vad_state_transitions  = xraudio_audio_stats->vad_state_transitions;
+            stream->audio_stats.vad_average_energy     = xraudio_audio_stats->vad_average_energy;
+            stream->audio_stats.vad_average_confidence = xraudio_audio_stats->vad_average_confidence;
+            stream->audio_stats.vad_processing_time_us = xraudio_audio_stats->vad_processing_time_us;
             stream->audio_stats.valid                = true;
 
             XLOGD_DEBUG("xraudio stats - packets processed <%u> lost <%u> samples processed <%u> lost <%u> decoder failures <%u>", stream->audio_stats.packets_processed, stream->audio_stats.packets_lost, stream->audio_stats.samples_processed, stream->audio_stats.samples_lost, stream->audio_stats.decoder_failures);
@@ -771,6 +794,18 @@ void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback
 
          xraudio_stream_keyword_info_t *kwd_info = (xraudio_stream_keyword_info_t *)event_param;
          msg.event.data.byte_qty = kwd_info->byte_qty;
+         break;
+      }
+      case AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY: {
+         msg.event.event = XRSR_EVENT_STREAM_VOICE_ACTIVITY;
+         if(event_param == NULL) {
+            XLOGD_ERROR("xraudio did NOT provide param with voice activity event");
+            return;
+         }
+
+         xraudio_stream_vad_info_t *vad_info = (xraudio_stream_vad_info_t *)event_param;
+         msg.event.data.vad_info.voice_detected = vad_info->voice_detected;
+         msg.event.data.vad_info.confidence     = vad_info->confidence;
          break;
       }
       case AUDIO_IN_CALLBACK_EVENT_ERROR: {

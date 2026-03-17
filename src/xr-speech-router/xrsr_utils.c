@@ -243,11 +243,12 @@ const char *xrsr_address_family_str(xrsr_address_family_t family) {
 
 const char *xrsr_event_str(xrsr_event_t event) {
    switch(event) {
-      case XRSR_EVENT_EOS:                 return("EOS");
-      case XRSR_EVENT_STREAM_TIME_MINIMUM: return("STREAM_TIME_MINIMUM");
-      case XRSR_EVENT_STREAM_KWD_INFO:     return("STREAM_KWD_INFO");
-      case XRSR_EVENT_STREAM_ERROR:        return("STREAM_ERROR");
-      case XRSR_EVENT_INVALID:             return("INVALID");
+      case XRSR_EVENT_EOS:                   return("EOS");
+      case XRSR_EVENT_STREAM_TIME_MINIMUM:   return("STREAM_TIME_MINIMUM");
+      case XRSR_EVENT_STREAM_KWD_INFO:       return("STREAM_KWD_INFO");
+      case XRSR_EVENT_STREAM_VOICE_ACTIVITY: return("STREAM_VOICE_ACTIVITY");
+      case XRSR_EVENT_STREAM_ERROR:          return("STREAM_ERROR");
+      case XRSR_EVENT_INVALID:               return("INVALID");
    }
    return(xrsr_invalid_return(event));
 }
