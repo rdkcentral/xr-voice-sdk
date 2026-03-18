@@ -46,6 +46,8 @@ typedef struct {
    float                          energy_sum;             ///< Sum of energy levels for averaging
    float                          confidence_sum;         ///< Sum of confidence levels for averaging
    uint64_t                       processing_time_sum_us; ///< Sum of processing times
+   xraudio_sample_t               sample_buffer[416];     ///< Buffer for caching samples (supports up to 26ms at 16kHz)
+   uint32_t                       buffer_samples;         ///< Number of samples currently in buffer
 } xraudio_vad_obj_t;
 
 // Internal helper functions
@@ -102,8 +104,20 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_vad_config_t *config) {
       
       // Enable and configure voice detection
       obj->audio_processing->voice_detection()->Enable(true);
-      obj->audio_processing->voice_detection()->set_likelihood(webrtc::VoiceDetection::kModerateLikelihood);
-      obj->audio_processing->voice_detection()->set_frame_size_ms(20);
+      obj->audio_processing->voice_detection()->set_likelihood(webrtc::VoiceDetection::kModerateLikelihood);  // kVeryLowLikelihood, kLowLikelihood, kModerateLikelihood, kHighLikelihood  
+      obj->audio_processing->voice_detection()->set_frame_size_ms(10);  // Match our processing chunk size
+      
+      // Enable and configure noise suppression
+      obj->audio_processing->noise_suppression()->Enable(true);
+      obj->audio_processing->noise_suppression()->set_level(webrtc::NoiseSuppression::kModerate);  // kLow, kModerate, kHigh, kVeryHigh
+      
+      // Enable high pass filter
+      obj->audio_processing->high_pass_filter()->Enable(true);
+      
+      // Enable level estimator 
+      obj->audio_processing->level_estimator()->Enable(true);
+
+
    } catch (const std::exception& e) {
       XLOGD_ERROR("failed to create WebRTC AudioProcessing instance: %s", e.what());
       free(obj);
@@ -114,6 +128,10 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_vad_config_t *config) {
    obj->current_state         = XRAUDIO_VAD_STATE_UNKNOWN;
    obj->previous_state        = XRAUDIO_VAD_STATE_UNKNOWN;
    obj->session_start_time_us = xraudio_vad_timestamp_get();
+   
+   // Initialize sample buffer
+   obj->buffer_samples = 0;
+   memset(obj->sample_buffer, 0, sizeof(obj->sample_buffer));
    
    // Calculate hysteresis threshold in frames (assuming 20ms frames)
    uint32_t frame_period_ms = 20;
@@ -141,32 +159,14 @@ void xraudio_vad_destroy(xraudio_vad_object_t object) {
    free(obj);
 }
 
-xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xraudio_sample_t *audio_frame, uint32_t frame_size, xraudio_vad_event_data_t *vad_data) {
-   if (object == NULL || audio_frame == NULL || vad_data == NULL) {
-      return XRAUDIO_RESULT_ERROR_PARAMS;
-   }
-   
-   xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
-   
-   // Validate frame size for WebRTC VAD compatibility
-   // WebRTC VAD expects frames of 10ms, 20ms, or 30ms duration
-   uint32_t expected_10ms = obj->config.sample_rate / 100;       // 10ms frame size
-   uint32_t expected_20ms = obj->config.sample_rate / 50;        // 20ms frame size  
-   uint32_t expected_30ms = (obj->config.sample_rate * 3) / 100; // 30ms frame size
-   
-   if (frame_size != expected_10ms && frame_size != expected_20ms && frame_size != expected_30ms) {
-      XLOGD_ERROR("Invalid frame size %u for sample rate %u (expected %u, %u, or %u)", 
-                  frame_size, obj->config.sample_rate, expected_10ms, expected_20ms, expected_30ms);
-      return XRAUDIO_RESULT_ERROR_PARAMS;
-   }
-   
+static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, const xraudio_sample_t *audio_frame, uint32_t frame_size, xraudio_vad_event_data_t *vad_data) {
    uint64_t start_time = xraudio_vad_timestamp_get();
    
    // Create AudioFrame for processing
    webrtc::AudioFrame audio_frame_webrtc;
    audio_frame_webrtc.samples_per_channel_ = frame_size;
-   audio_frame_webrtc.sample_rate_hz_ = obj->config.sample_rate;
-   audio_frame_webrtc.num_channels_ = 1;
+   audio_frame_webrtc.sample_rate_hz_      = obj->config.sample_rate;
+   audio_frame_webrtc.num_channels_        = 1;
    
    // Copy audio data (ensure we don't exceed the buffer size)
    size_t copy_size = (frame_size < webrtc::AudioFrame::kMaxDataSizeSamples) ? frame_size : webrtc::AudioFrame::kMaxDataSizeSamples;
@@ -180,14 +180,23 @@ xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xr
    }
    
    // Get voice detection result from WebRTC VoiceDetection
-   bool has_voice = obj->audio_processing->voice_detection()->stream_has_voice();
-   float voice_probability = has_voice ? 0.9f : 0.1f;  // Convert boolean to probability estimate
+   bool has_voice_webrtc = obj->audio_processing->voice_detection()->stream_has_voice();
    
    // Calculate audio energy level
    float energy_level = xraudio_vad_calculate_energy(audio_frame, frame_size);
+   int   rms_level    = obj->audio_processing->level_estimator()->RMS();
+   
+   // Apply minimum energy threshold of -50 dB
+   const float min_energy_threshold = -50.0f;
+   bool has_voice = has_voice_webrtc && (energy_level > min_energy_threshold);
+   
+   float voice_probability = has_voice ? 0.9f : 0.1f;  // Convert boolean to probability estimate
    
    // Apply hysteresis to determine VAD state
    xraudio_vad_state_t new_state = xraudio_vad_apply_hysteresis(obj, voice_probability);
+   
+   // Print debug information
+   XLOGD_INFO("VAD: has_voice <%s> energy_level <%.2f dB> rms_level <-%d> new_state <%s>",  has_voice ? "YES" : "NO", energy_level, rms_level, xraudio_vad_state_str(new_state));
    
    // Check for state transition
    bool state_changed = (new_state != obj->current_state);
@@ -227,6 +236,50 @@ xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xr
    return XRAUDIO_RESULT_OK;
 }
 
+xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xraudio_sample_t *audio_frame, uint32_t frame_size, xraudio_vad_event_data_t *vad_data) {
+   if (object == NULL || audio_frame == NULL || vad_data == NULL) {
+      return XRAUDIO_RESULT_ERROR_PARAMS;
+   }
+   
+   xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
+   
+   // Calculate 10ms frame size for current sample rate
+   uint32_t chunk_size = obj->config.sample_rate / 100;  // 10ms frame size
+   
+   // Validate that we have room in sample buffer
+   if (obj->buffer_samples + frame_size > sizeof(obj->sample_buffer) / sizeof(obj->sample_buffer[0])) {
+      XLOGD_ERROR("Input frame too large: %u samples (buffer has %u, can accept %zu more)", 
+                  frame_size, obj->buffer_samples, 
+                  (sizeof(obj->sample_buffer) / sizeof(obj->sample_buffer[0])) - obj->buffer_samples);
+      return XRAUDIO_RESULT_ERROR_PARAMS;
+   }
+   
+   // Copy incoming samples to buffer
+   memcpy(&obj->sample_buffer[obj->buffer_samples], audio_frame, frame_size * sizeof(xraudio_sample_t));
+   obj->buffer_samples += frame_size;
+   
+   xraudio_result_t result = XRAUDIO_RESULT_OK;
+   
+   // Process all complete 10ms chunks in buffer
+   while (obj->buffer_samples >= chunk_size && result == XRAUDIO_RESULT_OK) {
+      // Process 10ms chunk
+      result = xraudio_vad_process_10ms_chunk(obj, obj->sample_buffer, chunk_size, vad_data);
+      
+      if (result != XRAUDIO_RESULT_OK) {
+         break;
+      }
+      
+      // Move remaining samples to beginning of buffer
+      uint32_t remaining_samples = obj->buffer_samples - chunk_size;
+      if (remaining_samples > 0) {
+         memmove(obj->sample_buffer, &obj->sample_buffer[chunk_size], remaining_samples * sizeof(xraudio_sample_t));
+      }
+      obj->buffer_samples = remaining_samples;
+   }
+   
+   return result;
+}
+
 xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xraudio_vad_config_t *config) {
    if (object == NULL || config == NULL) {
       return XRAUDIO_RESULT_ERROR_PARAMS;
@@ -264,6 +317,10 @@ xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object) {
    obj->previous_state = XRAUDIO_VAD_STATE_UNKNOWN;
    obj->session_start_time_us = xraudio_vad_timestamp_get();
    obj->hysteresis_counter = 0;
+   
+   // Reset sample buffer
+   obj->buffer_samples = 0;
+   memset(obj->sample_buffer, 0, sizeof(obj->sample_buffer));
    
    // Reset statistics
    memset(&obj->stats, 0, sizeof(xraudio_vad_stats_t));

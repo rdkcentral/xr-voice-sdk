@@ -700,8 +700,8 @@ xraudio_result_t xraudio_input_vad_config(xraudio_input_object_t object, xraudio
          XRAUDIO_RECORD_MUTEX_UNLOCK();
          return(XRAUDIO_RESULT_ERROR_PARAMS);
       }
-      if(vad_config->hysteresis_ms < XRAUDIO_VAD_MIN_HYSTERESIS || vad_config->hysteresis_ms > XRAUDIO_VAD_MAX_HYSTERESIS) {
-         XLOGD_ERROR("Invalid VAD hysteresis: %u (range: %u - %u)", vad_config->hysteresis_ms, XRAUDIO_VAD_MIN_HYSTERESIS, XRAUDIO_VAD_MAX_HYSTERESIS);
+      if(vad_config->hysteresis_ms < XRAUDIO_VAD_MIN_HYSTERESIS_MS || vad_config->hysteresis_ms > XRAUDIO_VAD_MAX_HYSTERESIS_MS) {
+         XLOGD_ERROR("Invalid VAD hysteresis: %u (range: %u - %u)", vad_config->hysteresis_ms, XRAUDIO_VAD_MIN_HYSTERESIS_MS, XRAUDIO_VAD_MAX_HYSTERESIS_MS);
          XRAUDIO_RECORD_MUTEX_UNLOCK();
          return(XRAUDIO_RESULT_ERROR_PARAMS);
       }

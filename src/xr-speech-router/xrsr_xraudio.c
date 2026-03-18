@@ -658,9 +658,9 @@ bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_
 
    xraudio_input_vad_config_t vad_config;
    vad_config.sensitivity   = 0.5;
-   vad_config.hysteresis_ms = 50;
+   vad_config.hysteresis_ms = 100;
    vad_config.mode          = 1;
-   vad_config.timeout_ms    = 10000;
+   vad_config.timeout_ms    = 5000;
 
    bool vad_enabled = true;
    /* Configure VAD if enabled */

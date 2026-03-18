@@ -73,11 +73,6 @@
 #define XRAUDIO_VAD_MIN_TIMEOUT_MS                (100)                             ///< Minimum VAD timeout in milliseconds
 #define XRAUDIO_VAD_MAX_TIMEOUT_MS                (30000)                           ///< Maximum VAD timeout in milliseconds
 
-// VAD frame-based constants (calculated from millisecond values assuming 20ms frames)
-#define XRAUDIO_VAD_DEFAULT_HYSTERESIS            (XRAUDIO_VAD_DEFAULT_HYSTERESIS_MS / XRAUDIO_INPUT_FRAME_PERIOD) ///< Default VAD hysteresis in frames
-#define XRAUDIO_VAD_MIN_HYSTERESIS                (XRAUDIO_VAD_MIN_HYSTERESIS_MS / XRAUDIO_INPUT_FRAME_PERIOD)     ///< Minimum VAD hysteresis in frames
-#define XRAUDIO_VAD_MAX_HYSTERESIS                (XRAUDIO_VAD_MAX_HYSTERESIS_MS / XRAUDIO_INPUT_FRAME_PERIOD)     ///< Maximum VAD hysteresis in frames
-
 /// @}
 
 /// @addtogroup XRAUDIO_ENUMS

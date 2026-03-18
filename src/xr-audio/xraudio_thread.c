@@ -5144,16 +5144,14 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
          (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_TIME_MINIMUM, NULL, instance->param);
    }
 
-   XLOGD_WARN("DAVE enabled <%s> <%s>", instance->vad_enabled ? "YES" : "NO", instance->vad_obj != NULL ? "with obj" : "no obj");
    // VAD Processing - integrate after format conversion
    if(instance->vad_enabled && instance->vad_obj != NULL) {
       // Process VAD on the PCM output
       uint8_t *inbuf = &session->external_frame_buffer[session->external_frame_group_index * session->external_frame_size_out];
 
-      XLOGD_WARN("DAVE size out <%d>", session->external_frame_size_out);
-
-      uint32_t frame_size = 160; // Default frame size for 16kHz 16-bit mono is 160 samples (10 ms)
-      // Calculate single-channel frame size (mic_frame_samples includes all channels)
+      // Calculate the frame size in samples for the VAD processing
+      uint32_t frame_size = session->external_frame_size_out / sizeof(xraudio_sample_t);
+      
       xraudio_vad_event_data_t vad_event_data;
       xraudio_result_t vad_result = xraudio_vad_process_frame(instance->vad_obj, (const xraudio_sample_t *)inbuf, frame_size, &vad_event_data);
       
