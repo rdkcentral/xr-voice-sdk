@@ -95,19 +95,20 @@ typedef enum {
 /// @brief XRSR session end reason types
 /// @details The session end reason enumeration indicates all the reasons why a voice session may end.
 typedef enum {
-   XRSR_SESSION_END_REASON_EOS                     = 0,  ///< End of speech detected in the source audio
-   XRSR_SESSION_END_REASON_EOT                     = 1,  ///< End of text-only session
-   XRSR_SESSION_END_REASON_DISCONNECT_REMOTE       = 2,  ///< Server ended the session
-   XRSR_SESSION_END_REASON_TERMINATE               = 3,  ///< Session was terminated before completion
-   XRSR_SESSION_END_REASON_ERROR_INTERNAL          = 4,  ///< Session ended due to an internal error
-   XRSR_SESSION_END_REASON_ERROR_WS_SEND           = 5,  ///< Session ended due to failure to send websocket data
-   XRSR_SESSION_END_REASON_ERROR_AUDIO_BEGIN       = 6,  ///< Session ended since no audio was received from the source
-   XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION    = 7,  ///< Session ended due to an insufficient amount of audio samples received
-   XRSR_SESSION_END_REASON_ERROR_CONNECT_FAILURE   = 8,  ///< Session ended due to failure to connect to the consumer endpoint
-   XRSR_SESSION_END_REASON_ERROR_CONNECT_TIMEOUT   = 9,  ///< Session ended due to connection timeout to the consumer endpoint
-   XRSR_SESSION_END_REASON_ERROR_SESSION_TIMEOUT   = 10, ///< Session ended due to a session timeout expiration
-   XRSR_SESSION_END_REASON_ERROR_DISCONNECT_REMOTE = 11, ///< Session ended due to an unexpected server disconnect
-   XRSR_SESSION_END_REASON_INVALID                 = 12, ///< An invalid session end reason
+   XRSR_SESSION_END_REASON_EOS                          = 0,  ///< End of speech detected in the source audio
+   XRSR_SESSION_END_REASON_EOT                          = 1,  ///< End of text-only session
+   XRSR_SESSION_END_REASON_DISCONNECT_REMOTE            = 2,  ///< Server ended the session
+   XRSR_SESSION_END_REASON_TERMINATE                    = 3,  ///< Session was terminated before completion
+   XRSR_SESSION_END_REASON_ERROR_INTERNAL               = 4,  ///< Session ended due to an internal error
+   XRSR_SESSION_END_REASON_ERROR_WS_SEND                = 5,  ///< Session ended due to failure to send websocket data
+   XRSR_SESSION_END_REASON_ERROR_AUDIO_BEGIN            = 6,  ///< Session ended since no audio was received from the source
+   XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION         = 7,  ///< Session ended due to an insufficient amount of audio samples received
+   XRSR_SESSION_END_REASON_ERROR_CONNECT_FAILURE        = 8,  ///< Session ended due to failure to connect to the consumer endpoint
+   XRSR_SESSION_END_REASON_ERROR_CONNECT_TIMEOUT        = 9,  ///< Session ended due to connection timeout to the consumer endpoint
+   XRSR_SESSION_END_REASON_ERROR_SESSION_TIMEOUT        = 10, ///< Session ended due to a session timeout expiration
+   XRSR_SESSION_END_REASON_ERROR_DISCONNECT_REMOTE      = 11, ///< Session ended due to an unexpected server disconnect
+   XRSR_SESSION_END_REASON_ERROR_VOICE_ACTIVITY_TIMEOUT = 12, ///< Session ended due to a voice activity timeout
+   XRSR_SESSION_END_REASON_INVALID                      = 13, ///< An invalid session end reason
 } xrsr_session_end_reason_t;
 
 /// @brief XRSR internal return code types
@@ -188,6 +189,15 @@ typedef enum {
    XRSR_STREAM_UNTIL_END_OF_KEYWORD = 2, ///< Stream until end of keyword or an error occurs
    XRSR_STREAM_UNTIL_INVALID        = 3, ///< Invalid stream until type
 } xrsr_stream_until_t;
+
+/// @brief XRSR stream until types
+/// @details The stream until enumeration indicates the condition that ends the stream.
+typedef enum {
+   XRSR_STREAM_VOICE_ACTIVITY_MODE_DISABLED  = 0, ///< Voice activity detection is disabled.
+   XRSR_STREAM_VOICE_ACTIVITY_MODE_ENABLED   = 1, ///< Voice activity detection is enabled, but not enforced.
+   XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED  = 2, ///< Voice activity detection is enabled and enforced.
+   XRSR_STREAM_VOICE_ACTIVITY_MODE_INVALID   = 3, ///< Invalid voice activity mode
+} xrsr_stream_voice_activity_mode_t;
 
 /// @brief XRSR power mode
 /// @details The power mode enumeration indicates the power modes which may be supported.
@@ -571,14 +581,16 @@ typedef struct {
 /// @brief XRSR route structure
 /// @details The route data structure provides detailed information about a route.
 typedef struct {
-   const char *        url;                             ///< URL for the server which will handle requests
-   xrsr_handlers_t     handlers;                        ///< Callback function handlers
-   uint32_t            formats;                         ///< Bitmap of the audio formats supported by the destination
-   uint16_t            stream_time_min;                 ///< Minimum duration of audio required before establishing a session with the server.  (in milliseconds)
-   xrsr_stream_from_t  stream_from;                     ///< Point from which to begin streaming
-   int32_t             stream_offset;                   ///< Offset in samples from the stream from point
-   xrsr_stream_until_t stream_until;                    ///< Continue streaming until this condition is encountered or an errror occurs
-   xrsr_dst_params_t * params[XRSR_POWER_MODE_INVALID]; ///< Optional parameters for the route
+   const char *                      url;                             ///< URL for the server which will handle requests
+   xrsr_handlers_t                   handlers;                        ///< Callback function handlers
+   uint32_t                          formats;                         ///< Bitmap of the audio formats supported by the destination
+   uint16_t                          stream_time_min;                 ///< Minimum duration of audio required before establishing a session with the server.  (in milliseconds)
+   xrsr_stream_voice_activity_mode_t stream_vad_mode;                 ///< Voice activity detection mode for the stream
+   uint16_t                          stream_vad_timeout;              ///< Period of time in which to detect audio activity before establishing a session with the server.  (in milliseconds)
+   xrsr_stream_from_t                stream_from;                     ///< Point from which to begin streaming
+   int32_t                           stream_offset;                   ///< Offset in samples from the stream from point
+   xrsr_stream_until_t               stream_until;                    ///< Continue streaming until this condition is encountered or an errror occurs
+   xrsr_dst_params_t *               params[XRSR_POWER_MODE_INVALID]; ///< Optional parameters for the route
 } xrsr_dst_t;
 
 /// @brief XRSR route structure
@@ -809,6 +821,12 @@ const char *xrsr_recv_event_str(xrsr_recv_event_t type);
 /// @param[in] container Container type
 /// @return The function returns a read-only string representation of the audio container type.
 const char *xrsr_audio_container_str(xrsr_audio_container_t container);
+
+/// @brief Convert enum to a string
+/// @details Returns a NULL-terminated string representation of the voice activity mode type.
+/// @param[in] mode Voice activity mode type
+/// @return The function returns a read-only string representation of the voice activity mode type.
+const char *xrsr_stream_voice_activity_mode_str(xrsr_stream_voice_activity_mode_t mode);
 
 /// @}
 
