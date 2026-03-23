@@ -459,7 +459,7 @@ bool xrsr_ws_connect(xrsr_state_ws_t *ws, xrsr_url_parts_t *url_parts, xrsr_src_
       xrsr_ws_event(ws, SM_EVENT_SESSION_BEGIN, false);
       return(true);
    }
-   xrsr_ws_event(ws, SM_EVENT_SESSION_BEGIN_STM, false);
+   xrsr_ws_event(ws, SM_EVENT_SESSION_BEGIN_STREAM_CHK, false);
    return(true);
 }
 
@@ -791,11 +791,21 @@ void xrsr_ws_handle_speech_event(xrsr_state_ws_t *ws, xrsr_speech_event_t *event
       }
       case XRSR_EVENT_STREAM_TIME_MINIMUM: {
          ws->stream_time_min_rxd = true;
-         xrsr_ws_event(ws, SM_EVENT_STM, false);
+         if(ws->stream_vad_detect_rxd) {
+            xrsr_ws_event(ws, SM_EVENT_STREAM_VALID, false);
+         }
          break;
       }
       case XRSR_EVENT_STREAM_VOICE_ACTIVITY: {
          XLOGD_INFO("src <%s> voice activity detected <%s> confidence <%.2f>", xrsr_src_str(ws->audio_src), event->data.vad_info.voice_detected ? "YES" : "NO", event->data.vad_info.confidence);
+         if(event->data.vad_info.voice_detected) {
+            ws->stream_vad_detect_rxd = true;
+            if(ws->stream_time_min_rxd) {
+               xrsr_ws_event(ws, SM_EVENT_STREAM_VALID, false);
+            }
+         } else  {
+           // TODO post detect timeout xrsr_sdt_event(sdt, SM_EVENT_STREAM_VALID, false);
+         }
          break;
       }
       default: {

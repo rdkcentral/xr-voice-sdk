@@ -55,19 +55,21 @@ typedef union {
 } xrsr_conn_state_t;
 
 typedef struct {
-   bool                         initialized;
-   xrsr_url_parts_t             url_parts;
-   xrsr_route_handler_t         handler;
-   xrsr_handlers_t              handlers;
-   xrsr_audio_format_type_t     formats;
-   uint16_t                     stream_time_min;
-   xraudio_input_record_from_t  stream_from;
-   int32_t                      stream_offset;
-   xraudio_input_record_until_t stream_until;
-   uint32_t                     keyword_begin;
-   uint32_t                     keyword_duration;
-   xrsr_conn_state_t            conn_state;
-   xrsr_dst_param_ptrs_t        dst_param_ptrs[XRSR_POWER_MODE_INVALID];
+   bool                              initialized;
+   xrsr_url_parts_t                  url_parts;
+   xrsr_route_handler_t              handler;
+   xrsr_handlers_t                   handlers;
+   xrsr_audio_format_type_t          formats;
+   uint16_t                          stream_time_min;
+   xrsr_stream_voice_activity_mode_t stream_vad_mode;
+   uint16_t                          stream_vad_timeout;
+   xraudio_input_record_from_t       stream_from;
+   int32_t                           stream_offset;
+   xraudio_input_record_until_t      stream_until;
+   uint32_t                          keyword_begin;
+   uint32_t                          keyword_duration;
+   xrsr_conn_state_t                 conn_state;
+   xrsr_dst_param_ptrs_t             dst_param_ptrs[XRSR_POWER_MODE_INVALID];
 } xrsr_dst_int_t;
 
 typedef struct {
@@ -923,15 +925,17 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
       }
 
       // Add new route
-      dst_int->url_parts        = url_parts;
-      dst_int->handlers         = dst->handlers;
-      dst_int->formats          = dst->formats;
-      dst_int->stream_time_min  = stream_time_min;
-      dst_int->stream_from      = stream_from;
-      dst_int->stream_offset    = dst->stream_offset;
-      dst_int->stream_until     = stream_until;
-      dst_int->keyword_begin    = 0;
-      dst_int->keyword_duration = 0;
+      dst_int->url_parts          = url_parts;
+      dst_int->handlers           = dst->handlers;
+      dst_int->formats            = dst->formats;
+      dst_int->stream_time_min    = stream_time_min;
+      dst_int->stream_vad_mode    = dst->stream_vad_mode;
+      dst_int->stream_vad_timeout = dst->stream_vad_timeout;
+      dst_int->stream_from        = stream_from;
+      dst_int->stream_offset      = dst->stream_offset;
+      dst_int->stream_until       = stream_until;
+      dst_int->keyword_begin      = 0;
+      dst_int->keyword_duration   = 0;
 
       index++;
    }
@@ -2003,6 +2007,9 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             } else {
                uuid_copy(http->uuid, begin->uuid);
             }
+            http->stream_time_min_rxd   = (dst->stream_time_min > 0) ? false : true;
+            http->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
+
             char uuid_str[37] = {'\0'};
             uuid_unparse_lower(http->uuid, uuid_str);
 
@@ -2046,7 +2053,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             // Defer until the application sets the session config via the callback.  This must be done asynchronously to avoid deadlock situations.
 
             if(begin->retry) { // connect again for retries
-               bool deferred = ((dst->stream_time_min > 0) && !http->is_session_by_text && !http->is_session_by_file) ? true : false;
+               bool deferred = ((dst->stream_time_min > 0 || dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) && !http->is_session_by_text && !http->is_session_by_file) ? true : false;
 
                if(!xrsr_http_connect(http, &dst->url_parts, session->src, http->xraudio_format, state->timer_obj, deferred, http->session_config_in.http.query_strs, transcription_in)) {
                   XLOGD_ERROR("http connect failed");
@@ -2070,7 +2077,8 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                   } else {
                      uuid_copy(ws->uuid, begin->uuid);
                   }
-                  ws->stream_time_min_rxd = false;
+                  ws->stream_time_min_rxd   = (dst->stream_time_min > 0) ? false : true;
+                  ws->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
                }
                char uuid_str[37] = {'\0'};
                uuid_unparse_lower(ws->uuid, uuid_str);
@@ -2105,7 +2113,14 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                // Defer audio stream and connect until the application sets the session config via the callback.  This must be done asynchronously to avoid deadlock situations.
 
                if(begin->retry) { // connect again for retries
-                  bool deferred = ((dst->stream_time_min == 0) || ws->is_session_by_text || ws->is_session_by_file) ? false : !ws->stream_time_min_rxd;
+                  bool deferred = false;
+                  if(!ws->is_session_by_text && !ws->is_session_by_file) {
+                     if(dst->stream_time_min > 0 && !ws->stream_time_min_rxd) {
+                        deferred = true;
+                     } else if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED && !ws->stream_vad_detect_rxd) {
+                        deferred = true;
+                     }
+                  }
 
                   if(!xrsr_ws_connect(ws, &dst->url_parts, session->src, ws->xraudio_format, begin->user_initiated, begin->retry, deferred, ws->session_config_in.ws.query_strs)) {
                      XLOGD_ERROR("ws connect");
@@ -2135,7 +2150,8 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                } else {
                   uuid_copy(sdt->uuid, begin->uuid);
                }
-               sdt->stream_time_min_rxd = false;
+               sdt->stream_time_min_rxd   = (dst->stream_time_min > 0) ? false : true;
+               sdt->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
                
                char uuid_str[37] = {'\0'};
                uuid_unparse_lower(sdt->uuid, uuid_str);
@@ -2171,7 +2187,14 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                }
 
                bool is_session_by_file = (audio_file_in != NULL);
-               bool deferred = ((dst->stream_time_min == 0) || is_session_by_file) ? false : !sdt->stream_time_min_rxd;
+               bool deferred = false;
+               if(!sdt->is_session_by_text && !sdt->is_session_by_file) {
+                  if(dst->stream_time_min > 0 && !sdt->stream_time_min_rxd) {
+                     deferred = true;
+                  } else if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED && !sdt->stream_vad_detect_rxd) {
+                     deferred = true;
+                  }
+               }
 
                if(!xrsr_sdt_connect(sdt, &dst->url_parts, session->src, begin->xraudio_format, begin->user_initiated, begin->retry, deferred, NULL, NULL)) {
                   XLOGD_ERROR("sdt connect");
@@ -2356,7 +2379,7 @@ void xrsr_msg_session_config_in(const xrsr_thread_params_t *params, xrsr_thread_
                   (*http->handlers.session_config)(http->handlers.data, http->uuid, &http->session_config_in);
                }
 
-               bool deferred = ((dst->stream_time_min > 0) && !http->is_session_by_text && !http->is_session_by_file) ? true : false;
+               bool deferred = ((dst->stream_time_min > 0 || dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) && !http->is_session_by_text && !http->is_session_by_file) ? true : false;
 
                int pipe_fd_read = -1;
                const char *audio_file_in = (http->is_session_by_file) ? http->audio_file_in : NULL;
@@ -2452,7 +2475,14 @@ void xrsr_msg_session_config_in(const xrsr_thread_params_t *params, xrsr_thread_
                   }
                }
 
-               bool deferred = ((dst->stream_time_min == 0) || ws->is_session_by_text || ws->is_session_by_file) ? false : !ws->stream_time_min_rxd;
+               bool deferred = false;
+               if(!ws->is_session_by_text && !ws->is_session_by_file) {
+                  if(dst->stream_time_min > 0 && !ws->stream_time_min_rxd) {
+                     deferred = true;
+                  } else if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED && !ws->stream_vad_detect_rxd) {
+                     deferred = true;
+                  }
+               }
 
                if(!xrsr_ws_connect(ws, &dst->url_parts, session->src, ws->xraudio_format, ws->session_config_out.user_initiated, false, deferred, ws->session_config_in.ws.query_strs)) {
                   XLOGD_ERROR("ws connect");
@@ -3050,7 +3080,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
          uint32_t keyword_duration = (user_initiated || subsequent) ? 0 : dst->keyword_duration;
 
          // Make a single call to start streaming to all destinations
-         if(!xrsr_xraudio_stream_begin(g_xrsr.xrsr_xraudio_object, stream_id, session->xraudio_device_input, user_initiated, &xraudio_format, dsts, dst->stream_time_min, keyword_begin, keyword_duration, frame_duration, low_latency, low_cpu_util, subsequent)) {
+         if(!xrsr_xraudio_stream_begin(g_xrsr.xrsr_xraudio_object, stream_id, session->xraudio_device_input, user_initiated, &xraudio_format, dsts, dst->stream_time_min, dst->stream_vad_mode, dst->stream_vad_timeout, keyword_begin, keyword_duration, frame_duration, low_latency, low_cpu_util, subsequent)) {
             XLOGD_ERROR("xrsr_xraudio_stream_begin failed");
             stream_begin_failure = true;
          }

@@ -528,7 +528,7 @@ bool xrsr_http_connect(xrsr_state_http_t *http, xrsr_url_parts_t *url_parts, xrs
     if(false == delay) {
         xrsr_http_event(http, SM_EVENT_SESSION_BEGIN, false);
     } else {
-        xrsr_http_event(http, SM_EVENT_SESSION_BEGIN_STM, false);
+        xrsr_http_event(http, SM_EVENT_SESSION_BEGIN_STREAM_CHK, false);
     }
     return(true);
 }
@@ -703,7 +703,10 @@ void xrsr_http_handle_speech_event(xrsr_state_http_t *http, xrsr_speech_event_t 
             break;
         }
         case XRSR_EVENT_STREAM_TIME_MINIMUM: {
-            xrsr_http_event(http, SM_EVENT_STM, false);
+            http->stream_time_min_rxd = true;
+            if(http->stream_vad_detect_rxd) {
+               xrsr_http_event(http, SM_EVENT_STREAM_VALID, false);
+            }
             break;
         }
         case XRSR_EVENT_STREAM_KWD_INFO: {
@@ -711,6 +714,14 @@ void xrsr_http_handle_speech_event(xrsr_state_http_t *http, xrsr_speech_event_t 
         }
         case XRSR_EVENT_STREAM_VOICE_ACTIVITY: {
             XLOGD_INFO("voice activity detected <%s> confidence <%.2f>", event->data.vad_info.voice_detected ? "YES" : "NO", event->data.vad_info.confidence);
+            if(event->data.vad_info.voice_detected) {
+                http->stream_vad_detect_rxd = true;
+                if(http->stream_time_min_rxd) {
+                xrsr_http_event(http, SM_EVENT_STREAM_VALID, false);
+                }
+            } else  {
+            // TODO post detect timeout xrsr_http_event(http, SM_EVENT_STREAM_VALID, false);
+            }
             break;
         }
         default: {
