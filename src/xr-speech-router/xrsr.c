@@ -62,7 +62,7 @@ typedef struct {
    xrsr_audio_format_type_t          formats;
    uint16_t                          stream_time_min;
    xrsr_stream_voice_activity_mode_t stream_vad_mode;
-   uint16_t                          stream_vad_timeout;
+
    xraudio_input_record_from_t       stream_from;
    int32_t                           stream_offset;
    xraudio_input_record_until_t      stream_until;
@@ -930,7 +930,6 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
       dst_int->formats            = dst->formats;
       dst_int->stream_time_min    = stream_time_min;
       dst_int->stream_vad_mode    = dst->stream_vad_mode;
-      dst_int->stream_vad_timeout = dst->stream_vad_timeout;
       dst_int->stream_from        = stream_from;
       dst_int->stream_offset      = dst->stream_offset;
       dst_int->stream_until       = stream_until;
@@ -3080,7 +3079,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
          uint32_t keyword_duration = (user_initiated || subsequent) ? 0 : dst->keyword_duration;
 
          // Make a single call to start streaming to all destinations
-         if(!xrsr_xraudio_stream_begin(g_xrsr.xrsr_xraudio_object, stream_id, session->xraudio_device_input, user_initiated, &xraudio_format, dsts, dst->stream_time_min, dst->stream_vad_mode, dst->stream_vad_timeout, keyword_begin, keyword_duration, frame_duration, low_latency, low_cpu_util, subsequent)) {
+         if(!xrsr_xraudio_stream_begin(g_xrsr.xrsr_xraudio_object, stream_id, session->xraudio_device_input, user_initiated, &xraudio_format, dsts, dst->stream_time_min, dst->stream_vad_mode, keyword_begin, keyword_duration, frame_duration, low_latency, low_cpu_util, subsequent)) {
             XLOGD_ERROR("xrsr_xraudio_stream_begin failed");
             stream_begin_failure = true;
          }

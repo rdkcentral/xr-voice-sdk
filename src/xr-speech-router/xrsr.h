@@ -586,7 +586,6 @@ typedef struct {
    uint32_t                          formats;                         ///< Bitmap of the audio formats supported by the destination
    uint16_t                          stream_time_min;                 ///< Minimum duration of audio required before establishing a session with the server.  (in milliseconds)
    xrsr_stream_voice_activity_mode_t stream_vad_mode;                 ///< Voice activity detection mode for the stream
-   uint16_t                          stream_vad_timeout;              ///< Period of time in which to detect audio activity before establishing a session with the server.  (in milliseconds)
    xrsr_stream_from_t                stream_from;                     ///< Point from which to begin streaming
    int32_t                           stream_offset;                   ///< Offset in samples from the stream from point
    xrsr_stream_until_t               stream_until;                    ///< Continue streaming until this condition is encountered or an errror occurs
