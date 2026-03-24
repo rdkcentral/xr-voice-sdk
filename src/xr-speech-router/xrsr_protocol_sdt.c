@@ -356,14 +356,16 @@ void xrsr_sdt_handle_speech_event(xrsr_state_sdt_t *sdt, xrsr_speech_event_t *ev
          break;
       }
       case XRSR_EVENT_STREAM_VOICE_ACTIVITY: {
-         XLOGD_INFO("voice activity detected <%s> confidence <%.2f>", event->data.vad_info.voice_detected ? "YES" : "NO", event->data.vad_info.confidence);
-         if(event->data.vad_info.voice_detected) {
-            sdt->stream_vad_detect_rxd = true;
-            if(sdt->stream_time_min_rxd) {
-               xrsr_sdt_event(sdt, SM_EVENT_STREAM_VALID, false);
+         if(sdt->stream_vad_detect_rxd) {
+            XLOGD_INFO("src <%s> voice activity detection event ignored", xrsr_src_str(sdt->audio_src));
+         } else {
+            XLOGD_INFO("voice activity detected <%s> confidence <%.2f>", event->data.vad_info.voice_detected ? "YES" : "NO", event->data.vad_info.confidence);
+            if(event->data.vad_info.voice_detected) {
+               sdt->stream_vad_detect_rxd = true;
+               if(sdt->stream_time_min_rxd) {
+                  xrsr_sdt_event(sdt, SM_EVENT_STREAM_VALID, false);
+               }
             }
-         } else  {
-           // TODO post detect timeout xrsr_sdt_event(sdt, SM_EVENT_STM, false);
          }
          break;
       }
