@@ -255,28 +255,35 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    
    // Update statistics
    obj->stats.frames_processed++;
-   if (new_state == XRAUDIO_VAD_STATE_VOICE) {
+   if (has_voice) {
       obj->stats.frames_voice++;
-   } else if (new_state == XRAUDIO_VAD_STATE_SILENCE) {
+   } else {
       obj->stats.frames_silence++;
    }
    
    obj->energy_sum     += energy_level;
    obj->confidence_sum += voice_probability;
 
-   obj->stats.average_energy     = obj->energy_sum     / obj->stats.frames_processed;
-   obj->stats.average_confidence = obj->confidence_sum / obj->stats.frames_processed;
+   obj->stats.energy_average     = obj->energy_sum     / obj->stats.frames_processed;
+   obj->stats.confidence_average = obj->confidence_sum / obj->stats.frames_processed;
+   
+   // Track peak values
+   if (energy_level > obj->stats.energy_peak) {
+      obj->stats.energy_peak = energy_level;
+   }
+   if (voice_probability > obj->stats.confidence_peak) {
+      obj->stats.confidence_peak = voice_probability;
+   }
    
    uint64_t processing_time = rdkx_timestamp_since_us(start_time);
    obj->processing_time_sum_us += processing_time;
    obj->stats.total_processing_time_us = obj->processing_time_sum_us;
    
    // Fill VAD event data
-   vad_data->state = new_state;
-   vad_data->confidence = voice_probability;
+   vad_data->state        = new_state;
+   vad_data->confidence   = voice_probability;
    vad_data->energy_level = energy_level;
-   vad_data->overall_score = 0.0; // Only provided at finalization
-   vad_data->is_final = false;
+   vad_data->is_final     = false;
    
    return XRAUDIO_RESULT_OK;
 }
@@ -400,6 +407,8 @@ xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object) {
    
    // Reset statistics
    memset(&obj->stats, 0, sizeof(xraudio_vad_stats_t));
+   obj->stats.energy_peak = -100.0f;     // Initialize to very low value
+   obj->stats.confidence_peak = 0.0f;    // Initialize to minimum
    obj->energy_sum = 0.0;
    obj->confidence_sum = 0.0;
    obj->processing_time_sum_us = 0;
@@ -426,20 +435,16 @@ xraudio_result_t xraudio_vad_finalize(xraudio_vad_object_t object, xraudio_vad_e
    }
    
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
-   
-   // Calculate overall VAD score for telemetry
-   float overall_score = 0.0f;
-   obj->stats.overall_vad_score = overall_score;
-   
+      
    // Fill final VAD event data
    vad_data->state         = obj->current_state;
-   vad_data->confidence    = obj->stats.average_confidence;
-   vad_data->energy_level  = obj->stats.average_energy;
-   vad_data->overall_score = overall_score;
+   vad_data->confidence    = obj->stats.confidence_average;
+   vad_data->energy_level  = obj->stats.energy_average;
    vad_data->is_final      = true;
    
-   XLOGD_INFO("finalized VAD session: overall_score=%f, frames_processed=%u, voice_frames=%u", 
-              overall_score, obj->stats.frames_processed, obj->stats.frames_voice);
+   XLOGD_INFO("finalized VAD session: frames processed <%u> voice frames <%u> peak energy <%.2f dB> peak confidence <%.2f>", 
+              obj->stats.frames_processed, obj->stats.frames_voice, 
+              obj->stats.energy_peak, obj->stats.confidence_peak);
    
    return XRAUDIO_RESULT_OK;
 }

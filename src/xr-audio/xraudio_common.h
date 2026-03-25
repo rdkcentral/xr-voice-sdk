@@ -63,8 +63,8 @@
 #define XRAUDIO_INPUT_OPUS_BUFFER_SIZE              (95)
 
 // VAD (Voice Activity Detection) Constants
-#define XRAUDIO_VAD_DEFAULT_SENSITIVITY           (0.5)                             ///< Default VAD sensitivity threshold
-#define XRAUDIO_VAD_MIN_SENSITIVITY               (0.0)                             ///< Minimum VAD sensitivity threshold  
+#define XRAUDIO_VAD_DEFAULT_SENSITIVITY           (0.9)                             ///< Default VAD sensitivity threshold
+#define XRAUDIO_VAD_MIN_SENSITIVITY               (0.0)                             ///< Minimum VAD sensitivity threshold
 #define XRAUDIO_VAD_MAX_SENSITIVITY               (1.0)                             ///< Maximum VAD sensitivity threshold
 #define XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS    (100)                             ///< Default VAD analysis window in milliseconds
 #define XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS         (50)                             ///< Minimum VAD analysis window in milliseconds

@@ -767,8 +767,10 @@ void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback
             stream->audio_stats.vad_frames_voice       = xraudio_audio_stats->vad_frames_voice;
             stream->audio_stats.vad_frames_silence     = xraudio_audio_stats->vad_frames_silence;
             stream->audio_stats.vad_state_transitions  = xraudio_audio_stats->vad_state_transitions;
-            stream->audio_stats.vad_average_energy     = xraudio_audio_stats->vad_average_energy;
-            stream->audio_stats.vad_average_confidence = xraudio_audio_stats->vad_average_confidence;
+            stream->audio_stats.vad_energy_average     = xraudio_audio_stats->vad_energy_average;
+            stream->audio_stats.vad_energy_peak        = xraudio_audio_stats->vad_energy_peak;
+            stream->audio_stats.vad_confidence_average = xraudio_audio_stats->vad_confidence_average;
+            stream->audio_stats.vad_confidence_peak    = xraudio_audio_stats->vad_confidence_peak;
             stream->audio_stats.vad_processing_time_us = xraudio_audio_stats->vad_processing_time_us;
             stream->audio_stats.valid                = true;
 

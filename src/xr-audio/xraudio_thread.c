@@ -5078,12 +5078,14 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   if(instance->vad_enabled && instance->vad_obj != NULL) {
                      xraudio_vad_stats_t vad_stats;
                      if(xraudio_vad_get_stats(instance->vad_obj, &vad_stats) == XRAUDIO_RESULT_OK) {
-                        stats.vad_frames_processed = vad_stats.frames_processed;
-                        stats.vad_frames_voice = vad_stats.frames_voice;
-                        stats.vad_frames_silence = vad_stats.frames_silence;
-                        stats.vad_state_transitions = vad_stats.state_transitions;
-                        stats.vad_average_energy = vad_stats.average_energy;
-                        stats.vad_average_confidence = vad_stats.average_confidence;
+                        stats.vad_frames_processed   = vad_stats.frames_processed;
+                        stats.vad_frames_voice       = vad_stats.frames_voice;
+                        stats.vad_frames_silence     = vad_stats.frames_silence;
+                        stats.vad_state_transitions  = vad_stats.state_transitions;
+                        stats.vad_energy_average     = vad_stats.energy_average;
+                        stats.vad_energy_peak        = vad_stats.energy_peak;
+                        stats.vad_confidence_average = vad_stats.confidence_average;
+                        stats.vad_confidence_peak    = vad_stats.confidence_peak;
                         stats.vad_processing_time_us = vad_stats.total_processing_time_us;
                      }
                   }
@@ -5100,12 +5102,14 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   if(instance->vad_enabled && instance->vad_obj != NULL) {
                      xraudio_vad_stats_t vad_stats;
                      if(xraudio_vad_get_stats(instance->vad_obj, &vad_stats) == XRAUDIO_RESULT_OK) {
-                        stats.vad_frames_processed = vad_stats.frames_processed;
-                        stats.vad_frames_voice = vad_stats.frames_voice;
-                        stats.vad_frames_silence = vad_stats.frames_silence;
-                        stats.vad_state_transitions = vad_stats.state_transitions;
-                        stats.vad_average_energy = vad_stats.average_energy;
-                        stats.vad_average_confidence = vad_stats.average_confidence;
+                        stats.vad_frames_processed   = vad_stats.frames_processed;
+                        stats.vad_frames_voice       = vad_stats.frames_voice;
+                        stats.vad_frames_silence     = vad_stats.frames_silence;
+                        stats.vad_state_transitions  = vad_stats.state_transitions;
+                        stats.vad_energy_average     = vad_stats.energy_average;
+                        stats.vad_energy_peak        = vad_stats.energy_peak;
+                        stats.vad_confidence_average = vad_stats.confidence_average;
+                        stats.vad_confidence_peak    = vad_stats.confidence_peak;
                         stats.vad_processing_time_us = vad_stats.total_processing_time_us;
                      }
                      (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, &stats, instance->param);
@@ -5159,11 +5163,11 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
          // Check if voice activity was detected (one-shot)
          bool voice_detected = (vad_event_data.state == XRAUDIO_VAD_STATE_VOICE && instance->vad_last_event.state != XRAUDIO_VAD_STATE_VOICE);
          
-         XLOGD_WARN("DAVE vad event <%s>", xraudio_vad_state_str(vad_event_data.state) );
-
          // Generate VAD callback event when voice activity is detected
          if(voice_detected) {
             instance->vad_last_event = vad_event_data;
+            XLOGD_INFO("vad event <%s>", xraudio_vad_state_str(vad_event_data.state));
+
             if(instance->callback != NULL) {
                (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY, &vad_event_data, instance->param);
             }

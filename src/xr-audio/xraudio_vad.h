@@ -32,14 +32,15 @@ typedef void * xraudio_vad_object_t;
 /// @brief VAD statistics structure  
 /// @details Statistics and metrics collected during VAD processing
 typedef struct {
-   uint32_t frames_processed;        ///< Total number of audio frames processed
-   uint32_t frames_voice;            ///< Number of frames detected as voice
-   uint32_t frames_silence;          ///< Number of frames detected as silence  
-   uint32_t state_transitions;       ///< Number of VAD state transitions
-   float    average_energy;          ///< Average audio energy level (dB)
-   float    average_confidence;      ///< Average VAD confidence level (0.0-1.0)
+   uint32_t frames_processed;         ///< Total number of audio frames processed
+   uint32_t frames_voice;             ///< Number of frames detected as voice
+   uint32_t frames_silence;           ///< Number of frames detected as silence  
+   uint32_t state_transitions;        ///< Number of VAD state transitions
+   float    energy_average;           ///< Average audio energy level (dB)
+   float    energy_peak;              ///< Peak audio energy level (dB)
+   float    confidence_average;       ///< Average VAD confidence level (0.0-1.0)
+   float    confidence_peak;          ///< Peak VAD confidence level (0.0-1.0)
    uint64_t total_processing_time_us; ///< Total processing time in microseconds
-   float    overall_vad_score;       ///< Overall VAD score for the session (0.0-1.0)
 } xraudio_vad_stats_t;
 
 #ifdef __cplusplus

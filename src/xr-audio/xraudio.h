@@ -262,8 +262,10 @@ typedef struct {
    uint32_t vad_frames_voice;
    uint32_t vad_frames_silence;
    uint32_t vad_state_transitions;
-   float    vad_average_energy;
-   float    vad_average_confidence;
+   float    vad_energy_average;
+   float    vad_energy_peak;
+   float    vad_confidence_average;
+   float    vad_confidence_peak;
    uint64_t vad_processing_time_us;
 } xraudio_audio_stats_t;
 
