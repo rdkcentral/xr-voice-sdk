@@ -42,23 +42,16 @@ typedef struct {
    float    overall_vad_score;       ///< Overall VAD score for the session (0.0-1.0)
 } xraudio_vad_stats_t;
 
-typedef struct {
-   uint32_t  sample_rate;   ///< sample rate (in Hertz)
-   float     sensitivity;   ///< VAD sensitivity threshold (0.0-1.0)
-   uint16_t  hysteresis_ms; ///< VAD state change hysteresis in milliseconds
-   uint8_t   mode;          ///< VAD processing mode (0=low-power, 1=balanced, 2=high-accuracy)
-   uint16_t  timeout_ms;    ///< VAD processing timeout in milliseconds
-} xraudio_vad_config_t;
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 /// @brief Create VAD processing object
 /// @details Creates and initializes a VAD processing object with specified configuration
-/// @param[in] config VAD configuration parameters 
+/// @param[in] config VAD configuration parameters
+/// @param[in] sample_rate Audio sample rate in Hz
 /// @return VAD object handle or NULL on error
-xraudio_vad_object_t xraudio_vad_create(const xraudio_vad_config_t *config);
+xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config, uint32_t sample_rate);
 
 /// @brief Destroy VAD processing object  
 /// @details Destroys VAD object and releases associated resources
@@ -83,7 +76,7 @@ xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object,
 /// @param[in] config New VAD configuration parameters
 /// @return XRAUDIO_RESULT_OK on success, error code otherwise  
 xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, 
-                                           const xraudio_input_format_t *config);
+                                           const xraudio_input_vad_config_t *config);
 
 /// @brief Reset VAD processing state
 /// @details Resets VAD internal state for new audio stream processing

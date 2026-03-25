@@ -5156,21 +5156,22 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
       xraudio_result_t vad_result = xraudio_vad_process_frame(instance->vad_obj, (const xraudio_sample_t *)inbuf, frame_size, &vad_event_data);
       
       if(vad_result == XRAUDIO_RESULT_OK) {
-         // Check if VAD state changed
-         bool vad_state_changed = (vad_event_data.state != instance->vad_last_event.state);
-         instance->vad_last_event = vad_event_data;
+         // Check if voice activity was detected (one-shot)
+         bool voice_detected = (vad_event_data.state == XRAUDIO_VAD_STATE_VOICE && instance->vad_last_event.state != XRAUDIO_VAD_STATE_VOICE);
          
          XLOGD_WARN("DAVE vad event <%s>", xraudio_vad_state_str(vad_event_data.state) );
 
-         // Generate VAD callback event on state changes
-         if(vad_state_changed) {
-            (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY, &vad_event_data, instance->param);
+         // Generate VAD callback event when voice activity is detected
+         if(voice_detected) {
+            instance->vad_last_event = vad_event_data;
+            if(instance->callback != NULL) {
+               (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY, &vad_event_data, instance->param);
+            }
          }
       } else {
          XLOGD_ERROR("VAD processing failed: %s", xraudio_result_str(vad_result));
       }
    }
-
 
    session->external_data_len += bytes_read;
 
@@ -5713,18 +5714,10 @@ void xraudio_vad_session_init(xraudio_session_record_inst_t *instance, xraudio_i
    // Clean up any existing VAD object
    xraudio_vad_session_cleanup(instance);
 
-   XLOGD_INFO("initializing VAD: sensitivity=%f, hysteresis=%ums, mode=%u, timeout=%ums", 
-              vad_config.sensitivity, vad_config.hysteresis_ms, vad_config.mode, vad_config.timeout_ms);
-
-   xraudio_vad_config_t internal_vad_config;
-   internal_vad_config.sample_rate   = sample_rate;
-   internal_vad_config.sensitivity   = vad_config.sensitivity;
-   internal_vad_config.hysteresis_ms = vad_config.hysteresis_ms;
-   internal_vad_config.mode          = vad_config.mode;
-   internal_vad_config.timeout_ms    = vad_config.timeout_ms;
+   XLOGD_INFO("sensitivity <%f> analysis window <%u ms>", vad_config.sensitivity, vad_config.analysis_window_ms);
 
    // Create VAD object
-   instance->vad_obj = xraudio_vad_create(&internal_vad_config);
+   instance->vad_obj = xraudio_vad_create(&vad_config, sample_rate);
    if (instance->vad_obj == NULL) {
       XLOGD_ERROR("failed to create VAD object");
       instance->vad_enabled = false;

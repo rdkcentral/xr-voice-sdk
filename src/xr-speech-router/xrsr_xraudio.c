@@ -659,10 +659,8 @@ bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_
    // Configure VAD if enabled/enforced
    if(vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENABLED || vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
       xraudio_input_vad_config_t vad_config;
-      vad_config.sensitivity   = 0.5;
-      vad_config.hysteresis_ms = 100;
-      vad_config.mode          = 1;
-      vad_config.timeout_ms    = 5000;
+      vad_config.sensitivity        = XRAUDIO_VAD_DEFAULT_SENSITIVITY;
+      vad_config.analysis_window_ms = XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS;
 
       result = xraudio_stream_vad_config(obj->xraudio_obj, source, &vad_config);
       if(result != XRAUDIO_RESULT_OK) {

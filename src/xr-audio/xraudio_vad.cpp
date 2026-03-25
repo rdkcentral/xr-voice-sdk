@@ -20,6 +20,7 @@
 */
 #include "xraudio_vad.h"
 #include "xraudio_private.h"
+#include "xr_timestamp.h"
 #include <stdlib.h>
 #include <string.h>
 #include <math.h>
@@ -34,43 +35,47 @@
 
 /// @brief VAD object internal structure
 typedef struct {
-   xraudio_vad_config_t           config;                 ///< VAD configuration parameters
+   xraudio_input_vad_config_t     config;                 ///< VAD configuration parameters
+   uint32_t                       sample_rate;            ///< Audio sample rate in Hz
    webrtc::AudioProcessing*       audio_processing;       ///< WebRTC AudioProcessing instance
    xraudio_vad_state_t            current_state;          ///< Current VAD state
-   xraudio_vad_state_t            previous_state;         ///< Previous VAD state for hysteresis
-   uint64_t                       state_change_time_us;   ///< Time of last state change
-   uint64_t                       session_start_time_us;  ///< Session start timestamp
-   uint32_t                       hysteresis_counter;     ///< Hysteresis counter in frames
-   uint32_t                       hysteresis_threshold;   ///< Hysteresis threshold in frames
    xraudio_vad_stats_t            stats;                  ///< VAD processing statistics
    float                          energy_sum;             ///< Sum of energy levels for averaging
    float                          confidence_sum;         ///< Sum of confidence levels for averaging
    uint64_t                       processing_time_sum_us; ///< Sum of processing times
    xraudio_sample_t               sample_buffer[416];     ///< Buffer for caching samples (supports up to 26ms at 16kHz)
    uint32_t                       buffer_samples;         ///< Number of samples currently in buffer
+   bool*                          voice_activity_history; ///< Circular buffer tracking voice activity for analysis window
+   uint32_t                       analysis_window_size;   ///< Number of 10ms frames in analysis window
+   uint32_t                       history_index;          ///< Current index in voice activity history
+   uint32_t                       history_count;          ///< Number of frames stored in history
+   uint32_t                       voice_frame_count;      ///< Current count of voice frames in analysis window
 } xraudio_vad_obj_t;
 
-// Internal helper functions
-static uint64_t xraudio_vad_timestamp_get(void);
 static float xraudio_vad_calculate_energy(const xraudio_sample_t *audio_frame, uint32_t frame_size);
-static xraudio_vad_state_t xraudio_vad_apply_hysteresis(xraudio_vad_obj_t *obj, float voice_probability);
-static float xraudio_vad_calculate_overall_score(xraudio_vad_obj_t *obj);
+static xraudio_vad_state_t xraudio_vad_analyze_window(xraudio_vad_obj_t *obj);
 
-xraudio_vad_object_t xraudio_vad_create(const xraudio_vad_config_t *config) {
+xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config, uint32_t sample_rate) {
    if (config == NULL) {
       XLOGD_ERROR("invalid config parameter");
       return NULL;
    }
    
    // Validate configuration parameters
-   if (config->sample_rate > 32000) {
-      XLOGD_ERROR("unsupported sample rate: %u (max 32kHz)", config->sample_rate);
+   if (sample_rate > 32000) {
+      XLOGD_ERROR("unsupported sample rate: %u (max 32kHz)", sample_rate);
       return NULL;
    }
    
    if (config->sensitivity < XRAUDIO_VAD_MIN_SENSITIVITY || 
        config->sensitivity > XRAUDIO_VAD_MAX_SENSITIVITY) {
       XLOGD_ERROR("invalid VAD sensitivity: %f", config->sensitivity);
+      return NULL;
+   }
+
+   if (config->analysis_window_ms < XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS ||
+       config->analysis_window_ms > XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS) {
+      XLOGD_ERROR("invalid VAD analysis window: %u ms", config->analysis_window_ms);
       return NULL;
    }
    
@@ -80,24 +85,41 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_vad_config_t *config) {
       return NULL;
    }
    
-   // Copy configuration
-   memcpy(&obj->config, config, sizeof(xraudio_vad_config_t));
+   // Copy configuration and sample rate
+   memcpy(&obj->config, config, sizeof(xraudio_input_vad_config_t));
+   obj->sample_rate = sample_rate;
+   
+   // Calculate analysis window size in 10ms frames
+   obj->analysis_window_size = config->analysis_window_ms / 10;
+   if (obj->analysis_window_size == 0) {
+      obj->analysis_window_size = 1; // Minimum 1 frame
+   }
+   
+   // Allocate voice activity history buffer
+   obj->voice_activity_history = (bool*)calloc(obj->analysis_window_size, sizeof(bool));
+   if (obj->voice_activity_history == NULL) {
+      XLOGD_ERROR("unable to allocate voice activity history buffer");
+      free(obj);
+      return NULL;
+   }
    
    // Create WebRTC AudioProcessing instance
    try {
       obj->audio_processing = webrtc::AudioProcessing::Create();
       if (obj->audio_processing == NULL) {
          XLOGD_ERROR("failed to create WebRTC AudioProcessing instance");
+         free(obj->voice_activity_history);
          free(obj);
          return NULL;
       }
       
       // Initialize AudioProcessing with the sample rate
-      int result = obj->audio_processing->Initialize(config->sample_rate, config->sample_rate, config->sample_rate,
+      int result = obj->audio_processing->Initialize(sample_rate, sample_rate, sample_rate,
                                                     webrtc::AudioProcessing::kMono, webrtc::AudioProcessing::kMono, webrtc::AudioProcessing::kMono);
       if (result != webrtc::AudioProcessing::kNoError) {
          XLOGD_ERROR("failed to initialize AudioProcessing: %d", result);
          delete obj->audio_processing;
+         free(obj->voice_activity_history);
          free(obj);
          return NULL;
       }
@@ -117,28 +139,25 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_vad_config_t *config) {
       // Enable level estimator 
       obj->audio_processing->level_estimator()->Enable(true);
 
-
    } catch (const std::exception& e) {
       XLOGD_ERROR("failed to create WebRTC AudioProcessing instance: %s", e.what());
+      free(obj->voice_activity_history);
       free(obj);
       return NULL;
    }
    
    // Initialize state
    obj->current_state         = XRAUDIO_VAD_STATE_UNKNOWN;
-   obj->previous_state        = XRAUDIO_VAD_STATE_UNKNOWN;
-   obj->session_start_time_us = xraudio_vad_timestamp_get();
+   obj->history_index         = 0;
+   obj->history_count         = 0;
+   obj->voice_frame_count     = 0;
    
    // Initialize sample buffer
    obj->buffer_samples = 0;
    memset(obj->sample_buffer, 0, sizeof(obj->sample_buffer));
    
-   // Calculate hysteresis threshold in frames (assuming 20ms frames)
-   uint32_t frame_period_ms = 20;
-   obj->hysteresis_threshold = obj->config.hysteresis_ms / frame_period_ms;
-   
-   XLOGD_INFO("created VAD object: sample_rate=%u, sensitivity=%f, hysteresis=%ums, mode=%u", 
-              config->sample_rate, config->sensitivity, config->hysteresis_ms, config->mode);
+   XLOGD_INFO("created VAD object: sample_rate=%u, sensitivity=%f, analysis_window=%ums (%u frames)", 
+              sample_rate, config->sensitivity, config->analysis_window_ms, obj->analysis_window_size);
    
    return (xraudio_vad_object_t)obj;
 }
@@ -155,17 +174,23 @@ void xraudio_vad_destroy(xraudio_vad_object_t object) {
       delete obj->audio_processing;
    }
    
+   // Free voice activity history buffer
+   if (obj->voice_activity_history != NULL) {
+      free(obj->voice_activity_history);
+   }
+   
    XLOGD_INFO("destroyed VAD object");
    free(obj);
 }
 
 static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, const xraudio_sample_t *audio_frame, uint32_t frame_size, xraudio_vad_event_data_t *vad_data) {
-   uint64_t start_time = xraudio_vad_timestamp_get();
-   
+   rdkx_timestamp_t start_time;
+   rdkx_timestamp_get(&start_time);
+
    // Create AudioFrame for processing
    webrtc::AudioFrame audio_frame_webrtc;
    audio_frame_webrtc.samples_per_channel_ = frame_size;
-   audio_frame_webrtc.sample_rate_hz_      = obj->config.sample_rate;
+   audio_frame_webrtc.sample_rate_hz_      = obj->sample_rate;
    audio_frame_webrtc.num_channels_        = 1;
    
    // Copy audio data (ensure we don't exceed the buffer size)
@@ -192,18 +217,39 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    
    float voice_probability = has_voice ? 0.9f : 0.1f;  // Convert boolean to probability estimate
    
-   // Apply hysteresis to determine VAD state
-   xraudio_vad_state_t new_state = xraudio_vad_apply_hysteresis(obj, voice_probability);
+   // Update sliding window with current frame's voice activity
+   bool old_voice_activity = false;
+   if (obj->history_count >= obj->analysis_window_size) {
+      // Get the old value that will be overwritten
+      old_voice_activity = obj->voice_activity_history[obj->history_index];
+      if (old_voice_activity) {
+         obj->voice_frame_count--;
+      }
+   } else {
+      obj->history_count++;
+   }
+   
+   // Store new voice activity and update count
+   obj->voice_activity_history[obj->history_index] = has_voice;
+   if (has_voice) {
+      obj->voice_frame_count++;
+   }
+   
+   // Advance circular buffer index
+   obj->history_index = (obj->history_index + 1) % obj->analysis_window_size;
+   
+   // Determine VAD state based on analysis window
+   xraudio_vad_state_t new_state = xraudio_vad_analyze_window(obj);
    
    // Print debug information
-   XLOGD_INFO("VAD: has_voice <%s> energy_level <%.2f dB> rms_level <-%d> new_state <%s>",  has_voice ? "YES" : "NO", energy_level, rms_level, xraudio_vad_state_str(new_state));
+   XLOGD_INFO("VAD: has_voice <%s> energy_level <%.2f dB> rms_level <-%d> voice_frames <%u/%u> new_state <%s>",  
+              has_voice ? "YES" : "NO", energy_level, rms_level, 
+              obj->voice_frame_count, obj->history_count, xraudio_vad_state_str(new_state));
    
    // Check for state transition
    bool state_changed = (new_state != obj->current_state);
    if (state_changed) {
-      obj->previous_state = obj->current_state;
       obj->current_state = new_state;
-      obj->state_change_time_us = xraudio_vad_timestamp_get();
       obj->stats.state_transitions++;
    }
    
@@ -221,7 +267,7 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    obj->stats.average_energy     = obj->energy_sum     / obj->stats.frames_processed;
    obj->stats.average_confidence = obj->confidence_sum / obj->stats.frames_processed;
    
-   uint64_t processing_time = xraudio_vad_timestamp_get() - start_time;
+   uint64_t processing_time = rdkx_timestamp_since_us(start_time);
    obj->processing_time_sum_us += processing_time;
    obj->stats.total_processing_time_us = obj->processing_time_sum_us;
    
@@ -229,7 +275,6 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    vad_data->state = new_state;
    vad_data->confidence = voice_probability;
    vad_data->energy_level = energy_level;
-   vad_data->timestamp_us = xraudio_vad_timestamp_get() - obj->session_start_time_us;
    vad_data->overall_score = 0.0; // Only provided at finalization
    vad_data->is_final = false;
    
@@ -244,7 +289,7 @@ xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xr
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
    
    // Calculate 10ms frame size for current sample rate
-   uint32_t chunk_size = obj->config.sample_rate / 100;  // 10ms frame size
+   uint32_t chunk_size = obj->sample_rate / 100;  // 10ms frame size
    
    // Validate that we have room in sample buffer
    if (obj->buffer_samples + frame_size > sizeof(obj->sample_buffer) / sizeof(obj->sample_buffer[0])) {
@@ -280,7 +325,7 @@ xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xr
    return result;
 }
 
-xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xraudio_vad_config_t *config) {
+xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xraudio_input_vad_config_t *config) {
    if (object == NULL || config == NULL) {
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
@@ -293,14 +338,38 @@ xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xr
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
    
+   if (config->analysis_window_ms < XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS ||
+       config->analysis_window_ms > XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS) {
+      return XRAUDIO_RESULT_ERROR_PARAMS;
+   }
+   
+   // Check if analysis window size is changing
+   uint32_t new_window_size = config->analysis_window_ms / 10;
+   if (new_window_size == 0) {
+      new_window_size = 1;
+   }
+   
+   if (new_window_size != obj->analysis_window_size) {
+      // Reallocate voice activity history buffer if window size changed
+      bool *new_history = (bool*)calloc(new_window_size, sizeof(bool));
+      if (new_history == NULL) {
+         return XRAUDIO_RESULT_ERROR_INTERNAL;
+      }
+      
+      // Free old buffer and update to new one
+      free(obj->voice_activity_history);
+      obj->voice_activity_history = new_history;
+      obj->analysis_window_size = new_window_size;
+      obj->history_index = 0;
+      obj->history_count = 0;
+      obj->voice_frame_count = 0;
+   }
+   
    // Update configuration
-   memcpy(&obj->config, config, sizeof(xraudio_vad_config_t));
+   memcpy(&obj->config, config, sizeof(xraudio_input_vad_config_t));
    
-   // Recalculate hysteresis threshold
-   uint32_t frame_period_ms = 20;
-   obj->hysteresis_threshold = obj->config.hysteresis_ms / frame_period_ms;
-   
-   XLOGD_INFO("updated VAD sensitivity=%f, hysteresis=%ums, mode=%u", obj->config.sensitivity, obj->config.hysteresis_ms, obj->config.mode);
+   XLOGD_INFO("updated VAD sensitivity=%f, analysis_window=%ums (%u frames)", 
+              obj->config.sensitivity, obj->config.analysis_window_ms, obj->analysis_window_size);
    
    return XRAUDIO_RESULT_OK;
 }
@@ -314,9 +383,16 @@ xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object) {
    
    // Reset VAD state
    obj->current_state = XRAUDIO_VAD_STATE_UNKNOWN;
-   obj->previous_state = XRAUDIO_VAD_STATE_UNKNOWN;
-   obj->session_start_time_us = xraudio_vad_timestamp_get();
-   obj->hysteresis_counter = 0;
+   
+   // Reset sliding window variables
+   obj->history_index = 0;
+   obj->history_count = 0;
+   obj->voice_frame_count = 0;
+   
+   // Clear voice activity history
+   if (obj->voice_activity_history != NULL) {
+      memset(obj->voice_activity_history, 0, obj->analysis_window_size * sizeof(bool));
+   }
    
    // Reset sample buffer
    obj->buffer_samples = 0;
@@ -352,14 +428,13 @@ xraudio_result_t xraudio_vad_finalize(xraudio_vad_object_t object, xraudio_vad_e
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
    
    // Calculate overall VAD score for telemetry
-   float overall_score = xraudio_vad_calculate_overall_score(obj);
+   float overall_score = 0.0f;
    obj->stats.overall_vad_score = overall_score;
    
    // Fill final VAD event data
    vad_data->state         = obj->current_state;
    vad_data->confidence    = obj->stats.average_confidence;
    vad_data->energy_level  = obj->stats.average_energy;
-   vad_data->timestamp_us  = xraudio_vad_timestamp_get() - obj->session_start_time_us;
    vad_data->overall_score = overall_score;
    vad_data->is_final      = true;
    
@@ -370,12 +445,6 @@ xraudio_result_t xraudio_vad_finalize(xraudio_vad_object_t object, xraudio_vad_e
 }
 
 // Internal helper function implementations
-
-static uint64_t xraudio_vad_timestamp_get(void) {
-   struct timeval tv;
-   gettimeofday(&tv, NULL);
-   return (uint64_t)tv.tv_sec * 1000000 + tv.tv_usec;
-}
 
 static float xraudio_vad_calculate_energy(const xraudio_sample_t *audio_frame, uint32_t frame_size) {
    if (audio_frame == NULL || frame_size == 0) {
@@ -396,40 +465,19 @@ static float xraudio_vad_calculate_energy(const xraudio_sample_t *audio_frame, u
    return (float)fmax(db, db_floor);
 }
 
-static xraudio_vad_state_t xraudio_vad_apply_hysteresis(xraudio_vad_obj_t *obj, float voice_probability) {
-   // Determine target state based on probability and sensitivity threshold
-   xraudio_vad_state_t target_state = (voice_probability >= obj->config.sensitivity) ? 
-                                      XRAUDIO_VAD_STATE_VOICE : XRAUDIO_VAD_STATE_SILENCE;
-   
-   // If target state matches current state, reset counter
-   if (target_state == obj->current_state) {
-      obj->hysteresis_counter = 0;
-      return obj->current_state;
+static xraudio_vad_state_t xraudio_vad_analyze_window(xraudio_vad_obj_t *obj) {
+   // If we don't have enough frames yet, return current state
+   if (obj->history_count == 0) {
+      return XRAUDIO_VAD_STATE_UNKNOWN;
    }
    
-   // If target state is different, increment counter
-   obj->hysteresis_counter++;
+   // Calculate percentage of voice frames in the analysis window
+   float voice_percentage = (float)obj->voice_frame_count / (float)obj->history_count;
    
-   // If counter exceeds threshold, change state
-   if (obj->hysteresis_counter >= obj->hysteresis_threshold) {
-      obj->hysteresis_counter = 0;
-      return target_state;
+   // Compare against sensitivity threshold
+   if (voice_percentage >= obj->config.sensitivity) {
+      return XRAUDIO_VAD_STATE_VOICE;
+   } else {
+      return XRAUDIO_VAD_STATE_SILENCE;
    }
-   
-   // Otherwise maintain current state
-   return obj->current_state;
-}
-
-static float xraudio_vad_calculate_overall_score(xraudio_vad_obj_t *obj) {
-   if (obj->stats.frames_processed == 0) {
-      return 0.0;
-   }
-   
-   // Calculate overall score as weighted combination of:
-   // - Voice frame ratio (70% weight)
-   // - Average confidence (30% weight)
-   float voice_ratio = (float)obj->stats.frames_voice / obj->stats.frames_processed;
-   float weighted_score = (0.7f * voice_ratio) + (0.3f * obj->stats.average_confidence);
-   
-   return fmax(0.0, fmin(1.0, weighted_score));
 }

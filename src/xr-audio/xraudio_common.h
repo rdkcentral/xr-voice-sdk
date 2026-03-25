@@ -66,12 +66,9 @@
 #define XRAUDIO_VAD_DEFAULT_SENSITIVITY           (0.5)                             ///< Default VAD sensitivity threshold
 #define XRAUDIO_VAD_MIN_SENSITIVITY               (0.0)                             ///< Minimum VAD sensitivity threshold  
 #define XRAUDIO_VAD_MAX_SENSITIVITY               (1.0)                             ///< Maximum VAD sensitivity threshold
-#define XRAUDIO_VAD_DEFAULT_HYSTERESIS_MS         (100)                             ///< Default VAD hysteresis in milliseconds
-#define XRAUDIO_VAD_MIN_HYSTERESIS_MS             (0)                               ///< Minimum VAD hysteresis in milliseconds
-#define XRAUDIO_VAD_MAX_HYSTERESIS_MS             (1000)                            ///< Maximum VAD hysteresis in milliseconds
-#define XRAUDIO_VAD_DEFAULT_TIMEOUT_MS            (5000)                            ///< Default VAD timeout in milliseconds
-#define XRAUDIO_VAD_MIN_TIMEOUT_MS                (100)                             ///< Minimum VAD timeout in milliseconds
-#define XRAUDIO_VAD_MAX_TIMEOUT_MS                (30000)                           ///< Maximum VAD timeout in milliseconds
+#define XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS    (100)                             ///< Default VAD analysis window in milliseconds
+#define XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS         (50)                             ///< Minimum VAD analysis window in milliseconds
+#define XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS        (500)                             ///< Maximum VAD analysis window in milliseconds
 
 /// @}
 
@@ -163,15 +160,6 @@ typedef enum {
    XRAUDIO_STREAM_CPU_UTIL_INVALID     = 2, ///< Invalid cpu utilization type
 } xraudio_stream_cpu_util_mode_t;
 
-/// @brief VAD processing mode Types
-/// @details The VAD processing mode enumeration indicates all the VAD processing modes supported by xraudio.
-typedef enum {
-   XRAUDIO_VAD_MODE_LOW_POWER      = 0, ///< VAD processing optimized for low power consumption
-   XRAUDIO_VAD_MODE_BALANCED       = 1, ///< VAD processing with balanced accuracy and power consumption
-   XRAUDIO_VAD_MODE_HIGH_ACCURACY  = 2, ///< VAD processing optimized for high accuracy
-   XRAUDIO_VAD_MODE_INVALID        = 3, ///< Invalid VAD processing mode
-} xraudio_vad_mode_t;
-
 /// @brief xraudio interval type
 /// @details The interval type used with xraudio for time synchronization.
 typedef struct timeval  xraudio_interval_t;
@@ -211,12 +199,12 @@ typedef struct {
 } xraudio_encoding_t;
 
 /// @brief xraudio VAD configuration structure
-/// @details Voice Activity Detection configuration parameters.
+/// @details Voice Activity Detection configuration parameters. The VAD analyzes audio in 10ms samples
+///          within the specified analysis window. When the percentage of samples with voice activity
+///          exceeds the sensitivity threshold, XRAUDIO_VAD_STATE_VOICE is reported.
 typedef struct {
-   float               sensitivity;   ///< VAD sensitivity threshold (0.0-1.0)
-   uint16_t            hysteresis_ms; ///< VAD state change hysteresis in milliseconds
-   uint8_t             mode;          ///< VAD processing mode (0=low-power, 1=balanced, 2=high-accuracy)
-   uint16_t            timeout_ms;    ///< VAD processing timeout in milliseconds
+   float               sensitivity;        ///< VAD sensitivity threshold (0.0-1.0)
+   uint16_t            analysis_window_ms; ///< Analysis window in milliseconds for voice detection
 } xraudio_input_vad_config_t;
 
 /// @brief xraudio input format structure
@@ -253,7 +241,6 @@ typedef struct {
    xraudio_vad_state_t state;           ///< Current VAD state (voice/silence)
    float               confidence;      ///< VAD confidence level (0.0-1.0)
    float               energy_level;    ///< Audio energy level (dB)
-   uint64_t            timestamp_us;    ///< Timestamp in microseconds since stream start
    float               overall_score;   ///< Overall VAD score for the complete stream (0.0-1.0)
    bool                is_final;        ///< True if this is the final VAD event for the stream (includes overall_score)
 } xraudio_vad_event_data_t;

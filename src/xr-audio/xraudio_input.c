@@ -700,13 +700,13 @@ xraudio_result_t xraudio_input_vad_config(xraudio_input_object_t object, xraudio
          XRAUDIO_RECORD_MUTEX_UNLOCK();
          return(XRAUDIO_RESULT_ERROR_PARAMS);
       }
-      if(vad_config->hysteresis_ms < XRAUDIO_VAD_MIN_HYSTERESIS_MS || vad_config->hysteresis_ms > XRAUDIO_VAD_MAX_HYSTERESIS_MS) {
-         XLOGD_ERROR("Invalid VAD hysteresis: %u (range: %u - %u)", vad_config->hysteresis_ms, XRAUDIO_VAD_MIN_HYSTERESIS_MS, XRAUDIO_VAD_MAX_HYSTERESIS_MS);
+      if(vad_config->analysis_window_ms < XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS || vad_config->analysis_window_ms > XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS) {
+         XLOGD_ERROR("Invalid VAD analysis window: %u (range: %u - %u)", vad_config->analysis_window_ms, XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS, XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS);
          XRAUDIO_RECORD_MUTEX_UNLOCK();
          return(XRAUDIO_RESULT_ERROR_PARAMS);
       }
 
-      XLOGD_INFO("VAD enabled for source %s sensitivity: %f, hysteresis: %u", xraudio_devices_input_str(source), vad_config->sensitivity, vad_config->hysteresis_ms);
+      XLOGD_INFO("VAD enabled for source <%s> sensitivity <%f> analysis window <%u ms>", xraudio_devices_input_str(source), vad_config->sensitivity, vad_config->analysis_window_ms);
       session->vad_config  = *vad_config;
       session->vad_enabled = true;
    }
