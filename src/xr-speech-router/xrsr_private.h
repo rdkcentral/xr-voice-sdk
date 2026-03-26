@@ -360,4 +360,6 @@ void xrsr_session_begin(xrsr_src_t src, bool user_initiated, xraudio_input_forma
 void xrsr_keyword_detect_error(xrsr_src_t src);
 bool xrsr_mask_pii(void);
 
+xraudio_input_vad_config_t *xrsr_vad_config_get(void);
+
 #endif

@@ -144,6 +144,7 @@ typedef struct {
    #ifdef HTTP_ENABLED
    xrsr_http_json_config_t        http_json_config;
    #endif
+   xraudio_input_vad_config_t     vad_config;
    
    bool                           networked_standby;
    bool                           local_mic;
@@ -225,7 +226,7 @@ static void xrsr_route_update(const char *host_name, const xrsr_route_t *route, 
 static xrsr_audio_format_t xrsr_audio_format_get(uint32_t formats_supported_dst, xraudio_input_format_t format_src);
 
 static void xrsr_config_default(void);
-static void xrsr_config_apply(json_t *obj);
+static void xrsr_config_apply(json_t *obj, json_t *obj_xraudio);
 
 bool xrsr_config_get(xrsr_config_t *config) {
    if(config == NULL) {
@@ -285,9 +286,12 @@ void xrsr_config_default(void) {
    g_xrsr.ws_json_config_lpm.val_backoff_delay          = JSON_INT_VALUE_WS_LPM_BACKOFF_DELAY;
    g_xrsr.ws_json_config_lpm.ptr_backoff_delay          = &g_xrsr.ws_json_config_lpm.val_backoff_delay;
    #endif
+   
+   g_xrsr.vad_config.sensitivity        = JSON_FLOAT_VALUE_XRAUDIO_VAD_SENSITIVITY;
+   g_xrsr.vad_config.analysis_window_ms = JSON_INT_VALUE_XRAUDIO_VAD_ANALYSIS_WINDOW_MS;
 }
 
-void xrsr_config_apply(json_t *json_obj_in) {
+void xrsr_config_apply(json_t *json_obj_in, json_t *json_obj_xraudio) {
    json_t *json_obj;
 
    #ifdef HTTP_ENABLED
@@ -436,7 +440,41 @@ void xrsr_config_apply(json_t *json_obj_in) {
             }
          }
       }
-      #endif
+   }
+   #endif
+   
+   if(json_obj_xraudio != NULL) {
+      json_t *json_obj_vad = json_object_get(json_obj_xraudio, JSON_OBJ_NAME_XRAUDIO_VAD);
+      if(NULL == json_obj_vad || !json_is_object(json_obj_vad)) {
+         XLOGD_INFO("xraudio vad json object not found, using defaults");
+      } else {
+         json_obj = json_object_get(json_obj_vad, JSON_FLOAT_NAME_XRAUDIO_VAD_SENSITIVITY);
+         if(json_obj != NULL && json_is_real(json_obj)) {
+            double value = json_real_value(json_obj);
+
+            if(value < XRAUDIO_VAD_MIN_SENSITIVITY) {
+               g_xrsr.vad_config.sensitivity = XRAUDIO_VAD_MIN_SENSITIVITY;
+            } else if(value > XRAUDIO_VAD_MAX_SENSITIVITY) {
+               g_xrsr.vad_config.sensitivity = XRAUDIO_VAD_MAX_SENSITIVITY;
+            } else {
+               g_xrsr.vad_config.sensitivity = value;
+            }
+            XLOGD_INFO("xraudio vad: sensitivity <%f>", g_xrsr.vad_config.sensitivity);
+         }
+         json_obj = json_object_get(json_obj_vad, JSON_INT_NAME_XRAUDIO_VAD_ANALYSIS_WINDOW_MS);
+         if(json_obj != NULL && json_is_integer(json_obj)) {
+            json_int_t value = json_integer_value(json_obj);
+
+            if(value < XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS) {
+               g_xrsr.vad_config.analysis_window_ms = XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS;
+            } else if(value > XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS) {
+               g_xrsr.vad_config.analysis_window_ms = XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS;
+            } else {
+               g_xrsr.vad_config.analysis_window_ms = value;
+            }
+            XLOGD_INFO("xraudio vad: analysis window <%d> ms", g_xrsr.vad_config.analysis_window_ms);
+         }
+      }
    }
 }
 
@@ -535,8 +573,6 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    }
    
    if(json_obj_final != NULL) {
-      xrsr_config_apply(json_obj_final);
-
       json_obj_xraudio = json_object_get(json_obj_final, JSON_OBJ_NAME_XRAUDIO);
       if(NULL == json_obj_xraudio) {
          XLOGD_INFO("xraudio json object not found, using defaults");
@@ -546,6 +582,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
             json_obj_xraudio = NULL;
          }
       }
+      xrsr_config_apply(json_obj_final, json_obj_xraudio);
    }
 
    xraudio_power_mode_t xraudio_power_mode;
@@ -3390,4 +3427,8 @@ bool xrsr_has_keyword_detector(xrsr_src_t src) {
       return(false);
    }
    return(true);
+}
+
+xraudio_input_vad_config_t *xrsr_vad_config_get(void) {
+   return(&g_xrsr.vad_config);
 }

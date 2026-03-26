@@ -189,7 +189,7 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT xrsr_config.h
-   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i vsdk_config.json -o xrsr_config.h -v "ws,http"
+   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i vsdk_config.json -o xrsr_config.h -v "ws,http,xraudio"
    DEPENDS vsdk_config.json
    VERBATIM)
 
