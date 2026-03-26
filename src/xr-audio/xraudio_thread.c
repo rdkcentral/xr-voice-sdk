@@ -5081,7 +5081,6 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                         stats.vad_frames_processed   = vad_stats.frames_processed;
                         stats.vad_frames_voice       = vad_stats.frames_voice;
                         stats.vad_frames_silence     = vad_stats.frames_silence;
-                        stats.vad_state_transitions  = vad_stats.state_transitions;
                         stats.vad_energy_average     = vad_stats.energy_average;
                         stats.vad_energy_peak        = vad_stats.energy_peak;
                         stats.vad_confidence_average = vad_stats.confidence_average;
@@ -5105,7 +5104,6 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                         stats.vad_frames_processed   = vad_stats.frames_processed;
                         stats.vad_frames_voice       = vad_stats.frames_voice;
                         stats.vad_frames_silence     = vad_stats.frames_silence;
-                        stats.vad_state_transitions  = vad_stats.state_transitions;
                         stats.vad_energy_average     = vad_stats.energy_average;
                         stats.vad_energy_peak        = vad_stats.energy_peak;
                         stats.vad_confidence_average = vad_stats.confidence_average;

@@ -261,7 +261,6 @@ typedef struct {
    uint32_t vad_frames_processed;
    uint32_t vad_frames_voice;
    uint32_t vad_frames_silence;
-   uint32_t vad_state_transitions;
    float    vad_energy_average;
    float    vad_energy_peak;
    float    vad_confidence_average;

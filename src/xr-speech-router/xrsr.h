@@ -394,7 +394,6 @@ typedef struct {
    uint32_t vad_frames_processed;   ///< Quantity of VAD frames processed
    uint32_t vad_frames_voice;       ///< Quantity of VAD frames classified as voice
    uint32_t vad_frames_silence;     ///< Quantity of VAD frames classified as silence
-   uint32_t vad_state_transitions;  ///< Number of VAD state transitions
    float    vad_energy_average;     ///< Average audio energy level
    float    vad_energy_peak;        ///< Peak audio energy level
    float    vad_confidence_average; ///< Average VAD confidence score
