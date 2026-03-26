@@ -1000,7 +1000,7 @@ void St_Ws_Buffering(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardResp
          switch(pEvent->mID) {
             case SM_EVENT_EOS: {
                ws->stream_end_reason  = XRSR_STREAM_END_REASON_AUDIO_EOF;
-               ws->session_end_reason = XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
+               ws->session_end_reason = (ws->stream_time_min_rxd) ? XRSR_SESSION_END_REASON_ERROR_AUDIO_SILENT : XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
                xrsr_ws_speech_stream_end(ws, ws->stream_end_reason, ws->detect_resume);
                break;
             }

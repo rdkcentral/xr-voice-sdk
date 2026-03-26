@@ -137,7 +137,7 @@ const char *xrsr_session_end_reason_str(xrsr_session_end_reason_t type) {
       case XRSR_SESSION_END_REASON_ERROR_CONNECT_TIMEOUT:        return("ERROR_CONNECT_TIMEOUT");
       case XRSR_SESSION_END_REASON_ERROR_SESSION_TIMEOUT:        return("ERROR_SESSION_TIMEOUT");
       case XRSR_SESSION_END_REASON_ERROR_DISCONNECT_REMOTE:      return("ERROR_DISCONNECT_REMOTE");
-      case XRSR_SESSION_END_REASON_ERROR_VOICE_ACTIVITY_TIMEOUT: return("ERROR_VOICE_ACTIVITY_TIMEOUT");
+      case XRSR_SESSION_END_REASON_ERROR_AUDIO_SILENT:           return("ERROR_AUDIO_SILENT");
       case XRSR_SESSION_END_REASON_INVALID:                      return("INVALID");
    }
    return(xrsr_invalid_return(type));

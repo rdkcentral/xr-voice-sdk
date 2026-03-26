@@ -107,7 +107,7 @@ typedef enum {
    XRSR_SESSION_END_REASON_ERROR_CONNECT_TIMEOUT        = 9,  ///< Session ended due to connection timeout to the consumer endpoint
    XRSR_SESSION_END_REASON_ERROR_SESSION_TIMEOUT        = 10, ///< Session ended due to a session timeout expiration
    XRSR_SESSION_END_REASON_ERROR_DISCONNECT_REMOTE      = 11, ///< Session ended due to an unexpected server disconnect
-   XRSR_SESSION_END_REASON_ERROR_VOICE_ACTIVITY_TIMEOUT = 12, ///< Session ended due to a voice activity timeout
+   XRSR_SESSION_END_REASON_ERROR_AUDIO_SILENT           = 12, ///< Session ended due to silence in the audio stream
    XRSR_SESSION_END_REASON_INVALID                      = 13, ///< An invalid session end reason
 } xrsr_session_end_reason_t;
 
@@ -117,7 +117,8 @@ typedef enum {
    XRSR_RET_CODE_INTERNAL_SUCCESS                = 0, ///< Session ended successfully
    XRSR_RET_CODE_INTERNAL_AUDIO_DURATION         = 1, ///< Session ended due to an insufficient amount of audio samples received
    XRSR_RET_CODE_INTERNAL_TERMINATE              = 2, ///< Session was terminated before completion
-   XRSR_RET_CODE_INTERNAL_INVALID                = 3, ///< An invalid session end reason
+   XRSR_RET_CODE_INTERNAL_AUDIO_SILENT           = 3, ///< Session ended due to silence in the audio stream
+   XRSR_RET_CODE_INTERNAL_INVALID                = 4, ///< An invalid session end reason
 } xrsr_ret_code_internal_t;
 
 /// @brief XRSR stream end reason types

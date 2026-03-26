@@ -512,7 +512,7 @@ void St_Sdt_Buffering(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardRes
          switch(pEvent->mID) {
             case SM_EVENT_EOS: {
                sdt->stream_end_reason  = XRSR_STREAM_END_REASON_AUDIO_EOF;
-               sdt->session_end_reason = XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
+               sdt->session_end_reason = (sdt->stream_time_min_rxd) ? XRSR_SESSION_END_REASON_ERROR_AUDIO_SILENT : XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
                xrsr_sdt_speech_stream_end(sdt, sdt->stream_end_reason, sdt->detect_resume);
                break;
             }

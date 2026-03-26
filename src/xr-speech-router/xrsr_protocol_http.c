@@ -849,7 +849,7 @@ void St_Http_Buffering(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardRe
             switch(pEvent->mID) {
                 case SM_EVENT_EOS: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_DID_NOT_BEGIN, http->detect_resume, &http->audio_stats);
-                    http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
+                    http->session_stats.session_end_reason = (http->stream_time_min_rxd) ? XRSR_SESSION_END_REASON_ERROR_AUDIO_SILENT : XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
                     http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
                     break;
                 }
