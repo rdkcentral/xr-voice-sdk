@@ -287,8 +287,10 @@ void xrsr_config_default(void) {
    g_xrsr.ws_json_config_lpm.ptr_backoff_delay          = &g_xrsr.ws_json_config_lpm.val_backoff_delay;
    #endif
    
-   g_xrsr.vad_config.sensitivity        = JSON_FLOAT_VALUE_XRAUDIO_VAD_SENSITIVITY;
-   g_xrsr.vad_config.analysis_window_ms = JSON_INT_VALUE_XRAUDIO_VAD_ANALYSIS_WINDOW_MS;
+   g_xrsr.vad_config.sensitivity         = JSON_FLOAT_VALUE_XRAUDIO_VAD_SENSITIVITY;
+   g_xrsr.vad_config.analysis_window_ms  = JSON_INT_VALUE_XRAUDIO_VAD_ANALYSIS_WINDOW_MS;
+   g_xrsr.vad_config.audio_rms_level_min = JSON_FLOAT_VALUE_XRAUDIO_VAD_AUDIO_RMS_LEVEL_MIN;
+   g_xrsr.vad_config.intro_window_ms     = JSON_INT_VALUE_XRAUDIO_VAD_INTRO_WINDOW_MS;
 }
 
 void xrsr_config_apply(json_t *json_obj_in, json_t *json_obj_xraudio) {
@@ -473,6 +475,32 @@ void xrsr_config_apply(json_t *json_obj_in, json_t *json_obj_xraudio) {
                g_xrsr.vad_config.analysis_window_ms = value;
             }
             XLOGD_INFO("xraudio vad: analysis window <%d> ms", g_xrsr.vad_config.analysis_window_ms);
+         }
+         json_obj = json_object_get(json_obj_vad, JSON_FLOAT_NAME_XRAUDIO_VAD_AUDIO_RMS_LEVEL_MIN);
+         if(json_obj != NULL && json_is_real(json_obj)) {
+            double value = json_real_value(json_obj);
+
+            if(value < XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN) {
+               g_xrsr.vad_config.audio_rms_level_min = XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN;
+            } else if(value > XRAUDIO_VAD_MAX_AUDIO_RMS_LEVEL_MIN) {
+               g_xrsr.vad_config.audio_rms_level_min = XRAUDIO_VAD_MAX_AUDIO_RMS_LEVEL_MIN;
+            } else {
+               g_xrsr.vad_config.audio_rms_level_min = value;
+            }
+            XLOGD_INFO("xraudio vad: audio RMS level min <%f> dB", g_xrsr.vad_config.audio_rms_level_min);
+         }
+         json_obj = json_object_get(json_obj_vad, JSON_INT_NAME_XRAUDIO_VAD_INTRO_WINDOW_MS);
+         if(json_obj != NULL && json_is_integer(json_obj)) {
+            json_int_t value = json_integer_value(json_obj);
+
+            if(value < XRAUDIO_VAD_MIN_INTRO_WINDOW_MS) {
+               g_xrsr.vad_config.intro_window_ms = XRAUDIO_VAD_MIN_INTRO_WINDOW_MS;
+            } else if(value > XRAUDIO_VAD_MAX_INTRO_WINDOW_MS) {
+               g_xrsr.vad_config.intro_window_ms = XRAUDIO_VAD_MAX_INTRO_WINDOW_MS;
+            } else {
+               g_xrsr.vad_config.intro_window_ms = value;
+            }
+            XLOGD_INFO("xraudio vad: intro window <%d> ms", g_xrsr.vad_config.intro_window_ms);
          }
       }
    }

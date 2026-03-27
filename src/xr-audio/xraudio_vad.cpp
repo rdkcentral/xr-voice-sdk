@@ -47,6 +47,8 @@ typedef struct {
    uint32_t                       buffer_samples;         ///< Number of samples currently in buffer
    bool*                          voice_activity_history; ///< Circular buffer tracking voice activity for analysis window
    uint32_t                       analysis_window_size;   ///< Number of 10ms frames in analysis window
+   uint32_t                       intro_window_size;      ///< Number of 10ms frames in intro window
+   int32_t                        audio_rms_level_min;    ///< Minimum audio RMS level in dB for voice detection
    uint32_t                       history_index;          ///< Current index in voice activity history
    uint32_t                       history_count;          ///< Number of frames stored in history
    uint32_t                       voice_frame_count;      ///< Current count of voice frames in analysis window
@@ -77,6 +79,18 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
       XLOGD_ERROR("invalid VAD analysis window: %u ms", config->analysis_window_ms);
       return NULL;
    }
+
+   if (config->audio_rms_level_min < XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN || 
+       config->audio_rms_level_min > XRAUDIO_VAD_MAX_AUDIO_RMS_LEVEL_MIN) {
+      XLOGD_ERROR("invalid VAD audio RMS level min: %f dB", config->audio_rms_level_min);
+      return NULL;
+   }
+
+   if (config->intro_window_ms < XRAUDIO_VAD_MIN_INTRO_WINDOW_MS ||
+       config->intro_window_ms > XRAUDIO_VAD_MAX_INTRO_WINDOW_MS) {
+      XLOGD_ERROR("invalid VAD intro window: %u ms", config->intro_window_ms);
+      return NULL;
+   }
    
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)calloc(1, sizeof(xraudio_vad_obj_t));
    if (obj == NULL) {
@@ -93,6 +107,12 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
    if (obj->analysis_window_size == 0) {
       obj->analysis_window_size = 1; // Minimum 1 frame
    }
+   
+   // Calculate intro window size in 10ms frames
+   obj->intro_window_size = config->intro_window_ms / 10;
+
+   // Store minimum audio RMS level
+   obj->audio_rms_level_min = config->audio_rms_level_min;
    
    // Allocate voice activity history buffer
    obj->voice_activity_history = (bool*)calloc(obj->analysis_window_size, sizeof(bool));
@@ -164,8 +184,8 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
    obj->buffer_samples = 0;
    memset(obj->sample_buffer, 0, sizeof(obj->sample_buffer));
    
-   XLOGD_INFO("created VAD object: sample_rate=%u, sensitivity=%f, analysis_window=%ums (%u frames)", 
-              sample_rate, config->sensitivity, config->analysis_window_ms, obj->analysis_window_size);
+   XLOGD_INFO("sample rate <%u Hz> sensitivity <%f>, analysis window <%u ms, %u frames> intro window <%u ms, %u frames> audio RMS level min <%d dB>", 
+              sample_rate, config->sensitivity, config->analysis_window_ms, obj->analysis_window_size, config->intro_window_ms, obj->intro_window_size, obj->audio_rms_level_min);
    
    return (xraudio_vad_object_t)obj;
 }
@@ -220,19 +240,17 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
       has_voice_webrtc = obj->audio_processing->voice_detection()->stream_has_voice();
 
       // Calculate audio energy level
-      rms_level = obj->audio_processing->level_estimator()->RMS();
+      rms_level = -obj->audio_processing->level_estimator()->RMS();
    } catch(const std::exception& e) {
       XLOGD_ERROR("exception during AudioProcessing: %s", e.what());
       return XRAUDIO_RESULT_ERROR_INTERNAL;
    }
    
-   const uint8_t min_frames_for_voice = 10; // Require at least 10 frames before trusting VAD results
-   if(obj->stats.frames_processed <= min_frames_for_voice) {
+   if(obj->stats.frames_processed <= obj->intro_window_size) {
       has_voice_webrtc = false;
    }
-   // Apply minimum energy threshold of -60 dB
-   const int min_energy_threshold = 60;
-   bool has_voice = has_voice_webrtc && (rms_level < min_energy_threshold);
+   // Apply minimum energy threshold
+   bool has_voice = has_voice_webrtc && (rms_level >= obj->audio_rms_level_min);
    
    // Update sliding window with current frame's voice activity
    bool old_voice_activity = false;
@@ -261,8 +279,7 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    
    // Print debug information
    XLOGD_INFO("VAD: has_voice <%s><%s> rms_level <-%d dB> voice_frames <%u/%u> new_state <%s>",  has_voice_webrtc ? "YES" : "NO",
-              has_voice ? "YES" : "NO", rms_level, 
-              obj->voice_frame_count, obj->history_count, xraudio_vad_state_str(new_state));
+              has_voice ? "YES" : "NO", rms_level, obj->voice_frame_count, obj->history_count, xraudio_vad_state_str(new_state));
    
    // Check for state transition
    bool state_changed = (new_state != obj->current_state);

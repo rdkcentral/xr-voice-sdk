@@ -69,6 +69,12 @@
 #define XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS    (100)                             ///< Default VAD analysis window in milliseconds
 #define XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS         (50)                             ///< Minimum VAD analysis window in milliseconds
 #define XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS        (500)                             ///< Maximum VAD analysis window in milliseconds
+#define XRAUDIO_VAD_DEFAULT_AUDIO_RMS_LEVEL_MIN (-60.0)                             ///< Default VAD audio RMS level minimum
+#define XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN    (-200.0)                             ///< Minimum VAD audio RMS level minimum
+#define XRAUDIO_VAD_MAX_AUDIO_RMS_LEVEL_MIN       (0.0)                             ///< Maximum VAD audio RMS level minimum
+#define XRAUDIO_VAD_DEFAULT_INTRO_WINDOW_MS       (100)                             ///< Default VAD intro window in milliseconds
+#define XRAUDIO_VAD_MIN_INTRO_WINDOW_MS             (0)                             ///< Minimum VAD intro window in milliseconds
+#define XRAUDIO_VAD_MAX_INTRO_WINDOW_MS          (1000)                             ///< Maximum VAD intro window in milliseconds
 
 /// @}
 
@@ -203,8 +209,10 @@ typedef struct {
 ///          within the specified analysis window. When the percentage of samples with voice activity
 ///          exceeds the sensitivity threshold, XRAUDIO_VAD_STATE_VOICE is reported.
 typedef struct {
-   float               sensitivity;        ///< VAD sensitivity threshold (0.0-1.0)
-   uint16_t            analysis_window_ms; ///< Analysis window in milliseconds for voice detection
+   float               sensitivity;         ///< VAD sensitivity threshold (0.0-1.0)
+   uint16_t            analysis_window_ms;  ///< Analysis window in milliseconds for voice detection
+   float               audio_rms_level_min; ///< Minimum audio RMS level in dB
+   uint16_t            intro_window_ms;     ///< Introductory window in milliseconds for initial VAD analysis
 } xraudio_input_vad_config_t;
 
 /// @brief xraudio input format structure
