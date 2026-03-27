@@ -226,7 +226,11 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
       return XRAUDIO_RESULT_ERROR_INTERNAL;
    }
    
-   // Apply minimum energy threshold of -50 dB
+   const uint8_t min_frames_for_voice = 10; // Require at least 10 frames before trusting VAD results
+   if(obj->stats.frames_processed <= min_frames_for_voice) {
+      has_voice_webrtc = false;
+   }
+   // Apply minimum energy threshold of -60 dB
    const int min_energy_threshold = 60;
    bool has_voice = has_voice_webrtc && (rms_level < min_energy_threshold);
    
