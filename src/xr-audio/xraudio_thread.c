@@ -5705,8 +5705,6 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
    }
 }
 
-// VAD helper functions implementation
-
 void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, xraudio_input_vad_config_t vad_config, uint32_t sample_rate) {
    if (instance == NULL) {
       XLOGD_ERROR("invalid params");
@@ -5720,7 +5718,13 @@ void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, xraudio
    } else {
       xraudio_result_t result = xraudio_vad_config_update(instance->vad_obj, &vad_config);
       if(result != XRAUDIO_RESULT_OK) {
-         XLOGD_ERROR("failed to update VAD config: %s", xraudio_result_str(result));
+         XLOGD_ERROR("failed to update VAD config <%s>", xraudio_result_str(result));
+         instance->vad_enabled = false;
+         return;
+      }
+      result = xraudio_vad_reset(instance->vad_obj);
+      if(result != XRAUDIO_RESULT_OK) {
+         XLOGD_ERROR("failed to reset VAD object <%s>", xraudio_result_str(result));
          instance->vad_enabled = false;
          return;
       }

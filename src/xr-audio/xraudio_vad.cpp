@@ -52,7 +52,7 @@ typedef struct {
    uint32_t                       voice_frame_count;      ///< Current count of voice frames in analysis window
 } xraudio_vad_obj_t;
 
-static xraudio_vad_state_t xraudio_vad_analyze_window(xraudio_vad_obj_t *obj);
+static xraudio_vad_state_t xraudio_vad_analyze_window(xraudio_vad_obj_t *obj, float *confidence_out);
 
 xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config, uint32_t sample_rate) {
    if (config == NULL) {
@@ -113,8 +113,17 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
       }
       
       // Initialize AudioProcessing with the sample rate
-      int result = obj->audio_processing->Initialize(sample_rate, sample_rate, sample_rate,
-                                                    webrtc::AudioProcessing::kMono, webrtc::AudioProcessing::kMono, webrtc::AudioProcessing::kMono);
+      webrtc::ProcessingConfig processing_config;
+      processing_config.input_stream().set_sample_rate_hz(sample_rate);
+      processing_config.input_stream().set_num_channels(1);
+      processing_config.output_stream().set_sample_rate_hz(sample_rate);
+      processing_config.output_stream().set_num_channels(1);
+      processing_config.reverse_input_stream().set_sample_rate_hz(sample_rate);
+      processing_config.reverse_input_stream().set_num_channels(1);
+      processing_config.reverse_output_stream().set_sample_rate_hz(sample_rate);
+      processing_config.reverse_output_stream().set_num_channels(1);
+
+      int result = obj->audio_processing->Initialize(processing_config);
       if (result != webrtc::AudioProcessing::kNoError) {
          XLOGD_ERROR("failed to initialize AudioProcessing: %d", result);
          delete obj->audio_processing;
@@ -197,23 +206,29 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    memcpy(audio_frame_webrtc.data_, audio_frame, copy_size * sizeof(int16_t));
    
    // Process frame through WebRTC AudioProcessing
-   int result = obj->audio_processing->ProcessStream(&audio_frame_webrtc);
-   if(result != webrtc::AudioProcessing::kNoError) {
-      XLOGD_ERROR("AudioProcessing::ProcessStream failed: %d", result);
+   int result;
+   bool has_voice_webrtc;
+   int rms_level;
+   try {
+      result = obj->audio_processing->ProcessStream(&audio_frame_webrtc);
+      if(result != webrtc::AudioProcessing::kNoError) {
+         XLOGD_ERROR("AudioProcessing::ProcessStream failed: %d", result);
+         return XRAUDIO_RESULT_ERROR_INTERNAL;
+      }
+
+      // Get voice detection result from WebRTC VoiceDetection
+      has_voice_webrtc = obj->audio_processing->voice_detection()->stream_has_voice();
+
+      // Calculate audio energy level
+      rms_level = obj->audio_processing->level_estimator()->RMS();
+   } catch(const std::exception& e) {
+      XLOGD_ERROR("exception during AudioProcessing: %s", e.what());
       return XRAUDIO_RESULT_ERROR_INTERNAL;
    }
    
-   // Get voice detection result from WebRTC VoiceDetection
-   bool has_voice_webrtc = obj->audio_processing->voice_detection()->stream_has_voice();
-   
-   // Calculate audio energy level
-   int rms_level = obj->audio_processing->level_estimator()->RMS();
-   
    // Apply minimum energy threshold of -50 dB
-   const int min_energy_threshold = 50;
-   bool has_voice = has_voice_webrtc && (rms_level > min_energy_threshold);
-   
-   float voice_probability = has_voice ? 0.9f : 0.1f;  // Convert boolean to probability estimate
+   const int min_energy_threshold = 60;
+   bool has_voice = has_voice_webrtc && (rms_level < min_energy_threshold);
    
    // Update sliding window with current frame's voice activity
    bool old_voice_activity = false;
@@ -237,10 +252,11 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    obj->history_index = (obj->history_index + 1) % obj->analysis_window_size;
    
    // Determine VAD state based on analysis window
-   xraudio_vad_state_t new_state = xraudio_vad_analyze_window(obj);
+   float confidence = 0.0f;
+   xraudio_vad_state_t new_state = xraudio_vad_analyze_window(obj, &confidence);
    
    // Print debug information
-   XLOGD_INFO("VAD: has_voice <%s> rms_level <-%d dB> voice_frames <%u/%u> new_state <%s>",  
+   XLOGD_INFO("VAD: has_voice <%s><%s> rms_level <-%d dB> voice_frames <%u/%u> new_state <%s>",  has_voice_webrtc ? "YES" : "NO",
               has_voice ? "YES" : "NO", rms_level, 
               obj->voice_frame_count, obj->history_count, xraudio_vad_state_str(new_state));
    
@@ -260,14 +276,14 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    }
    
    obj->rms_level_sum  += rms_level;
-   obj->confidence_sum += voice_probability;
+   obj->confidence_sum += confidence;
    
    // Track peak values
    if(rms_level < obj->stats.energy_peak) {
       obj->stats.energy_peak = rms_level;
    }
-   if(voice_probability > obj->stats.confidence_peak) {
-      obj->stats.confidence_peak = voice_probability;
+   if(confidence > obj->stats.confidence_peak) {
+      obj->stats.confidence_peak = confidence;
    }
    
    uint64_t processing_time = rdkx_timestamp_since_us(start_time);
@@ -276,7 +292,7 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    
    // Fill VAD event data
    vad_data->state        = new_state;
-   vad_data->confidence   = voice_probability;
+   vad_data->confidence   = confidence;
    vad_data->energy_level = -1 * rms_level;
    vad_data->is_final     = false;
    
@@ -383,6 +399,30 @@ xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object) {
    
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
    
+   // Reset WebRTC AudioProcessing instance
+   if(obj->audio_processing != NULL) {
+      try {
+         webrtc::ProcessingConfig processing_config;
+         processing_config.input_stream().set_sample_rate_hz(obj->sample_rate);
+         processing_config.input_stream().set_num_channels(1);
+         processing_config.output_stream().set_sample_rate_hz(obj->sample_rate);
+         processing_config.output_stream().set_num_channels(1);
+         processing_config.reverse_input_stream().set_sample_rate_hz(obj->sample_rate);
+         processing_config.reverse_input_stream().set_num_channels(1);
+         processing_config.reverse_output_stream().set_sample_rate_hz(obj->sample_rate);
+         processing_config.reverse_output_stream().set_num_channels(1);
+
+         int rc = obj->audio_processing->Initialize(processing_config);
+         if(rc != webrtc::AudioProcessing::kNoError) {
+            XLOGD_ERROR("failed to reinitialize AudioProcessing: %d", rc);
+            return XRAUDIO_RESULT_ERROR_INTERNAL;
+         }
+      } catch(const std::exception& e) {
+         XLOGD_ERROR("exception reinitializing AudioProcessing: %s", e.what());
+         return XRAUDIO_RESULT_ERROR_INTERNAL;
+      }
+   }
+
    // Reset VAD state
    obj->current_state     = XRAUDIO_VAD_STATE_UNKNOWN;
    obj->history_index     = 0;
@@ -430,7 +470,7 @@ xraudio_result_t xraudio_vad_get_stats(xraudio_vad_object_t object, xraudio_vad_
    return XRAUDIO_RESULT_OK;
 }
 
-static xraudio_vad_state_t xraudio_vad_analyze_window(xraudio_vad_obj_t *obj) {
+static xraudio_vad_state_t xraudio_vad_analyze_window(xraudio_vad_obj_t *obj, float *confidence_out) {
    // If we don't have enough frames yet, return current state
    if(obj->history_count == 0) {
       return XRAUDIO_VAD_STATE_UNKNOWN;
@@ -439,6 +479,10 @@ static xraudio_vad_state_t xraudio_vad_analyze_window(xraudio_vad_obj_t *obj) {
    // Calculate percentage of voice frames in the analysis window
    float voice_percentage = (float)obj->voice_frame_count / (float)obj->history_count;
    
+   if(confidence_out != NULL) {
+      *confidence_out = voice_percentage;
+   }
+
    // Compare against sensitivity threshold
    if(voice_percentage >= obj->config.sensitivity) {
       return XRAUDIO_VAD_STATE_VOICE;
