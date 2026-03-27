@@ -66,18 +66,14 @@ void xraudio_vad_destroy(xraudio_vad_object_t object);
 /// @param[in] frame_size Number of samples in the frame
 /// @param[out] vad_data VAD event data with state, confidence, energy, etc.
 /// @return XRAUDIO_RESULT_OK on success, error code otherwise
-xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, 
-                                          const xraudio_sample_t *audio_frame,
-                                          uint32_t frame_size,
-                                          xraudio_vad_event_data_t *vad_data);
+xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xraudio_sample_t *audio_frame, uint32_t frame_size, xraudio_vad_event_data_t *vad_data);
 
 /// @brief Update VAD configuration
 /// @details Updates VAD processing parameters at runtime
 /// @param[in] object VAD object handle
 /// @param[in] config New VAD configuration parameters
 /// @return XRAUDIO_RESULT_OK on success, error code otherwise  
-xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, 
-                                           const xraudio_input_vad_config_t *config);
+xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xraudio_input_vad_config_t *config);
 
 /// @brief Reset VAD processing state
 /// @details Resets VAD internal state for new audio stream processing
@@ -89,17 +85,9 @@ xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object);
 /// @details Retrieves accumulated VAD processing statistics and metrics
 /// @param[in] object VAD object handle
 /// @param[out] stats VAD statistics structure
+/// @param[in] finalize If true, finalize the statistics before returning
 /// @return XRAUDIO_RESULT_OK on success, error code otherwise
-xraudio_result_t xraudio_vad_get_stats(xraudio_vad_object_t object, 
-                                       xraudio_vad_stats_t *stats);
-
-/// @brief Finalize VAD processing session
-/// @details Finalizes VAD session and calculates overall score for telemetry
-/// @param[in] object VAD object handle
-/// @param[out] vad_data Final VAD event data with overall score
-/// @return XRAUDIO_RESULT_OK on success, error code otherwise
-xraudio_result_t xraudio_vad_finalize(xraudio_vad_object_t object, 
-                                      xraudio_vad_event_data_t *vad_data);
+xraudio_result_t xraudio_vad_get_stats(xraudio_vad_object_t object, xraudio_vad_stats_t *stats, bool finalize);
 
 #ifdef __cplusplus
 }
