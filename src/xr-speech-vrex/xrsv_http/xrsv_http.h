@@ -62,7 +62,6 @@ typedef struct {
    const char *device_id;        ///< The client device's unique identifier
    const char *receiver_id;      ///< The client device's receiver identifier
    const char *partner_id;       ///< The network's partner identifier
-   const char *experience;       ///< User experience identifier
    const char *app_id;           ///< The application identifier for HTTP requests from the client device
    const char *language;         ///< The device's language
    bool        test_flag;        ///< True if the device is used for testing only, otherwise false
@@ -218,12 +217,6 @@ bool xrsv_http_update_receiver_id(xrsv_http_object_t object, const char *receive
 /// @param[in] partner_id Network's partner identifier stored as a NULL-terminated string
 /// @return The function returns true for success, otherwise false.
 bool xrsv_http_update_partner_id(xrsv_http_object_t object, const char *partner_id);
-
-/// @brief Update the vrex speech request handler's user experience id
-/// @details Function used to update the user experience identifier.
-/// @param[in] experience User experience identifier stored as a NULL-terminated string
-/// @return The function returns true for success, otherwise false.
-bool xrsv_http_update_experience(xrsv_http_object_t object, const char *experience);
 
 /// @brief Update the vrex speech request handler's application id
 /// @details Function used to update the application identifer.
