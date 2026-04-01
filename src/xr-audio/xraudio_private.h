@@ -41,6 +41,7 @@
 #include "xraudio_input.h"
 
 #define XLOG_MODULE_ID XLOG_MODULE_ID_XRAUDIO
+#define  XLOG_PRINT_LINE
 #include "rdkx_logger.h"
 
 #define WAVE_HEADER_SIZE_MIN              (44)

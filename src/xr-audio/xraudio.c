@@ -86,6 +86,8 @@ typedef struct {
    xraudio_hal_plugin_api_t *        hal_plugin;
    xraudio_dga_plugin_api_t *        dga_plugin;
    xraudio_kwd_plugin_api_t *        kwd_plugin;
+   xr_ffv_hal_plugin_func_t *        xr_ffv_hal_plugin;
+   void *                            xr_ffv_hal_handle;
    bool                              eos_enabled;
    bool                              ppr_enabled;
    bool                              out_enabled;
@@ -186,6 +188,8 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->hal_plugin                            = vsdk_hal_plugin_get();
    obj->dga_plugin                            = vsdk_dga_plugin_get();
    obj->kwd_plugin                            = vsdk_kwd_plugin_get();
+   obj->xr_ffv_hal_plugin                     = vsdk_xr_ffv_hal_plugin_get();
+   obj->xr_ffv_hal_handle                     = NULL;
    obj->eos_enabled                           = (vsdk_eos_plugin_get() == NULL) ? false : true;
    obj->ppr_enabled                           = (vsdk_ppr_plugin_get() == NULL) ? false : true;
    obj->out_enabled                           = vsdk_hal_out_enabled();
@@ -226,7 +230,9 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
          json_incref(obj->json_obj_hal);
       }
    }
-   if(obj->hal_plugin != NULL) {
+   if(obj->xr_ffv_hal_plugin != NULL) {
+      obj->xr_ffv_hal_handle = obj->xr_ffv_hal_plugin->get_handle();
+   } else if(obj->hal_plugin != NULL) {
       obj->hal_plugin->init(obj->json_obj_hal);
       obj->hal_plugin->dsp_config_get(&g_xraudio_process.dsp_config);
    }
@@ -297,6 +303,19 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
 
+   if(obj->xr_ffv_hal_plugin != NULL) {
+      FFVhalCapabilities_t caps;
+      obj->xr_ffv_hal_plugin->get_capabilities(obj->xr_ffv_hal_handle, &caps);
+      for(int i = 0; i < MAX_FFV_CHAN_TYPES; i++) {
+         if(((strcmp(caps.channelTypes[i], "KEYWORD") == 0) || (strcmp(caps.channelTypes[i], "MICROPHONES") == 0)) &&
+               (input_qty_max > 1)) {
+            *inputs = XRAUDIO_DEVICE_INPUT_TRI;
+         }
+      }
+      if(!(*inputs & XRAUDIO_DEVICE_INPUT_TRI)) {
+         XLOGD_INFO("Unable to get xr ffv hal device");
+      }
+   }
    if(obj->hal_plugin != NULL) {
       if (!obj->hal_plugin->available_devices_get(inputs, input_qty_max, outputs, output_qty_max)) {
          XLOGD_ERROR("Unable to get available xraudio hal devices");
@@ -483,8 +502,19 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
       XRAUDIO_API_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_OPEN);
    }
-
-   if(obj->hal_plugin != NULL) {
+   XLOGD_INFO("");
+   if(obj->xr_ffv_hal_plugin != NULL) {
+      FFVhalCapabilities_t caps;
+      obj->xr_ffv_hal_plugin->get_capabilities(obj->xr_ffv_hal_handle, &caps);
+      if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(input) != XRAUDIO_DEVICE_INPUT_NONE) {
+         for(uint8_t index = 0; index < MAX_FFV_CHAN_TYPES; index++) { // Find the local microphone
+            if((strcmp(caps.channelTypes[index], "KEYWORD") == 0) || (strcmp(caps.channelTypes[index], "MICROPHONES") == 0)) {
+               obj->resource_id_record    = XRAUDIO_RESOURCE_ID_INPUT_1;
+               obj->capabilities_record   = XRAUDIO_DEVICE_INPUT_TRI;
+            }
+         }
+      }
+   } else if(obj->hal_plugin != NULL) {
       #ifndef XRAUDIO_RESOURCE_MGMT
       xraudio_hal_capabilities caps;
       obj->hal_plugin->capabilities_get(&caps);
@@ -1135,6 +1165,10 @@ xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
 }
 
 void xraudio_audio_hal_close(xraudio_obj_t *obj) {
+   if(obj->xr_ffv_hal_plugin != NULL) {
+      obj->xr_ffv_hal_plugin->destroy(obj->xr_ffv_hal_handle);
+      XLOGD_INFO("xr ffv hal destroyed");
+   }
    if(obj->hal_plugin != NULL) {
       XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
       g_xraudio_process.hal_user_cnt--;

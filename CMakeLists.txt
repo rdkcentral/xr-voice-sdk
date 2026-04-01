@@ -162,8 +162,11 @@ if(CURTAIL_LIBRARY)
 endif()
 
 if(FFV_HAL_V2)
-   target_sources(xr-voice-sdk PUBLIC src/xr-ffv-hal/xr_ffv_hal.c)
+   target_sources(xr-voice-sdk PUBLIC
+      src/xr-ffv-hal/xr_ffv_hal_interface.c
+      )
    target_compile_definitions(xr-voice-sdk PUBLIC FFV_HAL_V2)
+   target_include_directories(xr-voice-sdk PUBLIC src/xr-ffv-hal/)
 endif()
 
 # CONFIG FILES
