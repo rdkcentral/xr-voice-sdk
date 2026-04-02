@@ -64,6 +64,9 @@ static FFVhalApiStatus_t xr_ffv_hal_close_channel(FFVhalControlHandle controller
 static FFVhalApiStatus_t xr_ffv_hal_set_privacy_state(FFVhalControlHandle controllerHandle, bool activate);
 static FFVhalApiStatus_t xr_ffv_hal_set_power_mode(FFVhalControlHandle controllerHandle,FFVhalPowerMode_t powerMode);
 
+static bool xr_ffv_hal_plugin_api_get(void);
+static const char *xr_ffv_hal_status_str(FFVhalApiStatus_t status);
+
 void *xr_ffv_hal_plugin_handle_get(void) {
    XLOGD_INFO("");
    void *handle = NULL;
@@ -87,14 +90,6 @@ void *xr_ffv_hal_plugin_handle_get(void) {
 
 xr_ffv_hal_plugin_func_t *xr_ffv_hal_plugin_func_get(void) {
    XLOGD_INFO("");
-   void *handle = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_handle;
-   if(handle == NULL) {
-      XLOGD_ERROR("unable to get ffv hal plugin handle");
-      return(NULL);
-   }
-
-   memset(&g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api, 0, sizeof(xr_ffv_hal_plugin_api_t));
-
    static xr_ffv_hal_plugin_func_t g_xr_ffv_hal_plugin_funcs = {
       .get_handle                   = xr_ffv_hal_get_handle,
       .init                         = xr_ffv_hal_init,
@@ -115,59 +110,9 @@ xr_ffv_hal_plugin_func_t *xr_ffv_hal_plugin_func_get(void) {
       .set_power_mode               = xr_ffv_hal_set_power_mode
    };
 
-   FFVhal_getService_t               FFVhal_getService               = (FFVhal_getService_t)dlsym(handle, "FFVhal_getService");
-   FFVhal_destroy_t                  FFVhal_destroy                  = (FFVhal_destroy_t)dlsym(handle, "FFVhal_destroy");
-   FFVhal_GetCapabilities_t          FFVhal_GetCapabilities          = (FFVhal_GetCapabilities_t)dlsym(handle, "FFVhal_GetCapabilities");
-   FFVhal_getState_t                 FFVhal_getState                 = (FFVhal_getState_t)dlsym(handle, "FFVhal_getState");
-   FFVhal_getStatus_t                FFVhal_getStatus                = (FFVhal_getStatus_t)dlsym(handle, "FFVhal_getStatus");
-   FFVhal_getChannelStatus_t         FFVhal_getChannelStatus         = (FFVhal_getChannelStatus_t)dlsym(handle, "FFVhal_getChannelStatus");
-   FFVhal_getKeywordMetaData_t       FFVhal_getKeywordMetaData       = (FFVhal_getKeywordMetaData_t)dlsym(handle, "FFVhal_getKeywordMetaData");
-   FFVhal_setConfiguration_t         FFVhal_setConfiguration         = (FFVhal_setConfiguration_t)dlsym(handle, "FFVhal_setConfiguration");
-   FFVhal_registerEventListeners_t   FFVhal_registerEventListeners   = (FFVhal_registerEventListeners_t)dlsym(handle, "FFVhal_registerEventListeners");
-   FFVhal_unregisterEventListeners_t FFVhal_unregisterEventListeners = (FFVhal_unregisterEventListeners_t)dlsym(handle, "FFVhal_unregisterEventListeners");
-   FFVhal_open_t                     FFVhal_open                     = (FFVhal_open_t)dlsym(handle, "FFVhal_open");
-   FFVhal_close_t                    FFVhal_close                    = (FFVhal_close_t)dlsym(handle, "FFVhal_close");
-   FFVhal_openChannel_t              FFVhal_openChannel              = (FFVhal_openChannel_t)dlsym(handle, "FFVhal_openChannel");
-   FFVhal_closeChannel_t             FFVhal_closeChannel             = (FFVhal_closeChannel_t)dlsym(handle, "FFVhal_closeChannel");
-   FFVhal_setPrivacyState_t          FFVhal_setPrivacyState          = (FFVhal_setPrivacyState_t)dlsym(handle, "FFVhal_setPrivacyState");
-   FFVhal_setPowerMode_t             FFVhal_setPowerMode             = (FFVhal_setPowerMode_t)dlsym(handle, "FFVhal_setPowerMode");
-
-   if((FFVhal_getService == NULL)               ||
-      (FFVhal_destroy == NULL)                  ||
-      (FFVhal_GetCapabilities == NULL)          ||
-      (FFVhal_getState == NULL)                 ||
-      (FFVhal_getStatus == NULL)                ||
-      (FFVhal_getChannelStatus == NULL)         ||
-      (FFVhal_getKeywordMetaData == NULL)       ||
-      (FFVhal_setConfiguration == NULL)         ||
-      (FFVhal_registerEventListeners == NULL)   ||
-      (FFVhal_unregisterEventListeners == NULL) ||
-      (FFVhal_open == NULL)                     ||
-      (FFVhal_close == NULL)                    ||
-      (FFVhal_openChannel == NULL)              ||
-      (FFVhal_closeChannel == NULL)             ||
-      (FFVhal_setPrivacyState == NULL)          ||
-      (FFVhal_setPowerMode == NULL)) {
-      XLOGD_ERROR("XR FFV HAL plugin API incomplete");
-      memset(&g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api, 0, sizeof(xr_ffv_hal_plugin_api_t));
+   if(xr_ffv_hal_plugin_api_get() == false) {
       return(NULL);
    }
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_handle_plugin_api = FFVhal_getService;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.destroy_plugin_api = FFVhal_destroy;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_capabilities_plugin_api = FFVhal_GetCapabilities;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_state_plugin_api = FFVhal_getState;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_status_plugin_api = FFVhal_getStatus;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_channel_status_plugin_api = FFVhal_getChannelStatus;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_keyword_meta_data_plugin_api = FFVhal_getKeywordMetaData;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.set_configuration_plugin_api = FFVhal_setConfiguration;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.register_event_listeners_plugin_api = FFVhal_registerEventListeners;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.unregister_event_listeners_plugin_api = FFVhal_unregisterEventListeners;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.open_plugin_api = FFVhal_open;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.close_plugin_api = FFVhal_close;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.open_channel_plugin_api = FFVhal_openChannel;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.close_channel_plugin_api = FFVhal_closeChannel;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.set_privacy_state_plugin_api = FFVhal_setPrivacyState;
-   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.set_power_mode_plugin_api = FFVhal_setPowerMode;
 
    return &g_xr_ffv_hal_plugin_funcs;
 }
@@ -179,52 +124,31 @@ bool xr_ffv_hal_init(void) {
 
 FFVhalHandle xr_ffv_hal_get_handle(void) {
    XLOGD_INFO("");
-   void *handle = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_handle;
-   if(handle == NULL) {
-      XLOGD_ERROR("unable to get ffv hal plugin handle");
-      return(NULL);
-   }
-
-   FFVhal_getService_t FFVhal_getService = (FFVhal_getService_t)dlsym(handle, "FFVhal_getService");
-   if(FFVhal_getService == NULL) {
-      XLOGD_ERROR("unable to get FFVhal_getService function");
-      return(NULL);
-   }
-   FFVhalHandle ffv_handle = FFVhal_getService();
+   FFVhalHandle ffv_handle = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_handle_plugin_api();
    if(ffv_handle == NULL) {
-      XLOGD_ERROR("unable to get ffv_handle");
+      XLOGD_ERROR("unable to get xr ffv hal handle");
       return(NULL);
    }
    g_local_xr_ffv_hal_obj.ffv_handle = ffv_handle;
-   XLOGD_INFO("successfully created ffv hal handle");
+   XLOGD_INFO("successfully created xr ffv hal handle");
    return(ffv_handle);
 }
 
 void xr_ffv_hal_destroy(FFVhalHandle ffv_handle) {
    XLOGD_INFO("");
-   void *handle = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_handle;
-   if(handle == NULL) {
-      XLOGD_ERROR("unable to get ffv hal plugin handle");
+   if(ffv_handle == NULL) {
       return;
    }
-
-   FFVhal_destroy_t FFVhal_destroy = (FFVhal_destroy_t)dlsym(handle, "FFVhal_destroy");
-   FFVhal_destroy(ffv_handle);
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.destroy_plugin_api(ffv_handle);
+   XLOGD_INFO("ffv hal handle destroyed");
 }
 
 FFVhalApiStatus_t xr_ffv_hal_get_capabilities(FFVhalHandle ffv_handle, FFVhalCapabilities_t *pCapabilities) {
    XLOGD_INFO("");
    FFVhalApiStatus_t status = EX_NONE;
 
-   void *handle = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_handle;
-   if(handle == NULL) {
-      XLOGD_ERROR("unable to get ffv hal plugin handle");
-      return(EX_NULL_POINTER);
-   }
-
-   FFVhal_GetCapabilities_t FFVhal_GetCapabilities = (FFVhal_GetCapabilities_t)dlsym(handle, "FFVhal_GetCapabilities");
-   if(FFVhal_GetCapabilities == NULL) {
-      XLOGD_ERROR("unable to get FFVhal_GetCapabilities function");
+   if(ffv_handle == NULL) {
+      XLOGD_ERROR("ffv handle is null");
       return(EX_NULL_POINTER);
    }
 
@@ -233,19 +157,19 @@ FFVhalApiStatus_t xr_ffv_hal_get_capabilities(FFVhalHandle ffv_handle, FFVhalCap
       return(EX_NULL_POINTER);
    }
 
-   status = FFVhal_GetCapabilities(ffv_handle, pCapabilities);
+   status = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_capabilities_plugin_api(ffv_handle, pCapabilities);
    if(status != EX_NONE) {
-      XLOGD_ERROR("failed to get capabilities. status <%d>", status);
+      XLOGD_ERROR("failed to get capabilities. status <%s>", xr_ffv_hal_status_str(status));
       return(status);
    }
 
    g_local_xr_ffv_hal_obj.mic_channel_count = pCapabilities->microphoneChannelCount;
+   XLOGD_INFO("input qty <%u>", g_local_xr_ffv_hal_obj.mic_channel_count);
    for(int i = 0; i < MAX_FFV_CHAN_TYPES; i++) {
       XLOGD_INFO("channelTypes[%d] <%s>", i, pCapabilities->channelTypes[i]);
-      strcpy((char *)g_local_xr_ffv_hal_obj.channel_types[i], pCapabilities->channelTypes[i]);
+      strcpy((char *)&g_local_xr_ffv_hal_obj.channel_types[i], pCapabilities->channelTypes[i]);
    }
 
-   XLOGD_INFO("input <%u> capabilities <%s>", g_local_xr_ffv_hal_obj.mic_channel_count, g_local_xr_ffv_hal_obj.channel_types[0]);
    return(status);
 }
 
@@ -339,3 +263,88 @@ FFVhalApiStatus_t xr_ffv_hal_set_power_mode(FFVhalControlHandle controllerHandle
    XLOGD_INFO("not implemented");
    return(status);
 }
+
+bool xr_ffv_hal_plugin_api_get(void) {
+   XLOGD_INFO("");
+   void *handle = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_handle;
+   if(handle == NULL) {
+      XLOGD_ERROR("unable to get ffv hal plugin handle");
+      return(false);
+   }
+
+   memset(&g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api, 0, sizeof(xr_ffv_hal_plugin_api_t));
+
+   FFVhal_getService_t               FFVhal_getService               = (FFVhal_getService_t)dlsym(handle, "FFVhal_getService");
+   FFVhal_destroy_t                  FFVhal_destroy                  = (FFVhal_destroy_t)dlsym(handle, "FFVhal_destroy");
+   FFVhal_GetCapabilities_t          FFVhal_GetCapabilities          = (FFVhal_GetCapabilities_t)dlsym(handle, "FFVhal_GetCapabilities");
+   FFVhal_getState_t                 FFVhal_getState                 = (FFVhal_getState_t)dlsym(handle, "FFVhal_getState");
+   FFVhal_getStatus_t                FFVhal_getStatus                = (FFVhal_getStatus_t)dlsym(handle, "FFVhal_getStatus");
+   FFVhal_getChannelStatus_t         FFVhal_getChannelStatus         = (FFVhal_getChannelStatus_t)dlsym(handle, "FFVhal_getChannelStatus");
+   FFVhal_getKeywordMetaData_t       FFVhal_getKeywordMetaData       = (FFVhal_getKeywordMetaData_t)dlsym(handle, "FFVhal_getKeywordMetaData");
+   FFVhal_setConfiguration_t         FFVhal_setConfiguration         = (FFVhal_setConfiguration_t)dlsym(handle, "FFVhal_setConfiguration");
+   FFVhal_registerEventListeners_t   FFVhal_registerEventListeners   = (FFVhal_registerEventListeners_t)dlsym(handle, "FFVhal_registerEventListeners");
+   FFVhal_unregisterEventListeners_t FFVhal_unregisterEventListeners = (FFVhal_unregisterEventListeners_t)dlsym(handle, "FFVhal_unregisterEventListeners");
+   FFVhal_open_t                     FFVhal_open                     = (FFVhal_open_t)dlsym(handle, "FFVhal_open");
+   FFVhal_close_t                    FFVhal_close                    = (FFVhal_close_t)dlsym(handle, "FFVhal_close");
+   FFVhal_openChannel_t              FFVhal_openChannel              = (FFVhal_openChannel_t)dlsym(handle, "FFVhal_openChannel");
+   FFVhal_closeChannel_t             FFVhal_closeChannel             = (FFVhal_closeChannel_t)dlsym(handle, "FFVhal_closeChannel");
+   FFVhal_setPrivacyState_t          FFVhal_setPrivacyState          = (FFVhal_setPrivacyState_t)dlsym(handle, "FFVhal_setPrivacyState");
+   FFVhal_setPowerMode_t             FFVhal_setPowerMode             = (FFVhal_setPowerMode_t)dlsym(handle, "FFVhal_setPowerMode");
+
+   if((FFVhal_getService == NULL)               ||
+      (FFVhal_destroy == NULL)                  ||
+      (FFVhal_GetCapabilities == NULL)          ||
+      (FFVhal_getState == NULL)                 ||
+      (FFVhal_getStatus == NULL)                ||
+      (FFVhal_getChannelStatus == NULL)         ||
+      (FFVhal_getKeywordMetaData == NULL)       ||
+      (FFVhal_setConfiguration == NULL)         ||
+      (FFVhal_registerEventListeners == NULL)   ||
+      (FFVhal_unregisterEventListeners == NULL) ||
+      (FFVhal_open == NULL)                     ||
+      (FFVhal_close == NULL)                    ||
+      (FFVhal_openChannel == NULL)              ||
+      (FFVhal_closeChannel == NULL)             ||
+      (FFVhal_setPrivacyState == NULL)          ||
+      (FFVhal_setPowerMode == NULL)) {
+      XLOGD_ERROR("XR FFV HAL plugin API incomplete");
+      memset(&g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api, 0, sizeof(xr_ffv_hal_plugin_api_t));
+      return(false);
+   }
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_handle_plugin_api = FFVhal_getService;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.destroy_plugin_api = FFVhal_destroy;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_capabilities_plugin_api = FFVhal_GetCapabilities;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_state_plugin_api = FFVhal_getState;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_status_plugin_api = FFVhal_getStatus;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_channel_status_plugin_api = FFVhal_getChannelStatus;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_keyword_meta_data_plugin_api = FFVhal_getKeywordMetaData;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.set_configuration_plugin_api = FFVhal_setConfiguration;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.register_event_listeners_plugin_api = FFVhal_registerEventListeners;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.unregister_event_listeners_plugin_api = FFVhal_unregisterEventListeners;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.open_plugin_api = FFVhal_open;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.close_plugin_api = FFVhal_close;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.open_channel_plugin_api = FFVhal_openChannel;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.close_channel_plugin_api = FFVhal_closeChannel;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.set_privacy_state_plugin_api = FFVhal_setPrivacyState;
+   g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.set_power_mode_plugin_api = FFVhal_setPowerMode;
+   return(true);
+}
+
+const char *xr_ffv_hal_status_str(FFVhalApiStatus_t status) {
+   switch(status) {
+      case EX_NONE: return("OK");
+      case EX_SECURITY: return("SECURITY");
+      case EX_BAD_PARCELABLE: return("BAD_PARCELABLE");
+      case EX_ILLEGAL_ARGUMENT: return("ILLEGAL_ARGUMENT");
+      case EX_NULL_POINTER: return("NULL_POINTER");
+      case EX_ILLEGAL_STATE: return("ILLEGAL_STATE");
+      case EX_NETWORK_MAIN_THREAD: return("NETWORK_MAIN_THREAD");
+      case EX_UNSUPPORTED_OPERATION: return("UNSUPPORTED_OPERATION");
+      case EX_SERVICE_SPECIFIC: return("SERVICE_SPECIFIC");
+      case EX_HAS_REPLY_HEADER: return("HAS_REPLY_HEADER");
+      case EX_TRANSACTION_FAILED: return("RANSACTION_FAILED");
+   }
+   return("UNKNOWN");
+}
+
+

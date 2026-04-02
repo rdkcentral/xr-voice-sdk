@@ -502,7 +502,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
       XRAUDIO_API_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_OPEN);
    }
-   XLOGD_INFO("");
+
    if(obj->xr_ffv_hal_plugin != NULL) {
       FFVhalCapabilities_t caps;
       obj->xr_ffv_hal_plugin->get_capabilities(obj->xr_ffv_hal_handle, &caps);

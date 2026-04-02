@@ -71,6 +71,7 @@ static void *vsdk_load_plugin_ffv_kwd(void);
 static void *vsdk_load_plugin_ffv_alg(void **handle_ppr);
 static void *vsdk_load_plugin_ffv_sdf(void);
 static void *vsdk_load_plugin_ffv_ovc(void);
+static void *vsdk_load_plugin_xr_ffv_hal(void);
 
 void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty) {
    if(qty == NULL || *qty < VSDK_VERSION_QTY_MAX || version_info == NULL) {
@@ -355,7 +356,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
    memset(handles, 0, sizeof(*handles));
    do {
-      handles->handle_xr_ffv_hal = xr_ffv_hal_plugin_handle_get();
+      handles->handle_xr_ffv_hal = vsdk_load_plugin_xr_ffv_hal();
 
       if(handles->handle_xr_ffv_hal == NULL) {
 
@@ -660,25 +661,27 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    return(handle);
 }
 
+void *vsdk_load_plugin_xr_ffv_hal(void) {
+   void *handle = xr_ffv_hal_plugin_handle_get();
+
+   if(NULL == handle) {
+      XLOGD_INFO("");
+      return(NULL);
+   }
+
+   XLOGD_INFO("Loading required XR FFV HAL plugin.");
+   g_vsdk.xr_ffv_hal_plugin = xr_ffv_hal_plugin_func_get();
+
+   if(g_vsdk.xr_ffv_hal_plugin == NULL) {
+      XLOGD_INFO("");
+      return(NULL);
+   }
+   XLOGD_INFO("Loaded required XR FFV HAL plugin.");
+   return(handle);
+}
+
 void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
    void *handle = NULL;
-
-   do {
-      handle = xr_ffv_hal_plugin_handle_get();
-
-      if(NULL == handle) {
-         break;
-      }
-
-      g_vsdk.xr_ffv_hal_plugin = xr_ffv_hal_plugin_func_get();
-
-      if(g_vsdk.xr_ffv_hal_plugin == NULL) {
-         break;
-      }
-      XLOGD_INFO("Loaded required plugin HAL.");
-      return(handle);
-   } while(1);
-
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-hal.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-hal.so";
    if(vsdk_file_exists(so_path_vd)) {
