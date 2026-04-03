@@ -36,11 +36,11 @@ typedef struct {
    uint32_t frames_voice;             ///< Number of frames detected as voice
    uint32_t frames_silence;           ///< Number of frames detected as silence  
    uint32_t state_transitions;        ///< Number of VAD state transitions
-   float    energy_average;           ///< Average audio energy level (dB)
-   float    energy_peak;              ///< Peak audio energy level (dB)
+   float    rms_level_average;        ///< Average audio RMS level (dB)
+   float    rms_level_peak;           ///< Peak audio RMS level (dB)
    float    confidence_average;       ///< Average VAD confidence level (0.0-1.0)
    float    confidence_peak;          ///< Peak VAD confidence level (0.0-1.0)
-   uint64_t total_processing_time_us; ///< Total processing time in microseconds
+   float    cpu_utilization;          ///< CPU utilization percentage (0.0-100.0)
 } xraudio_vad_stats_t;
 
 #ifdef __cplusplus

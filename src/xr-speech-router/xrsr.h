@@ -391,14 +391,15 @@ typedef struct {
    uint32_t decoder_failures;       ///< Number of audio decoder failures reported
    uint32_t samples_buffered_max;   ///< Maximum quantity of samples buffered
    // VAD Statistics
+   bool     vad_voice_detected;     ///< True if voice was detected in the audio stream according to VAD
    uint32_t vad_frames_processed;   ///< Quantity of VAD frames processed
    uint32_t vad_frames_voice;       ///< Quantity of VAD frames classified as voice
    uint32_t vad_frames_silence;     ///< Quantity of VAD frames classified as silence
-   float    vad_energy_average;     ///< Average audio energy level
-   float    vad_energy_peak;        ///< Peak audio energy level
+   float    vad_rms_level_average;  ///< Average audio RMS level
+   float    vad_rms_level_peak;     ///< Peak audio RMS level
    float    vad_confidence_average; ///< Average VAD confidence score
    float    vad_confidence_peak;    ///< Peak VAD confidence score
-   uint64_t vad_processing_time_us; ///< Total VAD processing time in microseconds
+   float    vad_cpu_utilization;    ///< VAD CPU utilization percentage
 } xrsr_audio_stats_t;
 
 /// @brief XRSR session stats structure

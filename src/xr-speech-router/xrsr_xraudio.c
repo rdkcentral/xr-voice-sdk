@@ -761,17 +761,32 @@ void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback
             stream->audio_stats.decoder_failures       = xraudio_audio_stats->decoder_failures;
             stream->audio_stats.samples_buffered_max   = xraudio_audio_stats->samples_buffered_max;
             // Copy VAD statistics
+            stream->audio_stats.vad_voice_detected     = xraudio_audio_stats->vad_voice_detected;
             stream->audio_stats.vad_frames_processed   = xraudio_audio_stats->vad_frames_processed;
             stream->audio_stats.vad_frames_voice       = xraudio_audio_stats->vad_frames_voice;
             stream->audio_stats.vad_frames_silence     = xraudio_audio_stats->vad_frames_silence;
-            stream->audio_stats.vad_energy_average     = xraudio_audio_stats->vad_energy_average;
-            stream->audio_stats.vad_energy_peak        = xraudio_audio_stats->vad_energy_peak;
+            stream->audio_stats.vad_rms_level_average  = xraudio_audio_stats->vad_rms_level_average;
+            stream->audio_stats.vad_rms_level_peak     = xraudio_audio_stats->vad_rms_level_peak;
             stream->audio_stats.vad_confidence_average = xraudio_audio_stats->vad_confidence_average;
             stream->audio_stats.vad_confidence_peak    = xraudio_audio_stats->vad_confidence_peak;
-            stream->audio_stats.vad_processing_time_us = xraudio_audio_stats->vad_processing_time_us;
+            stream->audio_stats.vad_cpu_utilization    = xraudio_audio_stats->vad_cpu_utilization;
             stream->audio_stats.valid                = true;
 
             XLOGD_DEBUG("xraudio stats - packets processed <%u> lost <%u> samples processed <%u> lost <%u> decoder failures <%u>", stream->audio_stats.packets_processed, stream->audio_stats.packets_lost, stream->audio_stats.samples_processed, stream->audio_stats.samples_lost, stream->audio_stats.decoder_failures);
+
+            if(stream->audio_stats.vad_frames_processed > 0) {
+               XLOGD_INFO("vad stats: voice detected <%s> frames processed <%u> voice <%u> silence <%u> rms level avg <%.1f> rms level peak <%.1f> confidence avg <%.2f> confidence peak <%.2f> cpu utilization <%.1f %%>",
+                           stream->audio_stats.vad_voice_detected ? "YES" : "NO",
+                           stream->audio_stats.vad_frames_processed,
+                           stream->audio_stats.vad_frames_voice,
+                           stream->audio_stats.vad_frames_silence,
+                           stream->audio_stats.vad_rms_level_average,
+                           stream->audio_stats.vad_rms_level_peak,
+                           stream->audio_stats.vad_confidence_average,
+                           stream->audio_stats.vad_confidence_peak,
+                           stream->audio_stats.vad_cpu_utilization
+                        );
+            }
          } else {
             XLOGD_DEBUG("xraudio did NOT provided stats with EOS event");
          }

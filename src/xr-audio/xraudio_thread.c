@@ -5078,14 +5078,27 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   if(instance->vad_enabled && instance->vad_obj != NULL) {
                      xraudio_vad_stats_t vad_stats;
                      if(xraudio_vad_get_stats(instance->vad_obj, &vad_stats, true) == XRAUDIO_RESULT_OK) {
+                        stats.vad_voice_detected     = instance->vad_last_event.state == XRAUDIO_VAD_STATE_VOICE;
                         stats.vad_frames_processed   = vad_stats.frames_processed;
                         stats.vad_frames_voice       = vad_stats.frames_voice;
                         stats.vad_frames_silence     = vad_stats.frames_silence;
-                        stats.vad_energy_average     = vad_stats.energy_average;
-                        stats.vad_energy_peak        = vad_stats.energy_peak;
+                        stats.vad_rms_level_average  = vad_stats.rms_level_average;
+                        stats.vad_rms_level_peak     = vad_stats.rms_level_peak;
                         stats.vad_confidence_average = vad_stats.confidence_average;
                         stats.vad_confidence_peak    = vad_stats.confidence_peak;
-                        stats.vad_processing_time_us = vad_stats.total_processing_time_us;
+                        stats.vad_cpu_utilization    = vad_stats.cpu_utilization;
+
+                        XLOGD_DEBUG("vad stats: voice detected <%s> frames processed <%u> voice <%u> silence <%u> rms level avg <%.1f> rms level peak <%.1f> confidence avg <%.2f> confidence peak <%.2f> cpu utilization <%.1f %%>",
+                           stats.vad_voice_detected ? "YES" : "NO",
+                           vad_stats.frames_processed,
+                           vad_stats.frames_voice,
+                           vad_stats.frames_silence,
+                           vad_stats.rms_level_average,
+                           vad_stats.rms_level_peak,
+                           vad_stats.confidence_average,
+                           vad_stats.confidence_peak,
+                           vad_stats.cpu_utilization
+                        );
                      }
                   }
                   
@@ -5101,14 +5114,27 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   if(instance->vad_enabled && instance->vad_obj != NULL) {
                      xraudio_vad_stats_t vad_stats;
                      if(xraudio_vad_get_stats(instance->vad_obj, &vad_stats, true) == XRAUDIO_RESULT_OK) {
+                        stats.vad_voice_detected     = instance->vad_last_event.state == XRAUDIO_VAD_STATE_VOICE;
                         stats.vad_frames_processed   = vad_stats.frames_processed;
                         stats.vad_frames_voice       = vad_stats.frames_voice;
                         stats.vad_frames_silence     = vad_stats.frames_silence;
-                        stats.vad_energy_average     = vad_stats.energy_average;
-                        stats.vad_energy_peak        = vad_stats.energy_peak;
+                        stats.vad_rms_level_average  = vad_stats.rms_level_average;
+                        stats.vad_rms_level_peak     = vad_stats.rms_level_peak;
                         stats.vad_confidence_average = vad_stats.confidence_average;
                         stats.vad_confidence_peak    = vad_stats.confidence_peak;
-                        stats.vad_processing_time_us = vad_stats.total_processing_time_us;
+                        stats.vad_cpu_utilization    = vad_stats.cpu_utilization;
+
+                        XLOGD_DEBUG("vad stats: voice detected <%s> frames processed <%u> voice <%u> silence <%u> rms level avg <%.1f> rms level peak <%.1f> confidence avg <%.2f> confidence peak <%.2f> cpu utilization <%.1f %%>",
+                           stats.vad_voice_detected ? "YES" : "NO",
+                           vad_stats.frames_processed,
+                           vad_stats.frames_voice,
+                           vad_stats.frames_silence,
+                           vad_stats.rms_level_average,
+                           vad_stats.rms_level_peak,
+                           vad_stats.confidence_average,
+                           vad_stats.confidence_peak,
+                           vad_stats.cpu_utilization
+                        );
                      }
                      (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, &stats, instance->param);
                   } else {

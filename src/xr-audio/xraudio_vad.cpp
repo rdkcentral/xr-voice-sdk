@@ -33,14 +33,17 @@
 #include "webrtc/modules/interface/module_common_types.h"
 #include "webrtc/common_types.h"
 
+#define XRAUDIO_VAD_OBJECT_IDENTIFIER (0x5641446F) // 'VADo' in hex
+
 /// @brief VAD object internal structure
 typedef struct {
+   uint32_t                       identifier;             ///< Unique identifier for validation
    xraudio_input_vad_config_t     config;                 ///< VAD configuration parameters
    uint32_t                       sample_rate;            ///< Audio sample rate in Hz
    webrtc::AudioProcessing*       audio_processing;       ///< WebRTC AudioProcessing instance
    xraudio_vad_state_t            current_state;          ///< Current VAD state
    xraudio_vad_stats_t            stats;                  ///< VAD processing statistics
-   uint64_t                       rms_level_sum;          ///< Sum of RMS levels for averaging
+   int64_t                        rms_level_sum;          ///< Sum of RMS levels for averaging
    float                          confidence_sum;         ///< Sum of confidence levels for averaging
    uint64_t                       processing_time_sum_us; ///< Sum of processing times
    xraudio_sample_t               sample_buffer[416];     ///< Buffer for caching samples (supports up to 26ms at 16kHz)
@@ -175,6 +178,7 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
    }
    
    // Initialize state
+   obj->identifier            = XRAUDIO_VAD_OBJECT_IDENTIFIER;
    obj->current_state         = XRAUDIO_VAD_STATE_UNKNOWN;
    obj->history_index         = 0;
    obj->history_count         = 0;
@@ -192,10 +196,16 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
 
 void xraudio_vad_destroy(xraudio_vad_object_t object) {
    if (object == NULL) {
+      XLOGD_ERROR("invalid VAD object");
       return;
    }
    
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
+
+   if (obj->identifier != XRAUDIO_VAD_OBJECT_IDENTIFIER) {
+      XLOGD_ERROR("invalid VAD object identifier");
+      return;
+   }
    
    // Clean up WebRTC AudioProcessing instance
    if (obj->audio_processing != NULL) {
@@ -206,12 +216,13 @@ void xraudio_vad_destroy(xraudio_vad_object_t object) {
    if (obj->voice_activity_history != NULL) {
       free(obj->voice_activity_history);
    }
-   
+   obj->identifier = 0; // Invalidate identifier to prevent further use of this object 
+
    XLOGD_INFO("destroyed VAD object");
    free(obj);
 }
 
-static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, const xraudio_sample_t *audio_frame, uint32_t frame_size, xraudio_vad_event_data_t *vad_data) {
+static xraudio_result_t xraudio_vad_process_chunk(xraudio_vad_obj_t *obj, const xraudio_sample_t *audio_frame, uint32_t frame_size, xraudio_vad_event_data_t *vad_data) {
    rdkx_timestamp_t start_time;
    rdkx_timestamp_get(&start_time);
 
@@ -239,7 +250,7 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
       // Get voice detection result from WebRTC VoiceDetection
       has_voice_webrtc = obj->audio_processing->voice_detection()->stream_has_voice();
 
-      // Calculate audio energy level
+      // Calculate audio RMS level
       rms_level = -obj->audio_processing->level_estimator()->RMS();
    } catch(const std::exception& e) {
       XLOGD_ERROR("exception during AudioProcessing: %s", e.what());
@@ -249,7 +260,7 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    if(obj->stats.frames_processed <= obj->intro_window_size) {
       has_voice_webrtc = false;
    }
-   // Apply minimum energy threshold
+   // Apply minimum RMS level threshold
    bool has_voice = has_voice_webrtc && (rms_level >= obj->audio_rms_level_min);
    
    // Update sliding window with current frame's voice activity
@@ -276,11 +287,7 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    // Determine VAD state based on analysis window
    float confidence = 0.0f;
    xraudio_vad_state_t new_state = xraudio_vad_analyze_window(obj, &confidence);
-   
-   // Print debug information
-   XLOGD_INFO("VAD: has_voice <%s><%s> rms_level <-%d dB> voice_frames <%u/%u> new_state <%s>",  has_voice_webrtc ? "YES" : "NO",
-              has_voice ? "YES" : "NO", rms_level, obj->voice_frame_count, obj->history_count, xraudio_vad_state_str(new_state));
-   
+      
    // Check for state transition
    bool state_changed = (new_state != obj->current_state);
    if(state_changed) {
@@ -300,8 +307,8 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    obj->confidence_sum += confidence;
    
    // Track peak values
-   if(rms_level < obj->stats.energy_peak) {
-      obj->stats.energy_peak = rms_level;
+   if(rms_level > obj->stats.rms_level_peak) {
+      obj->stats.rms_level_peak = rms_level;
    }
    if(confidence > obj->stats.confidence_peak) {
       obj->stats.confidence_peak = confidence;
@@ -309,24 +316,33 @@ static xraudio_result_t xraudio_vad_process_10ms_chunk(xraudio_vad_obj_t *obj, c
    
    uint64_t processing_time = rdkx_timestamp_since_us(start_time);
    obj->processing_time_sum_us += processing_time;
-   obj->stats.total_processing_time_us = obj->processing_time_sum_us;
    
+      // Print debug information
+   XLOGD_DEBUG("has_voice <%s><%s> rms_level <%d dB> voice_frames <%u/%u> confidence <%.2f> new_state <%s> frames <%u> rms level sum <%lld> obj %p",  has_voice_webrtc ? "YES" : "NO",
+              has_voice ? "YES" : "NO", rms_level, obj->voice_frame_count, obj->history_count, confidence, xraudio_vad_state_str(new_state), obj->stats.frames_processed, obj->rms_level_sum, obj);
+
    // Fill VAD event data
-   vad_data->state        = new_state;
-   vad_data->confidence   = confidence;
-   vad_data->energy_level = -1 * rms_level;
-   vad_data->is_final     = false;
+   vad_data->state      = new_state;
+   vad_data->confidence = confidence;
+   vad_data->rms_level  = rms_level;
+   vad_data->is_final   = false;
    
    return XRAUDIO_RESULT_OK;
 }
 
 xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xraudio_sample_t *audio_frame, uint32_t frame_size, xraudio_vad_event_data_t *vad_data) {
    if (object == NULL || audio_frame == NULL || vad_data == NULL) {
+      XLOGD_ERROR("invalid VAD object or parameters");
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
    
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
    
+   if (obj->identifier != XRAUDIO_VAD_OBJECT_IDENTIFIER) {
+      XLOGD_ERROR("invalid VAD object identifier");
+      return XRAUDIO_RESULT_ERROR_PARAMS;
+   }
+
    // Calculate 10ms frame size for current sample rate
    uint32_t chunk_size = obj->sample_rate / 100;  // 10ms frame size
    
@@ -347,7 +363,7 @@ xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xr
    // Process all complete 10ms chunks in buffer
    while (obj->buffer_samples >= chunk_size && result == XRAUDIO_RESULT_OK) {
       // Process 10ms chunk
-      result = xraudio_vad_process_10ms_chunk(obj, obj->sample_buffer, chunk_size, vad_data);
+      result = xraudio_vad_process_chunk(obj, obj->sample_buffer, chunk_size, vad_data);
       
       if (result != XRAUDIO_RESULT_OK) {
          break;
@@ -366,11 +382,17 @@ xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xr
 
 xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xraudio_input_vad_config_t *config) {
    if (object == NULL || config == NULL) {
+      XLOGD_ERROR("invalid VAD object or config parameter");
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
    
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
    
+   if (obj->identifier != XRAUDIO_VAD_OBJECT_IDENTIFIER) {
+      XLOGD_ERROR("invalid VAD object identifier");
+      return XRAUDIO_RESULT_ERROR_PARAMS;
+   }
+
    // Validate new configuration
    if (config->sensitivity < XRAUDIO_VAD_MIN_SENSITIVITY || 
        config->sensitivity > XRAUDIO_VAD_MAX_SENSITIVITY) {
@@ -415,11 +437,17 @@ xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xr
 
 xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object) {
    if (object == NULL) {
+      XLOGD_ERROR("invalid VAD object");
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
    
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
    
+   if (obj->identifier != XRAUDIO_VAD_OBJECT_IDENTIFIER) {
+      XLOGD_ERROR("invalid VAD object identifier");
+      return XRAUDIO_RESULT_ERROR_PARAMS;
+   }
+
    // Reset WebRTC AudioProcessing instance
    if(obj->audio_processing != NULL) {
       try {
@@ -461,11 +489,14 @@ xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object) {
    
    // Reset statistics
    memset(&obj->stats, 0, sizeof(xraudio_vad_stats_t));
-   obj->stats.energy_peak      = -100.0f; // Initialize to very low value
-   obj->stats.confidence_peak  = 0.0f;    // Initialize to minimum
-   obj->rms_level_sum          = 0;
-   obj->confidence_sum         = 0.0;
-   obj->processing_time_sum_us = 0;
+   obj->stats.rms_level_peak     = -100.0f; // Initialize to very low value
+   obj->stats.confidence_peak    = 0.0f;    // Initialize to minimum
+   obj->stats.rms_level_average  = 0.0f;
+   obj->stats.confidence_average = 0.0f;
+   obj->stats.cpu_utilization    = 0.0f;
+   obj->rms_level_sum            = 0;
+   obj->confidence_sum           = 0.0;
+   obj->processing_time_sum_us   = 0;
    
    XLOGD_INFO("reset VAD processing state");
    
@@ -474,18 +505,24 @@ xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object) {
 
 xraudio_result_t xraudio_vad_get_stats(xraudio_vad_object_t object, xraudio_vad_stats_t *stats, bool finalize) {
    if(object == NULL || stats == NULL) {
+      XLOGD_ERROR("invalid VAD object or stats parameter");
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
    
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
 
+   if (obj->identifier != XRAUDIO_VAD_OBJECT_IDENTIFIER) {
+      XLOGD_ERROR("invalid VAD object identifier");
+      return XRAUDIO_RESULT_ERROR_PARAMS;
+   }
+
    *stats = obj->stats;
 
-   if(finalize) {
+   if(finalize && obj->stats.frames_processed > 0) {
       // Finalize statistics
-      stats->energy_average           = obj->rms_level_sum  / obj->stats.frames_processed;
-      stats->confidence_average       = obj->confidence_sum / obj->stats.frames_processed;
-      stats->total_processing_time_us = obj->processing_time_sum_us;
+      stats->rms_level_average  = ((float)obj->rms_level_sum)  / (float)obj->stats.frames_processed;
+      stats->confidence_average = ((float)obj->confidence_sum) / (float)obj->stats.frames_processed;
+      stats->cpu_utilization    = 100 * ((float)obj->processing_time_sum_us) / (obj->stats.frames_processed * 10000.0f); // Convert to percentage (assuming 10ms frames)
    }
    
    return XRAUDIO_RESULT_OK;

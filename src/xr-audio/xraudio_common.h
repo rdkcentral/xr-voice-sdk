@@ -248,7 +248,7 @@ typedef enum {
 typedef struct {
    xraudio_vad_state_t state;           ///< Current VAD state (voice/silence)
    float               confidence;      ///< VAD confidence level (0.0-1.0)
-   float               energy_level;    ///< Audio energy level (dB)
+   float               rms_level;       ///< Audio RMS level (dB)
    float               overall_score;   ///< Overall VAD score for the complete stream (0.0-1.0)
    bool                is_final;        ///< True if this is the final VAD event for the stream (includes overall_score)
 } xraudio_vad_event_data_t;

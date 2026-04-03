@@ -258,14 +258,15 @@ typedef struct {
    uint32_t decoder_failures;
    uint32_t samples_buffered_max;
    // VAD Statistics
+   bool     vad_voice_detected;
    uint32_t vad_frames_processed;
    uint32_t vad_frames_voice;
    uint32_t vad_frames_silence;
-   float    vad_energy_average;
-   float    vad_energy_peak;
+   float    vad_rms_level_average;
+   float    vad_rms_level_peak;
    float    vad_confidence_average;
    float    vad_confidence_peak;
-   uint64_t vad_processing_time_us;
+   float    vad_cpu_utilization;
 } xraudio_audio_stats_t;
 
 typedef struct {
