@@ -317,7 +317,6 @@ static xraudio_result_t xraudio_vad_process_chunk(xraudio_vad_obj_t *obj, const 
    uint64_t processing_time = rdkx_timestamp_since_us(start_time);
    obj->processing_time_sum_us += processing_time;
    
-      // Print debug information
    XLOGD_DEBUG("has_voice <%s><%s> rms_level <%d dB> voice_frames <%u/%u> confidence <%.2f> new_state <%s> frames <%u> rms level sum <%lld> obj %p",  has_voice_webrtc ? "YES" : "NO",
               has_voice ? "YES" : "NO", rms_level, obj->voice_frame_count, obj->history_count, confidence, xraudio_vad_state_str(new_state), obj->stats.frames_processed, obj->rms_level_sum, obj);
 
