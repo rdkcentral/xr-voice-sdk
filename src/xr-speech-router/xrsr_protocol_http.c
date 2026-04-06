@@ -720,7 +720,7 @@ void xrsr_http_handle_speech_event(xrsr_state_http_t *http, xrsr_speech_event_t 
                 if(event->data.vad_info.voice_detected) {
                     http->stream_vad_detect_rxd = true;
                     if(http->stream_time_min_rxd) {
-                    xrsr_http_event(http, SM_EVENT_STREAM_VALID, false);
+                       xrsr_http_event(http, SM_EVENT_STREAM_VALID, false);
                     }
                 }
             }
