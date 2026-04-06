@@ -183,6 +183,7 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
    obj->history_index         = 0;
    obj->history_count         = 0;
    obj->voice_frame_count     = 0;
+   obj->stats.rms_level_peak  = -100.0f; // Initialize to very low value
    
    // Initialize sample buffer
    obj->buffer_samples = 0;
@@ -257,7 +258,7 @@ static xraudio_result_t xraudio_vad_process_chunk(xraudio_vad_obj_t *obj, const 
       return XRAUDIO_RESULT_ERROR_INTERNAL;
    }
    
-   if(obj->stats.frames_processed <= obj->intro_window_size) {
+   if(obj->stats.frames_processed < obj->intro_window_size) {
       has_voice_webrtc = false;
    }
    // Apply minimum RMS level threshold
@@ -321,11 +322,12 @@ static xraudio_result_t xraudio_vad_process_chunk(xraudio_vad_obj_t *obj, const 
               has_voice ? "YES" : "NO", rms_level, obj->voice_frame_count, obj->history_count, confidence, xraudio_vad_state_str(new_state), obj->stats.frames_processed, obj->rms_level_sum, obj);
 
    // Fill VAD event data
-   vad_data->state      = new_state;
-   vad_data->confidence = confidence;
-   vad_data->rms_level  = rms_level;
-   vad_data->is_final   = false;
-   
+   vad_data->state         = new_state;
+   vad_data->confidence    = confidence;
+   vad_data->rms_level     = rms_level;
+   vad_data->overall_score = 0.0;
+   vad_data->is_final      = false;
+
    return XRAUDIO_RESULT_OK;
 }
 
@@ -380,39 +382,49 @@ xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xr
 }
 
 xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xraudio_input_vad_config_t *config) {
-   if (object == NULL || config == NULL) {
+   if(object == NULL || config == NULL) {
       XLOGD_ERROR("invalid VAD object or config parameter");
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
    
    xraudio_vad_obj_t *obj = (xraudio_vad_obj_t *)object;
    
-   if (obj->identifier != XRAUDIO_VAD_OBJECT_IDENTIFIER) {
+   if(obj->identifier != XRAUDIO_VAD_OBJECT_IDENTIFIER) {
       XLOGD_ERROR("invalid VAD object identifier");
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
 
    // Validate new configuration
-   if (config->sensitivity < XRAUDIO_VAD_MIN_SENSITIVITY || 
+   if(config->sensitivity < XRAUDIO_VAD_MIN_SENSITIVITY || 
        config->sensitivity > XRAUDIO_VAD_MAX_SENSITIVITY) {
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
    
-   if (config->analysis_window_ms < XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS ||
+   if(config->analysis_window_ms < XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS ||
        config->analysis_window_ms > XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS) {
       return XRAUDIO_RESULT_ERROR_PARAMS;
    }
    
+   if(config->audio_rms_level_min < XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN || 
+      config->audio_rms_level_min > XRAUDIO_VAD_MAX_AUDIO_RMS_LEVEL_MIN) {
+      return XRAUDIO_RESULT_ERROR_PARAMS;
+   }
+
+   if(config->intro_window_ms < XRAUDIO_VAD_MIN_INTRO_WINDOW_MS || 
+      config->intro_window_ms > XRAUDIO_VAD_MAX_INTRO_WINDOW_MS) {
+      return XRAUDIO_RESULT_ERROR_PARAMS;
+   }
+
    // Check if analysis window size is changing
    uint32_t new_window_size = config->analysis_window_ms / 10;
-   if (new_window_size == 0) {
+   if(new_window_size == 0) {
       new_window_size = 1;
    }
    
-   if (new_window_size != obj->analysis_window_size) {
+   if(new_window_size != obj->analysis_window_size) {
       // Reallocate voice activity history buffer if window size changed
       bool *new_history = (bool*)calloc(new_window_size, sizeof(bool));
-      if (new_history == NULL) {
+      if(new_history == NULL) {
          return XRAUDIO_RESULT_ERROR_INTERNAL;
       }
       
@@ -426,10 +438,9 @@ xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xr
    }
    
    // Update configuration
-   memcpy(&obj->config, config, sizeof(xraudio_input_vad_config_t));
+   obj->config = *config;
    
-   XLOGD_INFO("updated VAD sensitivity=%f, analysis_window=%ums (%u frames)", 
-              obj->config.sensitivity, obj->config.analysis_window_ms, obj->analysis_window_size);
+   XLOGD_INFO("updated VAD sensitivity=%f, analysis_window=%ums (%u frames)", obj->config.sensitivity, obj->config.analysis_window_ms, obj->analysis_window_size);
    
    return XRAUDIO_RESULT_OK;
 }

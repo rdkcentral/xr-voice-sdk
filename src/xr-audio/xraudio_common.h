@@ -293,7 +293,7 @@ const char *     xraudio_container_str(xraudio_container_t type);
 const char *     xraudio_encoding_str(xraudio_encoding_type_t type);
 /// @brief Convert the xraudio_power_mode_t type to a string
 const char *     xraudio_power_mode_str(xraudio_power_mode_t type);
-/// @brief Convert the xraudio_power_mode_t type to a string
+/// @brief Convert the xraudio_vad_state_t type to a string
 const char *     xraudio_vad_state_str(xraudio_vad_state_t state);
 
 #ifdef __cplusplus

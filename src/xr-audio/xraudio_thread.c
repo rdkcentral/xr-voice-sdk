@@ -5192,8 +5192,12 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
             instance->vad_last_event = vad_event_data;
             XLOGD_INFO("vad event <%s>", xraudio_vad_state_str(vad_event_data.state));
 
+            xraudio_stream_vad_info_t stream_vad_info;
+            stream_vad_info.voice_detected = true;
+            stream_vad_info.confidence     = vad_event_data.confidence;
+
             if(instance->callback != NULL) {
-               (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY, &vad_event_data, instance->param);
+               (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY, &stream_vad_info, instance->param);
             }
          }
       } else {

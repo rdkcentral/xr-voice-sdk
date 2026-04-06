@@ -705,8 +705,18 @@ xraudio_result_t xraudio_input_vad_config(xraudio_input_object_t object, xraudio
          XRAUDIO_RECORD_MUTEX_UNLOCK();
          return(XRAUDIO_RESULT_ERROR_PARAMS);
       }
+      if(vad_config->audio_rms_level_min < XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN || vad_config->audio_rms_level_min > XRAUDIO_VAD_MAX_AUDIO_RMS_LEVEL_MIN) {
+         XLOGD_ERROR("Invalid VAD minimum audio RMS level: %f dB (range: %f - %f)", vad_config->audio_rms_level_min, XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN, XRAUDIO_VAD_MAX_AUDIO_RMS_LEVEL_MIN);
+         XRAUDIO_RECORD_MUTEX_UNLOCK();
+         return(XRAUDIO_RESULT_ERROR_PARAMS);
+      }
+      if(vad_config->intro_window_ms < XRAUDIO_VAD_MIN_INTRO_WINDOW_MS || vad_config->intro_window_ms > XRAUDIO_VAD_MAX_INTRO_WINDOW_MS) {
+         XLOGD_ERROR("Invalid VAD introductory window: %u ms (range: %u - %u)", vad_config->intro_window_ms, XRAUDIO_VAD_MIN_INTRO_WINDOW_MS, XRAUDIO_VAD_MAX_INTRO_WINDOW_MS);
+         XRAUDIO_RECORD_MUTEX_UNLOCK();
+         return(XRAUDIO_RESULT_ERROR_PARAMS);
+      }
 
-      XLOGD_INFO("VAD enabled for source <%s> sensitivity <%f> analysis window <%u ms>", xraudio_devices_input_str(source), vad_config->sensitivity, vad_config->analysis_window_ms);
+      XLOGD_INFO("VAD enabled for source <%s> sensitivity <%.2f> analysis window <%u ms> rms min <%.2f dB> intro window <%u ms>", xraudio_devices_input_str(source), vad_config->sensitivity, vad_config->analysis_window_ms, vad_config->audio_rms_level_min, vad_config->intro_window_ms);
       session->vad_config  = *vad_config;
       session->vad_enabled = true;
    }

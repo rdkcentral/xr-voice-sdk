@@ -887,6 +887,11 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
          return;
       }
 
+      if((uint32_t)dst->stream_vad_mode >= XRSR_STREAM_VOICE_ACTIVITY_MODE_INVALID) {
+         XLOGD_WARN("invalid stream voice activity mode <%s>", xrsr_stream_voice_activity_mode_str(dst->stream_vad_mode));
+         return;
+      }
+
       if(dst->stream_from == XRSR_STREAM_FROM_LIVE) {
          stream_from = XRAUDIO_INPUT_RECORD_FROM_LIVE;
       } else if(dst->stream_from == XRSR_STREAM_FROM_KEYWORD_BEGIN) {

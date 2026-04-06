@@ -191,8 +191,8 @@ typedef enum {
    XRSR_STREAM_UNTIL_INVALID        = 3, ///< Invalid stream until type
 } xrsr_stream_until_t;
 
-/// @brief XRSR stream until types
-/// @details The stream until enumeration indicates the condition that ends the stream.
+/// @brief XRSR stream voice activity types
+/// @details The stream voice activity enumeration indicates the voice activity modes which may be supported.
 typedef enum {
    XRSR_STREAM_VOICE_ACTIVITY_MODE_DISABLED  = 0, ///< Voice activity detection is disabled.
    XRSR_STREAM_VOICE_ACTIVITY_MODE_ENABLED   = 1, ///< Voice activity detection is enabled, but not enforced.
@@ -591,7 +591,7 @@ typedef struct {
    xrsr_stream_voice_activity_mode_t stream_vad_mode;                 ///< Voice activity detection mode for the stream
    xrsr_stream_from_t                stream_from;                     ///< Point from which to begin streaming
    int32_t                           stream_offset;                   ///< Offset in samples from the stream from point
-   xrsr_stream_until_t               stream_until;                    ///< Continue streaming until this condition is encountered or an errror occurs
+   xrsr_stream_until_t               stream_until;                    ///< Continue streaming until this condition is encountered or an error occurs
    xrsr_dst_params_t *               params[XRSR_POWER_MODE_INVALID]; ///< Optional parameters for the route
 } xrsr_dst_t;
 
