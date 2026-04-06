@@ -431,16 +431,22 @@ xraudio_result_t xraudio_vad_config_update(xraudio_vad_object_t object, const xr
       // Free old buffer and update to new one
       free(obj->voice_activity_history);
       obj->voice_activity_history = new_history;
-      obj->analysis_window_size = new_window_size;
-      obj->history_index = 0;
-      obj->history_count = 0;
-      obj->voice_frame_count = 0;
+      obj->analysis_window_size   = new_window_size;
+      obj->history_index          = 0;
+      obj->history_count          = 0;
+      obj->voice_frame_count      = 0;
    }
    
    // Update configuration
    obj->config = *config;
    
-   XLOGD_INFO("updated VAD sensitivity=%f, analysis_window=%ums (%u frames)", obj->config.sensitivity, obj->config.analysis_window_ms, obj->analysis_window_size);
+   // Calculate intro window size in 10ms frames
+   obj->intro_window_size = config->intro_window_ms / 10;
+
+   // Store minimum audio RMS level
+   obj->audio_rms_level_min = config->audio_rms_level_min;
+
+   XLOGD_INFO("sensitivity <%.2f> analysis window <%u ms (%u frames)> rms level min <%.2f dB> intro window <%u ms (%u frames)>", obj->config.sensitivity, obj->config.analysis_window_ms, obj->analysis_window_size, obj->audio_rms_level_min, obj->config.intro_window_ms, obj->intro_window_size);
    
    return XRAUDIO_RESULT_OK;
 }

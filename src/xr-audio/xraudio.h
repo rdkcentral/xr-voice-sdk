@@ -165,8 +165,8 @@ typedef enum {
    AUDIO_IN_CALLBACK_EVENT_OVERFLOW              = 6, ///< Event to indicate that an overflow has occurred
    AUDIO_IN_CALLBACK_EVENT_STREAM_TIME_MINIMUM   = 7, ///< Event to indicate that the minimum audio threshold has been reached
    AUDIO_IN_CALLBACK_EVENT_STREAM_KWD_INFO       = 8, ///< Event to indicate that the keyword information is available
-   AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY = 9, ///< Event to indicate that voice activity has been detected
-   AUDIO_IN_CALLBACK_EVENT_ERROR                 = 10, ///< Event to indicate generic record error
+   AUDIO_IN_CALLBACK_EVENT_ERROR                 = 9, ///< Event to indicate generic record error
+   AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY = 10, ///< Event to indicate that voice activity has been detected
 } audio_in_callback_event_t;
 
 /// @brief Keywork Callback Events

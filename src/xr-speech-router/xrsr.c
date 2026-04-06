@@ -451,8 +451,13 @@ void xrsr_config_apply(json_t *json_obj_in, json_t *json_obj_xraudio) {
          XLOGD_INFO("xraudio vad json object not found, using defaults");
       } else {
          json_obj = json_object_get(json_obj_vad, JSON_FLOAT_NAME_XRAUDIO_VAD_SENSITIVITY);
-         if(json_obj != NULL && json_is_real(json_obj)) {
-            double value = json_real_value(json_obj);
+         if(json_obj != NULL && json_is_number(json_obj)) {
+            double value;
+            if(json_is_real(json_obj)) {
+               value = json_real_value(json_obj);
+            } else {
+               value = (double)json_integer_value(json_obj);
+            }
 
             if(value < XRAUDIO_VAD_MIN_SENSITIVITY) {
                g_xrsr.vad_config.sensitivity = XRAUDIO_VAD_MIN_SENSITIVITY;
@@ -477,8 +482,13 @@ void xrsr_config_apply(json_t *json_obj_in, json_t *json_obj_xraudio) {
             XLOGD_INFO("xraudio vad: analysis window <%d> ms", g_xrsr.vad_config.analysis_window_ms);
          }
          json_obj = json_object_get(json_obj_vad, JSON_FLOAT_NAME_XRAUDIO_VAD_AUDIO_RMS_LEVEL_MIN);
-         if(json_obj != NULL && json_is_real(json_obj)) {
-            double value = json_real_value(json_obj);
+         if(json_obj != NULL && json_is_number(json_obj)) {
+            double value;
+            if(json_is_real(json_obj)) {
+               value = json_real_value(json_obj);
+            } else {
+               value = (double)json_integer_value(json_obj);
+            }
 
             if(value < XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN) {
                g_xrsr.vad_config.audio_rms_level_min = XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN;
@@ -887,9 +897,11 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
          return;
       }
 
+      xrsr_stream_voice_activity_mode_t stream_vad_mode = XRSR_STREAM_VOICE_ACTIVITY_MODE_DISABLED;
       if((uint32_t)dst->stream_vad_mode >= XRSR_STREAM_VOICE_ACTIVITY_MODE_INVALID) {
          XLOGD_WARN("invalid stream voice activity mode <%s>", xrsr_stream_voice_activity_mode_str(dst->stream_vad_mode));
-         return;
+      } else {
+         stream_vad_mode = dst->stream_vad_mode;
       }
 
       if(dst->stream_from == XRSR_STREAM_FROM_LIVE) {
@@ -999,7 +1011,7 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
       dst_int->handlers           = dst->handlers;
       dst_int->formats            = dst->formats;
       dst_int->stream_time_min    = stream_time_min;
-      dst_int->stream_vad_mode    = dst->stream_vad_mode;
+      dst_int->stream_vad_mode    = stream_vad_mode;
       dst_int->stream_from        = stream_from;
       dst_int->stream_offset      = dst->stream_offset;
       dst_int->stream_until       = stream_until;
