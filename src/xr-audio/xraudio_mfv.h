@@ -84,6 +84,13 @@ typedef enum {
    XRAUDIO_MFV_EOS_RESULT_INVALID         = 4, ///< Invalid EOS result code (sentinel)
 } xraudio_mfv_eos_result_t;
 
+/// @brief MFV detection types
+/// @details The xraudio_mfv_detection_t enumeration indicates the detection type for a session.
+typedef enum {
+   XRAUDIO_MFV_DETECTION_ACTIVE = 0, ///< Keyword detected while microphone is active (e.g. not asleep)
+   XRAUDIO_MFV_DETECTION_ASLEEP = 1, ///< Keyword detected while microphone is asleep
+} xraudio_mfv_detection_t;
+
 /// @brief MFV message types
 /// @details The xraudio_mfv_msg_type_t enumeration identifies the type of an asynchronous MFV event message.
 typedef enum {
@@ -125,7 +132,7 @@ typedef struct {
 /// @details Message payload delivered via callback when an error event occurs.
 typedef struct {
    xraudio_mfv_msg_header_t  header; ///< Message header (type == XRAUDIO_MFV_MSG_TYPE_ERROR)
-   xraudio_mfv_error_t       type;   ///< The specific type of error that occurred
+   xraudio_mfv_error_t       error;  ///< The specific error that occurred
 } xraudio_mfv_msg_error_t;
 
 /// @brief MFV session configuration
@@ -139,10 +146,10 @@ typedef struct {
 /// @brief MFV keyword detection information
 /// @details Provides details about a keyword found in the audio stream.
 typedef struct {
-   uint8_t detection_type; ///< detection type (0 = detection while active, 1 = detection while asleep)
-   int32_t keyword_start;  ///< sample offset to start of keyword in audio stream (negative value indicates keyword start is unknown)
-   int32_t keyword_end;    ///< sample offset to end of keyword in audio stream (negative value indicates keyword end is unknown)
-   float   confidence;     ///< keyword detection confidence
+   xraudio_mfv_detection_t detection;      ///< detection type indicating whether the keyword was detected while microphone is active or asleep
+   int32_t                 keyword_start;  ///< sample offset to start of keyword in audio stream (negative value indicates keyword start is unknown)
+   int32_t                 keyword_end;    ///< sample offset to end of keyword in audio stream (negative value indicates keyword end is unknown)
+   float                   confidence;     ///< keyword detection confidence
 } xraudio_mfv_keyword_info_t;
 
 /// @brief MFV audio processing result
@@ -209,7 +216,7 @@ typedef void                 (*xraudio_mfv_func_object_destroy_t)(xraudio_mfv_ob
 /// @param[out] output_fd  File descriptor for the processed audio output stream
 /// @param[in]  callback   Callback function invoked to deliver asynchronous event messages
 /// @return XRAUDIO_MFV_RESULT_SUCCESS on success, or an error code on failure
-typedef xraudio_mfv_result_t (*xraudio_mfv_func_session_open_t)(xraudio_mfv_object_t object, xraudio_mfv_session_info_t *info, int *output_fd, xraudio_mfv_msg_callback_t callback);
+typedef xraudio_mfv_result_t (*xraudio_mfv_func_session_open_t)(xraudio_mfv_object_t object, const xraudio_mfv_session_info_t *info, int *output_fd, xraudio_mfv_msg_callback_t callback);
 
 /// @brief Close an MFV processing session
 /// @details Ends the current MFV processing session and optionally retrieves accumulated statistics.
