@@ -18,8 +18,8 @@
 # limitations under the License.
 ##########################################################################
 */
-
-#pragma once
+#ifndef _XRAUDIO_MFV_H_
+#define _XRAUDIO_MFV_H_
 
 /// @file xraudio_mfv.h
 ///
@@ -165,6 +165,10 @@ typedef struct {
 
 /// @}
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 /// @addtogroup XRAUDIO_MFV_TYPEDEFS
 /// @{
 /// @brief Type Definitions
@@ -181,10 +185,6 @@ typedef void *xraudio_mfv_object_t;
 typedef bool (*xraudio_mfv_msg_callback_t)(void *msg);
 
 /// @}
-
-#ifdef __cplusplus
-extern "C" {
-#endif
 
 /// @addtogroup XRAUDIO_MFV_FUNCTIONS
 /// @{
@@ -220,7 +220,7 @@ typedef void                 (*xraudio_mfv_func_session_close_t)(xraudio_mfv_obj
 /// @brief Provide additional information for the session
 /// @details Provides information which is not available at the start of the active session.
 /// @param[in]  object  The MFV object handle
-/// @param[out] info    Structure with the keyword detection details
+/// @param[in]  info    Structure with the keyword detection details
 /// @return XRAUDIO_MFV_RESULT_SUCCESS on success, or an error code on failure
 typedef xraudio_mfv_result_t (*xraudio_mfv_func_session_info_t)(xraudio_mfv_object_t object, xraudio_mfv_keyword_info_t info);
 
@@ -275,4 +275,5 @@ xraudio_mfv_plugin_api_t *xraudio_mfv_plugin_api_get(void);
 
 #ifdef __cplusplus
 }
+#endif
 #endif
