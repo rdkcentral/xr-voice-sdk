@@ -80,10 +80,17 @@ typedef void (*MFVonEndOfCommandCb_t)(int64_t sampleOffset, bool timedOut);
 //
 // The service begins keyword detection in the audio output to the speakers.
 //
+// tvAudioReadFd is the pipe handle to be used by the service to read TV audio data
+// provided by the client. tvAudioReadFd can not be NULL.
+//
+// TV audio is single channel signed 16 bit PCM at 16 kHz.
+//
 // Returns:
 //  The Mid Field Voice service handle or NULL if an error occurs.
 //
-extern MFVserviceHandle_t MFVservice_Open(void);
+extern MFVserviceHandle_t MFVservice_Open(
+	MFVfileDescriptor tvAudioReadFd		// TV audio pipe read file descriptor
+);
 
 //
 // Close the Mid Field Voice service.
@@ -99,10 +106,8 @@ extern MFVapiStatus_t MFVservice_Close(
 //
 // Start Mid Field Voice service session.
 //
-// The service creates a pipe for passing audio from the remote control to the
-// service. A file descriptor to be used by the client to write to the pipe is
-// returned in *pRemoteAudioWriteFd. The pipe is created with the blocking
-// mode specified via remoteAudioWritedNonBlock.
+// remAudioReadFd is the pipe handle to be used by the service to read Renote audio
+// data provided by the client.
 //
 // The service optionally creates a pipe for passing processed audio from the
 // service to the client. A file descriptor to be used by the client to read from
@@ -110,15 +115,15 @@ extern MFVapiStatus_t MFVservice_Close(
 // is not created and the service does not provide processed audio. The pipe is
 // created with the blocking mode specified via audioOutReadNonBlock.
 //
+// All audio is single channel signed 16 bit PCM at 16 kHz.
+//
 // The service registers optional client callbacks for keyword verification and
 // end of voice command notifications. The callbacks can be NULL if not used.
 //
 // pSessionConfig can not be NULL
-// pRemoteAudioWriteFd can not be NULL
+// remAudioReadFd can not be NULL
 // pAudioOutReadFd can be NULL if not used
 // onKeywordVerify and onEndOfCommand can be NULL if not used
-//
-// All audio is signed 16 bit PCM.
 //
 // If successful, the service begins keyword detection in the remote audio stream.
 // Upon keyword detection or lack of detection, the service notifies the client via
@@ -131,14 +136,13 @@ extern MFVapiStatus_t MFVservice_Close(
 //
 // Returns:
 //  MFV_Success if session started successfully
-//  MFV_InvalidArgument if handle is invalid, pSessionConfig or pRemoteAudioWriteFd is NULL
+//  MFV_InvalidArgument if handle is invalid, pSessionConfig or remAudioReadFd is NULL
 //  MFV_Error if allocation of a required resource fails
 //
 extern MFVapiStatus_t MFVservice_Start(
 	MFVserviceHandle_t handle,				// Mid Field Voice service handle
 	MFVsessionConfig_t *pSessionConfig,		// pntr to session configuration
-	bool remoteAudioWritedNonBlock,			// flag: set remote audio pipe write to non blocking mode
-	MFVfileDescriptor *pRemoteAudioWriteFd,	// pntr to remote audio pipe write file descriptor variable
+	MFVfileDescriptor remAudioReadFd,		// Remote audio pipe read file descriptor
 	bool audioOutReadNonBlock,				// flag: set output audio pipe read to non blocking mode
 	MFVfileDescriptor *pAudioOutReadFd,		// pntr to output audio pipe read file descriptor variable
 	MFVonKeywordVerifyCb_t onKeywordVerify,	// on keyword verify callback
