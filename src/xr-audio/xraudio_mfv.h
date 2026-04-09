@@ -137,12 +137,12 @@ typedef struct {
 } xraudio_mfv_session_info_t;
 
 /// @brief MFV keyword detection information
-/// @details Provides details about a keyword found in the audio stream, returned by xraudio_mfv_func_session_info_t.
+/// @details Provides details about a keyword found in the audio stream.
 typedef struct {
    uint8_t detection_type; ///< detection type (0 = detection while active, 1 = detection while asleep)
-   int16_t keyword_start;  ///< sample offset to start of keyword in audio stream (negative value indicates keyword start is unknown)
-   int16_t keyword_end;    ///< sample offset to end of keyword in audio stream (negative value indicates keyword end is unknown)
-   int16_t confidence;     ///< keyword detection confidence
+   int32_t keyword_start;  ///< sample offset to start of keyword in audio stream (negative value indicates keyword start is unknown)
+   int32_t keyword_end;    ///< sample offset to end of keyword in audio stream (negative value indicates keyword end is unknown)
+   float   confidence;     ///< keyword detection confidence
 } xraudio_mfv_keyword_info_t;
 
 /// @brief MFV audio processing result
