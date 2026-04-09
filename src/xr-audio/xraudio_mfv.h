@@ -88,7 +88,7 @@ typedef enum {
 /// @details The xraudio_mfv_msg_type_t enumeration identifies the type of an asynchronous MFV event message.
 typedef enum {
    XRAUDIO_MFV_MSG_TYPE_KEYWORD_DETECTED = 0, ///< A keyword detection event has occurred
-   XRAUDIO_MFV_MSG_TYPE_INPUT_ERROR      = 1, ///< An input processing error has occurred
+   XRAUDIO_MFV_MSG_TYPE_ERROR            = 1, ///< An error event has occurred
    XRAUDIO_MFV_MSG_TYPE_INVALID          = 2  ///< Invalid message type (sentinel)
 } xraudio_mfv_msg_type_t;
 
@@ -122,9 +122,9 @@ typedef struct {
 } xraudio_mfv_msg_keyword_detected_t;
 
 /// @brief MFV error message
-/// @details Message payload delivered via callback when an input processing error occurs.
+/// @details Message payload delivered via callback when an error event occurs.
 typedef struct {
-   xraudio_mfv_msg_header_t  header; ///< Message header (type == XRAUDIO_MFV_MSG_TYPE_INPUT_ERROR)
+   xraudio_mfv_msg_header_t  header; ///< Message header (type == XRAUDIO_MFV_MSG_TYPE_ERROR)
    xraudio_mfv_error_t       type;   ///< The specific type of error that occurred
 } xraudio_mfv_msg_error_t;
 
