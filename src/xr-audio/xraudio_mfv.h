@@ -227,9 +227,9 @@ typedef void                 (*xraudio_mfv_func_session_close_t)(xraudio_mfv_obj
 /// @brief Provide additional information for the session
 /// @details Provides information which is not available at the start of the active session.
 /// @param[in]  object  The MFV object handle
-/// @param[in]  info    Structure with the keyword detection details
+/// @param[in]  info    Pointer to a structure with the keyword detection details
 /// @return XRAUDIO_MFV_RESULT_SUCCESS on success, or an error code on failure
-typedef xraudio_mfv_result_t (*xraudio_mfv_func_session_info_t)(xraudio_mfv_object_t object, xraudio_mfv_keyword_info_t info);
+typedef xraudio_mfv_result_t (*xraudio_mfv_func_session_info_t)(xraudio_mfv_object_t object, const xraudio_mfv_keyword_info_t *info);
 
 /// @brief Process a block of audio samples
 /// @details Submits a buffer of PCM audio samples for MFV processing and returns per-call results.
