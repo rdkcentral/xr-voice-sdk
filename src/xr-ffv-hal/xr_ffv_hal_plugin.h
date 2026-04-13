@@ -21,7 +21,7 @@
 
 /** @brief
  *
- * FarFieldVoiceWrapper.h
+ * xr_ffv_hal_plugin.h
  *
  * Contains the definition of the C API wrapper for the Far Field Voice HAL.
  *
