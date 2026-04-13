@@ -35,7 +35,6 @@
 
 #include <stdbool.h>
 #include <stdint.h>
-#include <jansson.h>
 
 /// @addtogroup XRAUDIO_MFV_DEFINES
 /// @{
@@ -200,9 +199,9 @@ typedef bool (*xraudio_mfv_msg_callback_t)(void *msg);
 
 /// @brief Create an MFV plugin object
 /// @details Allocates and initializes an MFV plugin instance using the provided JSON configuration.
-/// @param[in] config  JSON object containing plugin-specific configuration parameters
+/// @param[in] json_obj  JSON object string containing plugin-specific configuration parameters or NULL for default configuration
 /// @return An opaque MFV object handle on success, or NULL on failure
-typedef xraudio_mfv_object_t (*xraudio_mfv_func_object_create_t)(const json_t *config);
+typedef xraudio_mfv_object_t (*xraudio_mfv_func_object_create_t)(const char *json_obj);
 
 /// @brief Destroy an MFV plugin object
 /// @details Releases all resources associated with the MFV object. The handle must not be used after this call.
@@ -213,7 +212,7 @@ typedef void                 (*xraudio_mfv_func_object_destroy_t)(xraudio_mfv_ob
 /// @details Begins an MFV processing session with the specified configuration and callback.
 /// @param[in]  object     The MFV object handle
 /// @param[in]  info       Pointer to the session configuration specifying which features to enable
-/// @param[out] output_fd  File descriptor for the processed audio output stream
+/// @param[out] output_fd  File descriptor for the processed audio output stream (or NULL if not applicable, e.g. if the plugin does not support gain application)
 /// @param[in]  callback   Callback function invoked to deliver asynchronous event messages
 /// @return XRAUDIO_MFV_RESULT_SUCCESS on success, or an error code on failure
 typedef xraudio_mfv_result_t (*xraudio_mfv_func_session_open_t)(xraudio_mfv_object_t object, const xraudio_mfv_session_info_t *info, int *output_fd, xraudio_mfv_msg_callback_t callback);
@@ -234,8 +233,8 @@ typedef xraudio_mfv_result_t (*xraudio_mfv_func_session_info_t)(xraudio_mfv_obje
 /// @brief Process a block of audio samples
 /// @details Submits a buffer of PCM audio samples for MFV processing and returns per-call results.
 /// @param[in]  object         The MFV object handle
-/// @param[in]  sample_buffer  Pointer to the array of 16-bit PCM audio samples to process
-/// @param[in]  sample_qty     Number of samples in sample_buffer
+/// @param[in]  sample_buffer  Pointer to the array of 16-bit signed PCM audio samples at 16 kHz to process
+/// @param[in]  sample_qty     Number of samples in sample_buffer (must be greater than 0)
 /// @param[out] result         Pointer to a structure to receive the processing result for this call
 /// @return XRAUDIO_MFV_RESULT_SUCCESS on success, or an error code on failure
 typedef xraudio_mfv_result_t (*xraudio_mfv_func_session_process_audio_t)(xraudio_mfv_object_t object, const int16_t *sample_buffer, uint32_t sample_qty, xraudio_mfv_process_result_t *result);
@@ -243,7 +242,7 @@ typedef xraudio_mfv_result_t (*xraudio_mfv_func_session_process_audio_t)(xraudio
 /// @brief Open the reference audio stream
 /// @details Registers a reference audio file descriptor for use in reference-channel processing (e.g. AEC).
 /// @param[in] object    The MFV object handle
-/// @param[in] fd        File descriptor of the reference audio input stream
+/// @param[in] fd        File descriptor of the reference audio input stream (single channel signed 16 bit PCM at 16 kHz)
 /// @param[in] callback  Callback function invoked to deliver events from the reference stream
 /// @return XRAUDIO_MFV_RESULT_SUCCESS on success, or an error code on failure
 typedef xraudio_mfv_result_t (*xraudio_mfv_func_reference_audio_open_t)(xraudio_mfv_object_t object, int fd, xraudio_mfv_msg_callback_t callback);
