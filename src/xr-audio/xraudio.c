@@ -239,6 +239,14 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    if(obj->xr_ffv_hal_plugin != NULL) {
       obj->xr_ffv_hal_handle = obj->xr_ffv_hal_plugin->get_handle();
       XLOGD_INFO("ffv hal handle <%p>", obj->xr_ffv_hal_handle);
+      if(obj->xr_ffv_hal_handle == NULL) {
+         XLOGD_WARN("failed to get ffv hal handle, falling back to legacy hal plugin");
+         obj->xr_ffv_hal_plugin = NULL;
+         if(obj->hal_plugin != NULL) {
+            obj->hal_plugin->init(obj->json_obj_hal);
+            obj->hal_plugin->dsp_config_get(&g_xraudio_process.dsp_config);
+         }
+      }
    } else if(obj->hal_plugin != NULL) {
       obj->hal_plugin->init(obj->json_obj_hal);
       obj->hal_plugin->dsp_config_get(&g_xraudio_process.dsp_config);
