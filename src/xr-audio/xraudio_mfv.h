@@ -272,7 +272,7 @@ typedef struct {
 typedef xraudio_mfv_plugin_api_t *(*xraudio_mfv_plugin_api_get_t)(void);
 
 /// @brief Retrieve the MFV plugin API
-/// @details Returns a pointer to the statically defined xraudio_mfv_plugin_api_t structure for the built-in MFV plugin implementation.
+/// @details Returns a pointer to the statically defined xraudio_mfv_plugin_api_t structure exposed by this plugin.
 /// @return Pointer to the xraudio_mfv_plugin_api_t structure exposed by this plugin
 xraudio_mfv_plugin_api_t *xraudio_mfv_plugin_api_get(void);
 
