@@ -65,7 +65,6 @@ static FFVhalApiStatus_t xr_ffv_hal_set_privacy_state(FFVhalControlHandle contro
 static FFVhalApiStatus_t xr_ffv_hal_set_power_mode(FFVhalControlHandle controllerHandle,FFVhalPowerMode_t powerMode);
 
 static bool xr_ffv_hal_plugin_api_get(void);
-static const char *xr_ffv_hal_status_str(FFVhalApiStatus_t status);
 
 void *xr_ffv_hal_plugin_handle_get(void) {
    XLOGD_INFO("");
@@ -222,17 +221,49 @@ FFVhalApiStatus_t xr_ffv_hal_unregister_event_listeners(FFVhalHandle handle, FFV
    return(status);
 }
 
-FFVhalApiStatus_t xr_ffv_hal_open(FFVhalHandle handle, FFVhalOnKeywordDetectedCb_t onKeywordDetected, FFVhalOnEndOfCommand_t onEndOfCommand, FFVhalControlHandle *pControllerHandle) {
+FFVhalApiStatus_t xr_ffv_hal_open(FFVhalHandle ffv_handle, FFVhalOnKeywordDetectedCb_t onKeywordDetected, FFVhalOnEndOfCommand_t onEndOfCommand, FFVhalControlHandle *pControllerHandle) {
+   XLOGD_INFO("");
    FFVhalApiStatus_t status = EX_NONE;
 
-   XLOGD_INFO("not implemented");
+   if(ffv_handle == NULL) {
+      XLOGD_ERROR("ffv handle is null");
+      return(EX_NULL_POINTER);
+   }
+
+   FFVhalState_t state = UNKNOWN;
+   status = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_state_plugin_api(ffv_handle, &state);
+   if(status != EX_NONE) {
+      XLOGD_ERROR("failed to get current state of the xr ffv hal plugin. status <%s>", xr_ffv_hal_status_str(status));
+      return(status);
+   }
+   if(state != CLOSED) {
+      XLOGD_INFO("xr ffv hal plugin not closed. state <%s>", xr_ffv_hal_state_str(state));
+      return(EX_NONE);
+   }
+   status = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.open_plugin_api(ffv_handle, onKeywordDetected, onEndOfCommand, pControllerHandle);
+   if(status != EX_NONE) {
+      XLOGD_ERROR("failed to open xr ffv hal plugin. status <%s>", xr_ffv_hal_status_str(status));
+      return(status);
+   }
+
    return(status);
 }
 
-FFVhalApiStatus_t xr_ffv_hal_close(FFVhalHandle handle) {
+FFVhalApiStatus_t xr_ffv_hal_close(FFVhalHandle ffv_handle) {
+   XLOGD_INFO("");
    FFVhalApiStatus_t status = EX_NONE;
 
-   XLOGD_INFO("not implemented");
+   if(ffv_handle == NULL) {
+      XLOGD_ERROR("ffv handle is null");
+      return(EX_NULL_POINTER);
+   }
+
+   status = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.close_plugin_api(ffv_handle);
+   if(status != EX_NONE) {
+      XLOGD_ERROR("failed to close xr ffv hal plugin. status <%s>", xr_ffv_hal_status_str(status));
+      return(status);
+   }
+
    return(status);
 }
 
@@ -251,16 +282,38 @@ FFVhalApiStatus_t xr_ffv_hal_close_channel(FFVhalControlHandle controllerHandle,
 }
 
 FFVhalApiStatus_t xr_ffv_hal_set_privacy_state(FFVhalControlHandle controllerHandle, bool activate) {
+   XLOGD_INFO("");
    FFVhalApiStatus_t status = EX_NONE;
 
-   XLOGD_INFO("not implemented");
+   if(controllerHandle == NULL) {
+      XLOGD_ERROR("ffv controller handle is null");
+      return(EX_NULL_POINTER);
+   }
+
+   status = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.set_privacy_state_plugin_api(controllerHandle, activate);
+   if(status != EX_NONE) {
+      XLOGD_ERROR("failed to set xr ffv hal plugin privacy state. status <%s>", xr_ffv_hal_status_str(status));
+      return(status);
+   }
+
    return(status);
 }
 
-FFVhalApiStatus_t xr_ffv_hal_set_power_mode(FFVhalControlHandle controllerHandle,FFVhalPowerMode_t powerMode) {
+FFVhalApiStatus_t xr_ffv_hal_set_power_mode(FFVhalControlHandle controllerHandle, FFVhalPowerMode_t powerMode) {
+   XLOGD_INFO("");
    FFVhalApiStatus_t status = EX_NONE;
 
-   XLOGD_INFO("not implemented");
+   if(controllerHandle == NULL) {
+      XLOGD_ERROR("ffv controller handle is null");
+      return(EX_NULL_POINTER);
+   }
+
+   status = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.set_power_mode_plugin_api(controllerHandle, powerMode);
+   if(status != EX_NONE) {
+      XLOGD_ERROR("failed to set xr ffv hal plugin power state. status <%s>", xr_ffv_hal_status_str(status));
+      return(status);
+   }
+
    return(status);
 }
 
@@ -332,19 +385,60 @@ bool xr_ffv_hal_plugin_api_get(void) {
 
 const char *xr_ffv_hal_status_str(FFVhalApiStatus_t status) {
    switch(status) {
-      case EX_NONE: return("OK");
-      case EX_SECURITY: return("SECURITY");
-      case EX_BAD_PARCELABLE: return("BAD_PARCELABLE");
-      case EX_ILLEGAL_ARGUMENT: return("ILLEGAL_ARGUMENT");
-      case EX_NULL_POINTER: return("NULL_POINTER");
-      case EX_ILLEGAL_STATE: return("ILLEGAL_STATE");
-      case EX_NETWORK_MAIN_THREAD: return("NETWORK_MAIN_THREAD");
+      case EX_NONE:                  return("OK");
+      case EX_SECURITY:              return("SECURITY");
+      case EX_BAD_PARCELABLE:        return("BAD_PARCELABLE");
+      case EX_ILLEGAL_ARGUMENT:      return("ILLEGAL_ARGUMENT");
+      case EX_NULL_POINTER:          return("NULL_POINTER");
+      case EX_ILLEGAL_STATE:         return("ILLEGAL_STATE");
+      case EX_NETWORK_MAIN_THREAD:   return("NETWORK_MAIN_THREAD");
       case EX_UNSUPPORTED_OPERATION: return("UNSUPPORTED_OPERATION");
-      case EX_SERVICE_SPECIFIC: return("SERVICE_SPECIFIC");
-      case EX_HAS_REPLY_HEADER: return("HAS_REPLY_HEADER");
-      case EX_TRANSACTION_FAILED: return("RANSACTION_FAILED");
+      case EX_SERVICE_SPECIFIC:      return("SERVICE_SPECIFIC");
+      case EX_HAS_REPLY_HEADER:      return("HAS_REPLY_HEADER");
+      case EX_TRANSACTION_FAILED:    return("RANSACTION_FAILED");
    }
    return("UNKNOWN");
 }
 
+const char *xr_ffv_hal_state_str(FFVhalState_t state) {
+   switch(state) {
+      case UNKNOWN:  return("UNKNOWN");
+      case CLOSED:   return("CLOSED");
+      case OPENING:  return("OPENING");
+      case READY:    return("READY");
+      case STARTING: return("STARTING");
+      case STARTED:  return("STARTED");
+      case FLUSHING: return("FLUSHING");
+      case STOPPING: return("STOPPING");
+      case CLOSING:  return("CLOSING");
+   }
+   return("UNKNOWN");
+}
 
+const char *xr_ffv_hal_power_mode_str(FFVhalPowerMode_t power_mode) {
+   switch(power_mode) {
+      case NONE:       return("NONE");
+      case FULL_POWER: return("FULL_POWER");
+      case STANDBY:    return("STANDBY");
+      case DEEP_SLEEP: return("DEEP_SLEEP");
+   }
+   return("UNKNOWN");
+}
+
+const char *xr_ffv_hal_failure_code_str(FFVhalFailureCode_t failure_code) {
+   switch(failure_code) {
+      case SUB_COMPONENT_FAILURE: return("SUB_COMPONENT_FAILURE");
+      case IO_FAILURE:            return("IO_FAILURE");
+   }
+   return("UNKNOWN");
+}
+
+FFVhalPowerMode_t xraudio_power_mode_xr_ffv_hal(xraudio_power_mode_t power_mode) {
+   switch(power_mode) {
+   case XRAUDIO_POWER_MODE_FULL:    return(FULL_POWER);
+   case XRAUDIO_POWER_MODE_LOW:     return(STANDBY);
+   case XRAUDIO_POWER_MODE_SLEEP:   return(DEEP_SLEEP);
+   case XRAUDIO_POWER_MODE_INVALID: return(NONE);
+   }
+   return(NONE);
+}
