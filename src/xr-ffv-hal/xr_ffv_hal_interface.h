@@ -173,7 +173,7 @@ const char *xr_ffv_hal_status_str(FFVhalApiStatus_t status);
 const char *xr_ffv_hal_state_str(FFVhalState_t state);
 /// @brief Convert a power mode type to a string
 const char *xr_ffv_hal_power_mode_str(FFVhalPowerMode_t mode);
-/// @brief Convert a faiure code type to a string
+/// @brief Convert a failure code type to a string
 const char *xr_ffv_hal_failure_code_str(FFVhalFailureCode_t failure_code);
 /// @brief Convert an xraudio power mode type to xr ffv hal power mode type
 FFVhalPowerMode_t xraudio_power_mode_xr_ffv_hal(xraudio_power_mode_t power_mode);
