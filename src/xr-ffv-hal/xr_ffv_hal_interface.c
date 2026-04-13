@@ -395,7 +395,7 @@ const char *xr_ffv_hal_status_str(FFVhalApiStatus_t status) {
       case EX_UNSUPPORTED_OPERATION: return("UNSUPPORTED_OPERATION");
       case EX_SERVICE_SPECIFIC:      return("SERVICE_SPECIFIC");
       case EX_HAS_REPLY_HEADER:      return("HAS_REPLY_HEADER");
-      case EX_TRANSACTION_FAILED:    return("RANSACTION_FAILED");
+      case EX_TRANSACTION_FAILED:    return("TRANSACTION_FAILED");
    }
    return("UNKNOWN");
 }
