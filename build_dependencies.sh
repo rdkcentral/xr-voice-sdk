@@ -16,6 +16,7 @@ apt install -y \
     libbsd-dev \
     libcurl4-openssl-dev \
     libjansson-dev \
+    libnopoll-dev \
     libopus-dev \
     libssl-dev \
     uuid-dev \

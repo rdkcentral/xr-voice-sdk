@@ -20,11 +20,13 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DCMAKE_VERBOSE_MAKEFILE=ON \
     -DCMAKE_PROJECT_VERSION="1.0.0" \
     -DVSDK_VENDOR_XLOG=OFF \
+    -DWS_ENABLED=ON \
+    -DWS_NOPOLL_PATCHES=OFF \
     -DCMAKE_C_FLAGS=" \
--I ${CTRL_STUBS} \
--I ${HEADERS_DIR} \
--Wall -Wno-error \
--DSAFEC_DUMMY_API"
+    -I ${CTRL_STUBS} \
+    -I ${HEADERS_DIR} \
+    -Wall -Wno-error \
+    -DSAFEC_DUMMY_API"
 
 # xr-voice-sdk's CMakeLists.txt adds -Werror via target_compile_options, which appends
 # after CMAKE_C_FLAGS and overrides our -Wno-error. Strip it from generated build files.
