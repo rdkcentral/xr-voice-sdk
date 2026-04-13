@@ -16,20 +16,36 @@ apt install -y \
     libbsd-dev \
     libcurl4-openssl-dev \
     libjansson-dev \
-    libnopoll-dev \
     libopus-dev \
     libssl-dev \
     uuid-dev \
+    autoconf \
+    automake \
     gperf \
+    libtool \
+    make \
+    pkg-config \
     python3
 
 ###########################################
 # 2. Clone the required repositories
 
 git clone --depth 1 --branch feature/RDKEMW-14537 https://$GITHUB_TOKEN@github.com/rdkcentral/entservices-testframework.git
+git clone --depth 1 https://github.com/ASPLes/nopoll.git
 
 ############################
-# 3. Create stub headers for external dependencies
+# 3. Build nopoll in the CI container
+echo "======================================================================================"
+echo "building nopoll"
+
+cd nopoll
+./autogen.sh --prefix=/usr
+make -j$(nproc)
+make install
+cd ${GITHUB_WORKSPACE}
+
+############################
+# 4. Create stub headers for external dependencies
 echo "======================================================================================"
 echo "Creating stub headers"
 
