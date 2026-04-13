@@ -81,7 +81,7 @@ typedef void (*xr_ffv_hal_state_changed_callback_t)(FFVhalState_t oldState, FFVh
 /// @details The xr ffv hal power mode entered callback is used to inform the client of a power mode transition.
 typedef void (*xr_ffv_hal_power_mode_entered_callback_t)(FFVhalPowerMode_t powerMode);
 
-/// @brief xr ffv hal hardeare failure callback
+/// @brief xr ffv hal hardware failure callback
 /// @details The xr ffv hal hardware failure callback is used to inform the client of a hardware failure.
 typedef void (*xr_ffv_hal_hardware_failed_callback_t)(FFVhalFailureCode_t failureCode);
 
