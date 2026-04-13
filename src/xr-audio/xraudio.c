@@ -323,7 +323,11 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
          return(XRAUDIO_RESULT_ERROR_INTERNAL);
       }
       for(int i = 0; i < MAX_FFV_CHAN_TYPES; i++) {
-         if(((strcmp(caps.channelTypes[i], "KEYWORD") == 0) || (strcmp(caps.channelTypes[i], "MICROPHONES") == 0)) &&
+         const char *channel_type = caps.channelTypes[i];
+         if(channel_type == NULL) {
+            continue;
+         }
+         if(((strcmp(channel_type, "KEYWORD") == 0) || (strcmp(channel_type, "MICROPHONES") == 0)) &&
                (input_qty_max > 1)) {
             *inputs = XRAUDIO_DEVICE_INPUT_TRI;
          }
