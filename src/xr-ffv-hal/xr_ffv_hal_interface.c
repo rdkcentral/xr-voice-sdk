@@ -165,8 +165,12 @@ FFVhalApiStatus_t xr_ffv_hal_get_capabilities(FFVhalHandle ffv_handle, FFVhalCap
    g_local_xr_ffv_hal_obj.mic_channel_count = pCapabilities->microphoneChannelCount;
    XLOGD_INFO("input qty <%u>", g_local_xr_ffv_hal_obj.mic_channel_count);
    for(int i = 0; i < MAX_FFV_CHAN_TYPES; i++) {
-      XLOGD_INFO("channelTypes[%d] <%s>", i, pCapabilities->channelTypes[i]);
-      strcpy((char *)&g_local_xr_ffv_hal_obj.channel_types[i], pCapabilities->channelTypes[i]);
+      const char *channel_type = pCapabilities->channelTypes[i];
+      if(channel_type == NULL) {
+         channel_type = "NONE";
+      }
+      XLOGD_INFO("channelTypes[%d] <%s>", i, channel_type);
+      g_local_xr_ffv_hal_obj.channel_types[i] = channel_type;
    }
 
    return(status);
