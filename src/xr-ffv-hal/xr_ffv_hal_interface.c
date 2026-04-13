@@ -177,31 +177,36 @@ FFVhalApiStatus_t xr_ffv_hal_get_capabilities(FFVhalHandle ffv_handle, FFVhalCap
 }
 
 FFVhalApiStatus_t xr_ffv_hal_get_state(FFVhalHandle handle, FFVhalState_t *pState) {
-   FFVhalApiStatus_t status = EX_NONE;
+   (void)handle;
+   (void)pState;
 
-   XLOGD_INFO("not implemented");
-   return(status);
+   XLOGD_ERROR("not implemented");
+   return(EX_UNSUPPORTED_OPERATION);
 }
 
 FFVhalApiStatus_t xr_ffv_hal_get_status(FFVhalHandle handle, FFVhalStatus_t *pStatus) {
-   FFVhalApiStatus_t status = EX_NONE;
+   (void)handle;
+   (void)pStatus;
 
-   XLOGD_INFO("not implemented");
-   return(status);
+   XLOGD_ERROR("not implemented");
+   return(EX_UNSUPPORTED_OPERATION);
 }
 
 FFVhalApiStatus_t xr_ffv_hal_get_channel_status(FFVhalHandle handle, const char *pChannelType, FFVhalChannelStatus_t *pChannelStatus) {
-   FFVhalApiStatus_t status = EX_NONE;
+   (void)handle;
+   (void)pChannelType;
+   (void)pChannelStatus;
 
-   XLOGD_INFO("not implemented");
-   return(status);
+   XLOGD_ERROR("not implemented");
+   return(EX_UNSUPPORTED_OPERATION);
 }
 
 FFVhalApiStatus_t xr_ffv_hal_get_keyword_meta_data(FFVhalHandle handle, unsigned char **ppMetaData) {
-   FFVhalApiStatus_t status = EX_NONE;
+   (void)handle;
+   (void)ppMetaData;
 
-   XLOGD_INFO("not implemented");
-   return(status);
+   XLOGD_ERROR("not implemented");
+   return(EX_UNSUPPORTED_OPERATION);
 }
 
 FFVhalApiStatus_t xr_ffv_hal_set_configuration(FFVhalHandle handle, char *pConfiguration) {
