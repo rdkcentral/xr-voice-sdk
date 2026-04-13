@@ -1236,7 +1236,7 @@ void xraudio_audio_hal_close(xraudio_obj_t *obj) {
    if(obj->xr_ffv_hal_plugin != NULL) {
       XLOGD_INFO("xr ffv hal obj %p user count %u", g_xraudio_process.xr_ffv_hal_obj, g_xraudio_process.xr_ffv_hal_cnt);
       g_xraudio_process.xr_ffv_hal_cnt--;
-      if((g_xraudio_process.xr_ffv_hal_cnt == 0) && (g_xraudio_process.hal_obj != NULL)) {
+      if((g_xraudio_process.xr_ffv_hal_cnt == 0) && (g_xraudio_process.xr_ffv_hal_obj != NULL)) {
          XLOGD_INFO("");
          obj->xr_ffv_hal_plugin->close(g_xraudio_process.xr_ffv_hal_obj);
          g_xraudio_process.xr_ffv_hal_obj = NULL;
