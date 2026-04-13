@@ -1209,9 +1209,9 @@ xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
          if(status != EX_NONE) {
             XLOGD_WARN("unable to set privacy state <%s>", xr_ffv_hal_status_str(status));
          }
-         g_xraudio_process.xr_ffv_hal_cnt++;
-         XLOGD_INFO("xr ffv hal obj %p", g_xraudio_process.xr_ffv_hal_obj);
       }
+      g_xraudio_process.xr_ffv_hal_cnt++;
+      XLOGD_INFO("xr ffv hal obj %p", g_xraudio_process.xr_ffv_hal_obj);
    } else {
       if(obj->hal_plugin != NULL) {
          XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
