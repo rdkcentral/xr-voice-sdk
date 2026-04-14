@@ -210,21 +210,21 @@ FFVhalApiStatus_t xr_ffv_hal_get_keyword_meta_data(FFVhalHandle handle, unsigned
 }
 
 FFVhalApiStatus_t xr_ffv_hal_set_configuration(FFVhalHandle handle, char *pConfiguration) {
-   FFVhalApiStatus_t status = EX_NONE;
+   FFVhalApiStatus_t status = EX_UNSUPPORTED_OPERATION;
 
    XLOGD_INFO("not implemented");
    return(status);
 }
 
 FFVhalApiStatus_t xr_ffv_hal_register_event_listeners(FFVhalHandle handle, FFVhalOnStateChangedCb_t onStateChanged, FFVhalOnEnteredPowerModeCb_t onEnteredPowerMode, FFVhalOnHardwareFailedCb_t onHardwareFailed) {
-   FFVhalApiStatus_t status = EX_NONE;
+   FFVhalApiStatus_t status = EX_UNSUPPORTED_OPERATION;
 
    XLOGD_INFO("not implemented");
    return(status);
 }
 
 FFVhalApiStatus_t xr_ffv_hal_unregister_event_listeners(FFVhalHandle handle, FFVhalOnStateChangedCb_t onStateChanged, FFVhalOnEnteredPowerModeCb_t onEnteredPowerMode, FFVhalOnHardwareFailedCb_t onHardwareFailed) {
-   FFVhalApiStatus_t status = EX_NONE;
+   FFVhalApiStatus_t status = EX_UNSUPPORTED_OPERATION;
 
    XLOGD_INFO("not implemented");
    return(status);
@@ -277,14 +277,14 @@ FFVhalApiStatus_t xr_ffv_hal_close(FFVhalHandle ffv_handle) {
 }
 
 FFVhalApiStatus_t xr_ffv_hal_open_channel(FFVhalControlHandle controllerHandle, const char *pChannelType, FFVhalFileDescriptor *pFileDescriptor) {
-   FFVhalApiStatus_t status = EX_NONE;
+   FFVhalApiStatus_t status = EX_UNSUPPORTED_OPERATION;
 
    XLOGD_INFO("not implemented");
    return(status);
 }
 
 FFVhalApiStatus_t xr_ffv_hal_close_channel(FFVhalControlHandle controllerHandle, const char *pChannelType) {
-   FFVhalApiStatus_t status = EX_NONE;
+   FFVhalApiStatus_t status = EX_UNSUPPORTED_OPERATION;
 
    XLOGD_INFO("not implemented");
    return(status);
