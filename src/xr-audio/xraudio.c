@@ -545,7 +545,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
             const char *channel_type = caps.channelTypes[index];
             if((channel_type != NULL) && ((strcmp(channel_type, "KEYWORD") == 0) || (strcmp(channel_type, "MICROPHONES") == 0))) {
                obj->resource_id_record    = XRAUDIO_RESOURCE_ID_INPUT_1;
-               obj->capabilities_record   = XRAUDIO_DEVICE_INPUT_TRI;
+               obj->capabilities_record   = XRAUDIO_CAPS_INPUT_LOCAL;
             }
          }
       }
