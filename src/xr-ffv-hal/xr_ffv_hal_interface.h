@@ -42,7 +42,6 @@ extern "C" {
 /// these names to allow the client code to function correctly if the values change.
 
 #include <jansson.h>
-#include "xraudio.h"
 #include "xraudio_version.h"
 #include "xraudio_common.h"
 //#include "xraudio_hal.h"
