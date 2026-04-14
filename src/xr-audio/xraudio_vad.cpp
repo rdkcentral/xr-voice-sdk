@@ -66,8 +66,8 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
    }
    
    // Validate configuration parameters
-   if (sample_rate > 32000) {
-      XLOGD_ERROR("unsupported sample rate: %u (max 32kHz)", sample_rate);
+   if (sample_rate != 16000) {
+      XLOGD_ERROR("unsupported sample rate: %u (only 16kHz)", sample_rate);
       return NULL;
    }
    
