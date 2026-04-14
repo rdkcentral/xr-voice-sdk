@@ -28,13 +28,11 @@ apt install -y \
     python3
 
 ###########################################
-# 2. Clone the required repositories
+# 2. Clone and build nopoll from source
+# (libnopoll-dev is not available in the CI docker image)
 
-git clone --depth 1 --branch feature/RDKEMW-14537 https://$GITHUB_TOKEN@github.com/rdkcentral/entservices-testframework.git
 git clone --depth 1 https://github.com/ASPLes/nopoll.git
 
-############################
-# 3. Build nopoll in the CI container
 echo "======================================================================================"
 echo "building nopoll"
 
@@ -45,11 +43,11 @@ make install
 cd ${GITHUB_WORKSPACE}
 
 ############################
-# 4. Create stub headers for external dependencies
+# 3. Create stub headers for external dependencies
 echo "======================================================================================"
 echo "Creating stub headers"
 
-HEADERS_DIR="$GITHUB_WORKSPACE/entservices-testframework/Tests/headers"
+HEADERS_DIR="$GITHUB_WORKSPACE/ci/headers"
 mkdir -p "${HEADERS_DIR}"
 
 cd "${HEADERS_DIR}"
@@ -109,3 +107,5 @@ SAFEC_EOF
 echo "Stub headers created successfully"
 
 cd ${GITHUB_WORKSPACE}
+echo "======================================================================================"
+echo "build_dependencies.sh complete"

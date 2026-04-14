@@ -10,8 +10,8 @@ ls -la ${GITHUB_WORKSPACE}
 # Build xr-voice-sdk
 echo "building xr-voice-sdk"
 
-CTRL_STUBS="$GITHUB_WORKSPACE/entservices-testframework/Tests/mocks/control"
-HEADERS_DIR="$GITHUB_WORKSPACE/entservices-testframework/Tests/headers"
+MOCK_DIR="$GITHUB_WORKSPACE/ci/mocks"
+HEADERS_DIR="$GITHUB_WORKSPACE/ci/headers"
 
 cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/install/usr" \
@@ -23,7 +23,7 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DWS_ENABLED=ON \
     -DWS_NOPOLL_PATCHES=OFF \
     -DCMAKE_C_FLAGS=" \
-    -I ${CTRL_STUBS} \
+    -I ${MOCK_DIR} \
     -I ${HEADERS_DIR} \
     -Wall -Wno-error \
     -DSAFEC_DUMMY_API"
