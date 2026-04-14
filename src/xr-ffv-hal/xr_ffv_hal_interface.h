@@ -50,7 +50,7 @@ extern "C" {
 
 /// @}
 
-/// @addtogroup XR_FFV_HAL_HAL_ENUMS
+/// @addtogroup XR_FFV_HAL_ENUMS
 /// @{
 /// @brief Enumerated Types
 /// @details The xr ffv hal library provides enumerated types for logical groups of values.

@@ -343,11 +343,12 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       if(!(*inputs & XRAUDIO_DEVICE_INPUT_TRI)) {
          XLOGD_INFO("Unable to get xr ffv hal device");
       }
-   }
-   if(obj->hal_plugin != NULL) {
-      if (!obj->hal_plugin->available_devices_get(inputs, input_qty_max, outputs, output_qty_max)) {
-         XLOGD_ERROR("Unable to get available xraudio hal devices");
-         return(XRAUDIO_RESULT_ERROR_INTERNAL);
+   } else {
+      if(obj->hal_plugin != NULL) {
+         if (!obj->hal_plugin->available_devices_get(inputs, input_qty_max, outputs, output_qty_max)) {
+            XLOGD_ERROR("Unable to get available xraudio hal devices");
+            return(XRAUDIO_RESULT_ERROR_INTERNAL);
+         }
       }
    }
 
@@ -536,11 +537,13 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
       FFVhalApiStatus_t status = obj->xr_ffv_hal_plugin->get_capabilities(obj->xr_ffv_hal_handle, &caps);
       if(status != EX_NONE) {
          XLOGD_ERROR("Unable to get xr ffv hal capabilities <%s>", xr_ffv_hal_status_str(status));
+         XRAUDIO_API_MUTEX_UNLOCK();
          return(XRAUDIO_RESULT_ERROR_INTERNAL);
       }
       if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(input) != XRAUDIO_DEVICE_INPUT_NONE) {
          for(uint8_t index = 0; index < MAX_FFV_CHAN_TYPES; index++) { // Find the local microphone
-            if((strcmp(caps.channelTypes[index], "KEYWORD") == 0) || (strcmp(caps.channelTypes[index], "MICROPHONES") == 0)) {
+            const char *channel_type = caps.channelTypes[index];
+            if((channel_type != NULL) && ((strcmp(channel_type, "KEYWORD") == 0) || (strcmp(channel_type, "MICROPHONES") == 0))) {
                obj->resource_id_record    = XRAUDIO_RESOURCE_ID_INPUT_1;
                obj->capabilities_record   = XRAUDIO_DEVICE_INPUT_TRI;
             }
