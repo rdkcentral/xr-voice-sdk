@@ -1188,7 +1188,6 @@ xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
       if(g_xraudio_process.xr_ffv_hal_obj == NULL) {
          XLOGD_INFO("xr ffv hal open obj");
          g_xraudio_process.xr_ffv_hal_obj = obj->xr_ffv_hal_handle;
-         //g_xraudio_process.xr_ffv_hal_obj = obj->xr_ffv_hal_plugin->get_handle();
          XLOGD_INFO("ffv hal obj <%p>", g_xraudio_process.xr_ffv_hal_obj);
          if(g_xraudio_process.xr_ffv_hal_obj == NULL) {
             XLOGD_ERROR("Unable to get xr ffv hal obj");
@@ -1200,11 +1199,14 @@ xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
          FFVhalApiStatus_t status = obj->xr_ffv_hal_plugin->open(g_xraudio_process.xr_ffv_hal_obj, NULL, NULL, &xr_ffv_hal_controller_handle);
          if(status != EX_NONE) {
             XLOGD_ERROR("xr ffv hal open failed <%s>", xr_ffv_hal_status_str(status));
+            g_xraudio_process.xr_ffv_hal_obj = NULL;
+            xr_ffv_hal_controller_handle = NULL;
             return(XRAUDIO_RESULT_ERROR_INTERNAL);
          }
          if(xr_ffv_hal_controller_handle == NULL) {
             XLOGD_ERROR("xr ffv hal open unable to get controller handle <%s>", xr_ffv_hal_status_str(status));
             obj->xr_ffv_hal_plugin->close(obj->xr_ffv_hal_handle);
+            g_xraudio_process.xr_ffv_hal_obj = NULL;
             return(XRAUDIO_RESULT_ERROR_INTERNAL);
          }
 

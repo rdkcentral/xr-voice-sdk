@@ -145,22 +145,31 @@ void vsdk_term(void) {
    xlog_term();
 
    if(g_vsdk.hal_in_enabled || g_vsdk.hal_out_enabled) {
-      XLOGD_INFO("unload FFV hal");
-      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_hal) != 0) {
-         const char *err = dlerror();
-         XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+      if(g_vsdk.ffv_plugins.handle_xr_ffv_hal != NULL) {
+         XLOGD_INFO("unload XR FFV HAL");
+         if(dlclose(g_vsdk.ffv_plugins.handle_xr_ffv_hal) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for XR FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+         }
+         g_vsdk.ffv_plugins.handle_xr_ffv_hal = NULL;
+      } else {
+         XLOGD_INFO("unload FFV hal");
+         if(dlclose(g_vsdk.ffv_plugins.handle_ffv_hal) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+         }
+         if(dlclose(g_vsdk.ffv_plugins.handle_ffv_kwd) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV KWD <%s>", (err != NULL) ? err : "unknown error");
+         }
+         if(dlclose(g_vsdk.ffv_plugins.handle_ffv_alg) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV ALG <%s>", (err != NULL) ? err : "unknown error");
+         }
+         g_vsdk.ffv_plugins.handle_ffv_hal = NULL;
+         g_vsdk.ffv_plugins.handle_ffv_kwd = NULL;
+         g_vsdk.ffv_plugins.handle_ffv_alg = NULL;
       }
-      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_kwd) != 0) {
-         const char *err = dlerror();
-         XLOGD_ERROR("dlclose failed for FFV KWD <%s>", (err != NULL) ? err : "unknown error");
-      }
-      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_alg) != 0) {
-         const char *err = dlerror();
-         XLOGD_ERROR("dlclose failed for FFV ALG <%s>", (err != NULL) ? err : "unknown error");
-      }
-      g_vsdk.ffv_plugins.handle_ffv_hal = NULL;
-      g_vsdk.ffv_plugins.handle_ffv_kwd = NULL;
-      g_vsdk.ffv_plugins.handle_ffv_alg = NULL;
    }
    if(g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) {
       XLOGD_INFO("unload FFV SDF");
@@ -665,7 +674,7 @@ void *vsdk_load_plugin_xr_ffv_hal(void) {
    void *handle = xr_ffv_hal_plugin_handle_get();
 
    if(NULL == handle) {
-      XLOGD_INFO("");
+      XLOGD_INFO("XR FFV HAL plugin is not present.");
       return(NULL);
    }
 
@@ -673,7 +682,8 @@ void *vsdk_load_plugin_xr_ffv_hal(void) {
    g_vsdk.xr_ffv_hal_plugin = xr_ffv_hal_plugin_func_get();
 
    if(g_vsdk.xr_ffv_hal_plugin == NULL) {
-      XLOGD_INFO("");
+      XLOGD_ERROR("Failed to load XR FFV HAL plugin");
+      dlclose(handle);
       return(NULL);
    }
    XLOGD_INFO("Loaded required XR FFV HAL plugin.");

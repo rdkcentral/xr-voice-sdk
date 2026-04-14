@@ -247,7 +247,7 @@ FFVhalApiStatus_t xr_ffv_hal_open(FFVhalHandle ffv_handle, FFVhalOnKeywordDetect
    }
    if(state != CLOSED) {
       XLOGD_INFO("xr ffv hal plugin not closed. state <%s>", xr_ffv_hal_state_str(state));
-      return(EX_NONE);
+      return(EX_ILLEGAL_STATE);
    }
    status = g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.open_plugin_api(ffv_handle, onKeywordDetected, onEndOfCommand, pControllerHandle);
    if(status != EX_NONE) {
@@ -371,6 +371,10 @@ bool xr_ffv_hal_plugin_api_get(void) {
       (FFVhal_setPowerMode == NULL)) {
       XLOGD_ERROR("XR FFV HAL plugin API incomplete");
       memset(&g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api, 0, sizeof(xr_ffv_hal_plugin_api_t));
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for XR FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(false);
    }
    g_local_xr_ffv_hal_obj.xr_ffv_hal_plugin_api.get_handle_plugin_api = FFVhal_getService;
