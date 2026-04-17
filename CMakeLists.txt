@@ -36,6 +36,7 @@ option(HTTP_ENABLED,            "speech router http protocol"                 OF
 option(WS_ENABLED,              "speech router websocket protocol"            OFF)
 option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
+option(FFV_HAL_V2,              "use xr ffv hal"                              ON)
 
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
 set(XRAUDIO_CONFIG_JSON_KWD, "" CACHE FILEPATH "xraudio config kwd")
@@ -68,7 +69,6 @@ target_include_directories(xr-voice-sdk PUBLIC
                            ./src/xr-speech-vrex/xrsv_http/
                            ./src/xr-speech-vrex/xrsv_ws_nextgen/
                            ./src/xr-logger/
-                           ./src/xr-ffv-hal/
                            ${CMAKE_SYSROOT}/usr/include/safeclib/
                            ${CMAKE_SYSROOT}/usr/include/libsafec/
                           )

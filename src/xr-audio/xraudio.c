@@ -86,9 +86,11 @@ typedef struct {
    xraudio_hal_plugin_api_t *        hal_plugin;
    xraudio_dga_plugin_api_t *        dga_plugin;
    xraudio_kwd_plugin_api_t *        kwd_plugin;
+   #ifdef FFV_HAL_V2
    xr_ffv_hal_plugin_func_t *        xr_ffv_hal_plugin;
    void *                            xr_ffv_hal_handle;
    void *                            xr_ffv_hal_controller_handle;
+   #endif
    bool                              eos_enabled;
    bool                              ppr_enabled;
    bool                              out_enabled;
@@ -103,9 +105,11 @@ typedef struct {
    uint8_t                  user_cnt;
    #endif
    xraudio_hal_obj_t        hal_obj;
-   xr_ffv_hal_obj_t         xr_ffv_hal_obj;
    uint8_t                  hal_user_cnt;
+   #ifdef FFV_HAL_V2
+   xr_ffv_hal_obj_t         xr_ffv_hal_obj;
    uint8_t                  xr_ffv_hal_cnt;
+   #endif
    xraudio_hal_dsp_config_t dsp_config;
    xraudio_power_mode_t     power_mode;
    bool                     privacy_mode;
@@ -144,8 +148,10 @@ static xraudio_process_t g_xraudio_process = {
    #endif
    .hal_obj = NULL,
    .hal_user_cnt = 0,
+   #ifdef FFV_HAL_V2
    .xr_ffv_hal_obj = NULL,
    .xr_ffv_hal_cnt = 0,
+   #endif
    .dsp_config = { .ppr_enabled = false,
                    .dga_enabled = false,
                    .eos_enabled = false,
@@ -193,9 +199,11 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->hal_plugin                            = vsdk_hal_plugin_get();
    obj->dga_plugin                            = vsdk_dga_plugin_get();
    obj->kwd_plugin                            = vsdk_kwd_plugin_get();
+   #ifdef FFV_HAL_V2
    obj->xr_ffv_hal_plugin                     = vsdk_xr_ffv_hal_plugin_get();
    obj->xr_ffv_hal_handle                     = NULL;
    obj->xr_ffv_hal_controller_handle          = NULL;
+   #endif
    obj->eos_enabled                           = (vsdk_eos_plugin_get() == NULL) ? false : true;
    obj->ppr_enabled                           = (vsdk_ppr_plugin_get() == NULL) ? false : true;
    obj->out_enabled                           = vsdk_hal_out_enabled();
@@ -236,21 +244,21 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
          json_incref(obj->json_obj_hal);
       }
    }
+   #ifdef FFV_HAL_V2
    if(obj->xr_ffv_hal_plugin != NULL) {
       obj->xr_ffv_hal_handle = obj->xr_ffv_hal_plugin->get_handle();
       XLOGD_INFO("ffv hal handle <%p>", obj->xr_ffv_hal_handle);
       if(obj->xr_ffv_hal_handle == NULL) {
-         XLOGD_WARN("failed to get ffv hal handle, falling back to legacy hal plugin");
+         XLOGD_WARN("failed to get ffv hal handle");
          obj->xr_ffv_hal_plugin = NULL;
-         if(obj->hal_plugin != NULL) {
-            obj->hal_plugin->init(obj->json_obj_hal);
-            obj->hal_plugin->dsp_config_get(&g_xraudio_process.dsp_config);
-         }
       }
-   } else if(obj->hal_plugin != NULL) {
+   }
+   #else
+   if(obj->hal_plugin != NULL) {
       obj->hal_plugin->init(obj->json_obj_hal);
       obj->hal_plugin->dsp_config_get(&g_xraudio_process.dsp_config);
    }
+   #endif
 
    sem_init(&obj->mutex_api, 0, 1);
 
@@ -290,11 +298,13 @@ void xraudio_object_destroy(xraudio_object_t object) {
          json_decref(obj->json_obj_hal);
          obj->json_obj_hal = NULL;
       }
+      #ifdef FFV_HAL_V2
       if(obj->xr_ffv_hal_handle != NULL) {
          obj->xr_ffv_hal_plugin->destroy(obj->xr_ffv_hal_handle);
          obj->xr_ffv_hal_handle = NULL;
          XLOGD_INFO("xr ffv hal destroyed");
       }
+      #endif
 
       if(sem_destroy(&obj->mutex_api) < 0) {
          int errsv = errno;
@@ -323,6 +333,7 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
 
+   #ifdef FFV_HAL_V2
    if(obj->xr_ffv_hal_plugin != NULL) {
       FFVhalCapabilities_t caps;
       FFVhalApiStatus_t status = obj->xr_ffv_hal_plugin->get_capabilities(obj->xr_ffv_hal_handle, &caps);
@@ -343,14 +354,15 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       if(!(*inputs & XRAUDIO_DEVICE_INPUT_TRI)) {
          XLOGD_INFO("Unable to get xr ffv hal device");
       }
-   } else {
-      if(obj->hal_plugin != NULL) {
-         if (!obj->hal_plugin->available_devices_get(inputs, input_qty_max, outputs, output_qty_max)) {
-            XLOGD_ERROR("Unable to get available xraudio hal devices");
-            return(XRAUDIO_RESULT_ERROR_INTERNAL);
-         }
+   }
+   #else
+   if(obj->hal_plugin != NULL) {
+      if (!obj->hal_plugin->available_devices_get(inputs, input_qty_max, outputs, output_qty_max)) {
+         XLOGD_ERROR("Unable to get available xraudio hal devices");
+         return(XRAUDIO_RESULT_ERROR_INTERNAL);
       }
    }
+   #endif
 
    return(XRAUDIO_RESULT_OK);
 }
