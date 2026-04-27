@@ -42,9 +42,19 @@ static inline errno_t strcpy_s(char *dest, size_t dmax, const char *src) {
 }
 
 static inline errno_t strncpy_s(char *dest, size_t dmax, const char *src, size_t count) {
-    (void)dmax;
-    if (dest == NULL || src == NULL) { return -1; }
-    strncpy(dest, src, count);
+    size_t to_copy;
+
+    if (dest == NULL || src == NULL || dmax == 0) { return -1; }
+
+    to_copy = dmax - 1;
+    if (count < to_copy) {
+        to_copy = count;
+    }
+
+    if (to_copy > 0) {
+        memcpy(dest, src, to_copy);
+    }
+    dest[to_copy] = '\0';
     return EOK;
 }
 
