@@ -70,15 +70,15 @@ static inline errno_t memcpy_s(void *dest, size_t dmax, const void *src, size_t 
     return EOK;
 }
 
-#define ERR_CHK(rc) do { (void)(rc); } while(0)
-
 #else /* use system libsafec headers */
 
 #include <safeclib/safe_lib.h>
 #include <safeclib/safe_str_lib.h>
 #include <safeclib/safe_mem_lib.h>
 
-#define ERR_CHK(rc) do { (void)(rc); } while(0)
-
 #endif /* SAFEC_DUMMY_API */
+
+#ifndef ERR_CHK
+#define ERR_CHK(rc) do { (void)(rc); } while(0)
+#endif
 #endif /* _SAFEC_LIB_H_ */
