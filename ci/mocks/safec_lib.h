@@ -35,9 +35,15 @@ typedef int errno_t;
 #define EOK 0
 
 static inline errno_t strcpy_s(char *dest, size_t dmax, const char *src) {
-    (void)dmax;
-    if (dest == NULL || src == NULL) { return -1; }
-    strcpy(dest, src);
+    size_t src_len;
+
+    if (dest == NULL || src == NULL || dmax == 0) { return -1; }
+
+    src_len = strlen(src);
+    if (src_len + 1 > dmax) { return -1; }
+
+    memcpy(dest, src, src_len);
+    dest[src_len] = '\0';
     return EOK;
 }
 
