@@ -59,15 +59,13 @@ static inline errno_t strncpy_s(char *dest, size_t dmax, const char *src, size_t
 }
 
 static inline errno_t memset_s(void *dest, size_t dmax, int value, size_t count) {
-    (void)dmax;
-    if (dest == NULL) { return -1; }
+    if (dest == NULL || count > dmax) { return -1; }
     memset(dest, value, count);
     return EOK;
 }
 
 static inline errno_t memcpy_s(void *dest, size_t dmax, const void *src, size_t count) {
-    (void)dmax;
-    if (dest == NULL || src == NULL) { return -1; }
+    if (dest == NULL || src == NULL || count > dmax) { return -1; }
     memcpy(dest, src, count);
     return EOK;
 }
