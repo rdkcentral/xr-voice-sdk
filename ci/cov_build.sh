@@ -44,13 +44,9 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DCMAKE_C_FLAGS=" \
     -I ${HEADERS_DIR} \
     -I ${MOCK_DIR} \
-    -Wall -Wno-error \
-    -DSAFEC_DUMMY_API"
+    -Wall -Wno-error
 
-# src/CMakeLists.txt unconditionally appends -Werror via target_compile_options, which
-# comes after CMAKE_C_FLAGS and overrides -Wno-error. Strip it from the generated build
-# files after cmake configure. To remove this, add an ENABLE_WERROR option to
-# src/CMakeLists.txt that appends -Wno-error when OFF, and pass -DENABLE_WERROR=OFF here.
+# We should remove this hack to disable -Werror once the warnings are fixed in the codebase.
 find "${GITHUB_WORKSPACE}/build/xr-voice-sdk" \( -name "*.ninja" -o -name "flags.make" \) -exec sed -i 's/\(^\|[[:space:]]\)-Werror\([[:space:]]\|$\)/\1\2/g' {} \;
 
 cmake --build build/xr-voice-sdk -j$(nproc) 2>&1
