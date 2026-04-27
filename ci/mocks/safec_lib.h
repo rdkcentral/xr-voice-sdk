@@ -18,73 +18,27 @@
  */
 
 /*
- * Compatibility shim: maps the local safec_lib.h include name to the
- * system libsafec-dev package headers, or provides a minimal dummy API
- * when USE_SAFEC=OFF (SAFEC_DUMMY_API defined by cov_build.sh).
+ * Compatibility header: maps xr-voice-sdk's local include name to the real
+ * libsafec package headers (libsafec-dev / safec-common-wrapper in
+ * production).
+ *
+ * In CI this file is copied from ci/mocks/ into ci/headers/ by
+ * build_dependencies.sh so it is resolved on the generated-headers include
+ * path used by cov_build.sh.
+ *
+ * This exists because xr-voice-sdk includes safec_lib.h directly, while the
+ * native CI environment provides the underlying libsafec package headers
+ * instead of that project-local wrapper.
  */
-#ifndef _SAFEC_LIB_H_
-#define _SAFEC_LIB_H_
-
-#ifdef SAFEC_DUMMY_API
-
-#include <string.h>
-#include <stdio.h>
-#include <stdarg.h>
-
-typedef int errno_t;
-#define EOK 0
-
-static inline errno_t strcpy_s(char *dest, size_t dmax, const char *src) {
-    size_t src_len;
-
-    if (dest == NULL || src == NULL || dmax == 0) { return -1; }
-
-    src_len = strlen(src);
-    if (src_len + 1 > dmax) { return -1; }
-
-    memcpy(dest, src, src_len);
-    dest[src_len] = '\0';
-    return EOK;
-}
-
-static inline errno_t strncpy_s(char *dest, size_t dmax, const char *src, size_t count) {
-    size_t to_copy;
-
-    if (dest == NULL || src == NULL || dmax == 0) { return -1; }
-
-    to_copy = dmax - 1;
-    if (count < to_copy) {
-        to_copy = count;
-    }
-
-    if (to_copy > 0) {
-        memcpy(dest, src, to_copy);
-    }
-    dest[to_copy] = '\0';
-    return EOK;
-}
-
-static inline errno_t memset_s(void *dest, size_t dmax, int value, size_t count) {
-    if (dest == NULL || count > dmax) { return -1; }
-    memset(dest, value, count);
-    return EOK;
-}
-
-static inline errno_t memcpy_s(void *dest, size_t dmax, const void *src, size_t count) {
-    if (dest == NULL || src == NULL || count > dmax) { return -1; }
-    memcpy(dest, src, count);
-    return EOK;
-}
-
-#else /* use system libsafec headers */
+#ifndef XR_VOICE_SDK_CI_SAFEC_LIB_H_
+#define XR_VOICE_SDK_CI_SAFEC_LIB_H_
 
 #include <safeclib/safe_lib.h>
 #include <safeclib/safe_str_lib.h>
 #include <safeclib/safe_mem_lib.h>
 
-#endif /* SAFEC_DUMMY_API */
-
 #ifndef ERR_CHK
 #define ERR_CHK(rc) do { (void)(rc); } while(0)
 #endif
-#endif /* _SAFEC_LIB_H_ */
+
+#endif /* XR_VOICE_SDK_CI_SAFEC_LIB_H_ */

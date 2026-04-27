@@ -35,6 +35,7 @@ apt install -y \
     libcurl4-openssl-dev \
     libjansson-dev \
     libopus-dev \
+    libsafec-dev \
     libssl-dev \
     uuid-dev \
     autoconf \
@@ -78,7 +79,7 @@ mkdir -p "${HEADERS_DIR}"
 
 cd "${HEADERS_DIR}"
 
-# rdkversion.h — real header from upstream, replaces committed ci/mocks/rdkversion.h
+# rdkversion.h — real header from upstream
 cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 [ -f rdkversion.h ]
 
