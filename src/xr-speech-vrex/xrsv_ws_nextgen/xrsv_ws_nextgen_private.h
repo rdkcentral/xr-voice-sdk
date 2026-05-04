@@ -28,7 +28,6 @@
 #include <rdkx_logger.h>
 #include <jansson.h>
 #include <xrsv_ws_nextgen.h>
-#include <linux/input.h>
 
 typedef struct {
    uint32_t                    identifier;
@@ -57,12 +56,6 @@ typedef struct {
    xrsr_recv_event_t           recv_event;
    xrsr_session_config_update_t *session_config_update;
    uuid_t                      uuid;
-   bool                        listen_for_key_names;
-   size_t                      listen_for_key_index;
-   int64_t                     created_last_asr;
-   int64_t                     created_last_key_name;
-   size_t                      prev_str_len;
-   char                        prev_str[256];
 } xrsv_ws_nextgen_obj_t;
 
 bool xrsv_ws_nextgen_msgtype_conn_close(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
@@ -71,7 +64,6 @@ bool xrsv_ws_nextgen_msgtype_wuw_verification(xrsv_ws_nextgen_obj_t *obj, json_t
 bool xrsv_ws_nextgen_msgtype_asr(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
 bool xrsv_ws_nextgen_msgtype_listening(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
 bool xrsv_ws_nextgen_msgtype_tv_control(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
-bool xrsv_ws_nextgen_msgtype_emit_key_by_name(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
 bool xrsv_ws_nextgen_msgtype_server_stream_end(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
 
 void xrsv_ws_nextgen_tv_control_power_on(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
@@ -89,10 +81,8 @@ typedef void (*xrsv_ws_nextgen_handler_void_t)(xrsv_ws_nextgen_obj_t *obj, json_
 
 typedef struct xrsv_ws_nextgen_msgtype_handler_s { char *name; xrsv_ws_nextgen_handler_bool_t func; } xrsv_ws_nextgen_msgtype_handler_t;
 typedef struct xrsv_ws_nextgen_tv_control_handler_s { char *name; xrsv_ws_nextgen_handler_void_t func; } xrsv_ws_nextgen_tv_control_handler_t;
-typedef struct xrsv_ws_nextgen_key_name_handler_s { char *name; uint16_t key_code; } xrsv_ws_nextgen_key_name_handler_t;
 
 struct xrsv_ws_nextgen_msgtype_handler_s * xrsv_ws_nextgen_msgtype_handler_get(const char *str, size_t len);
 struct xrsv_ws_nextgen_tv_control_handler_s * xrsv_ws_nextgen_tv_control_handler_get(const char *str, size_t len);
-struct xrsv_ws_nextgen_key_name_handler_s * xrsv_ws_nextgen_key_name_handler_get(const char *str, size_t len);
 
 #endif

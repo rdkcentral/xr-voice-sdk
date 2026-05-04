@@ -84,7 +84,6 @@ typedef struct {
    bool        test_flag;                 ///< True if the device is used for testing only, otherwise false
    bool        bypass_wuw_verify_success; ///< True if the server WUW verification is bypassed (return success), otherwise false
    bool        bypass_wuw_verify_failure; ///< True if the server WUW verification is bypassed (return failure), otherwise false
-   bool        listen_for_key_names;      ///< True if the server needs to only listen for key names, otherwise false
    bool        mask_pii;                  ///< True if the PII must be masked from the log
    void       *user_data;                 ///< User data that is passed in to all of the callbacks
 } xrsv_ws_nextgen_params_t;
