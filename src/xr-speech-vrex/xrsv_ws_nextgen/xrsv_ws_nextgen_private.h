@@ -65,14 +65,14 @@ typedef struct {
    char                        prev_str[256];
 } xrsv_ws_nextgen_obj_t;
 
-bool xrsv_ws_nextgen_msgtype_conn_close(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, bool *forward_to_app, int64_t created);
-bool xrsv_ws_nextgen_msgtype_response_vrex(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, bool *forward_to_app, int64_t created);
-bool xrsv_ws_nextgen_msgtype_wuw_verification(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, bool *forward_to_app, int64_t created);
-bool xrsv_ws_nextgen_msgtype_asr(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, bool *forward_to_app, int64_t created);
-bool xrsv_ws_nextgen_msgtype_listening(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, bool *forward_to_app, int64_t created);
-bool xrsv_ws_nextgen_msgtype_tv_control(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, bool *forward_to_app, int64_t created);
-bool xrsv_ws_nextgen_msgtype_emit_key_by_name(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, bool *forward_to_app, int64_t created);
-bool xrsv_ws_nextgen_msgtype_server_stream_end(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, bool *forward_to_app, int64_t created);
+bool xrsv_ws_nextgen_msgtype_conn_close(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
+bool xrsv_ws_nextgen_msgtype_response_vrex(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
+bool xrsv_ws_nextgen_msgtype_wuw_verification(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
+bool xrsv_ws_nextgen_msgtype_asr(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
+bool xrsv_ws_nextgen_msgtype_listening(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
+bool xrsv_ws_nextgen_msgtype_tv_control(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
+bool xrsv_ws_nextgen_msgtype_emit_key_by_name(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
+bool xrsv_ws_nextgen_msgtype_server_stream_end(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
 
 void xrsv_ws_nextgen_tv_control_power_on(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
 void xrsv_ws_nextgen_tv_control_power_on_toggle(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
@@ -84,7 +84,7 @@ void xrsv_ws_nextgen_tv_control_volume_mute_toggle(xrsv_ws_nextgen_obj_t *obj, j
 
 
 
-typedef bool (*xrsv_ws_nextgen_handler_bool_t)(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json, bool *forward_to_app, int64_t created);
+typedef bool (*xrsv_ws_nextgen_handler_bool_t)(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
 typedef void (*xrsv_ws_nextgen_handler_void_t)(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json);
 
 typedef struct xrsv_ws_nextgen_msgtype_handler_s { char *name; xrsv_ws_nextgen_handler_bool_t func; } xrsv_ws_nextgen_msgtype_handler_t;
