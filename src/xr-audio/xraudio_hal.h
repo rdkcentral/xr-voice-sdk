@@ -202,50 +202,90 @@ extern "C" {
 /// @brief Function definitions
 /// @details The xraudio client api provides functions to be called directly by the client.
 
-void              xraudio_hal_version(xraudio_version_info_t *version_info, uint32_t *qty);
-bool              xraudio_hal_init(json_t *obj_config);
-void              xraudio_hal_capabilities_get(xraudio_hal_capabilities *caps);
-bool              xraudio_hal_dsp_config_get(xraudio_hal_dsp_config_t *dsp_config);
-bool              xraudio_hal_available_devices_get(xraudio_devices_input_t *inputs, uint32_t input_qty_max, xraudio_devices_output_t *outputs, uint32_t output_qty_max);
-xraudio_hal_obj_t xraudio_hal_open(bool debug, xraudio_power_mode_t power_mode, bool privacy_mode, xraudio_hal_msg_callback_t callback);
-bool              xraudio_hal_power_mode(xraudio_hal_obj_t obj, xraudio_power_mode_t power_mode);
-bool              xraudio_hal_privacy_mode(xraudio_hal_obj_t obj, bool enable);
-bool              xraudio_hal_privacy_mode_get(xraudio_hal_obj_t obj, bool *enabled);
-void              xraudio_hal_close(xraudio_hal_obj_t obj);
-bool              xraudio_hal_thread_poll(void);
+typedef void              (*xraudio_hal_func_version_t)(xraudio_version_info_t *version_info, uint32_t *qty);
+typedef bool              (*xraudio_hal_func_init_t)(json_t *obj_config);
+typedef void              (*xraudio_hal_func_capabilities_get_t)(xraudio_hal_capabilities *caps);
+typedef bool              (*xraudio_hal_func_dsp_config_get_t)(xraudio_hal_dsp_config_t *dsp_config);
+typedef bool              (*xraudio_hal_func_available_devices_get_t)(xraudio_devices_input_t *inputs, uint32_t input_qty_max, xraudio_devices_output_t *outputs, uint32_t output_qty_max);
+typedef xraudio_hal_obj_t (*xraudio_hal_func_open_t)(bool debug, xraudio_power_mode_t power_mode, bool privacy_mode, xraudio_hal_msg_callback_t callback);
+typedef bool              (*xraudio_hal_func_power_mode_t)(xraudio_hal_obj_t obj, xraudio_power_mode_t power_mode);
+typedef bool              (*xraudio_hal_func_privacy_mode_t)(xraudio_hal_obj_t obj, bool enable);
+typedef bool              (*xraudio_hal_func_privacy_mode_get_t)(xraudio_hal_obj_t obj, bool *enabled);
+typedef void              (*xraudio_hal_func_close_t)(xraudio_hal_obj_t obj);
+typedef bool              (*xraudio_hal_func_thread_poll_t)(void);
 
 typedef void * xraudio_hal_input_obj_t;
 typedef void * xraudio_hal_output_obj_t;
 
 typedef void (*xraudio_hal_input_data_read_cb_t)(int bytes_sent, void *user_data);
 
-xraudio_hal_input_obj_t  xraudio_hal_input_open(xraudio_hal_obj_t hal_obj, xraudio_devices_input_t device, xraudio_input_format_t format, xraudio_device_input_configuration_t *configuration);
-void                     xraudio_hal_input_close(xraudio_hal_input_obj_t obj);
-uint32_t                 xraudio_hal_input_buffer_size_get(xraudio_hal_input_obj_t obj);
-int32_t                  xraudio_hal_input_read(xraudio_hal_input_obj_t obj, uint8_t *data, uint32_t size, xraudio_eos_event_t *eos_event);
-bool                     xraudio_hal_input_mute(xraudio_hal_input_obj_t obj, xraudio_devices_input_t device, bool enable);
-bool                     xraudio_hal_input_focus(xraudio_hal_input_obj_t obj, xraudio_sdf_mode_t mode);
-bool                     xraudio_hal_input_stats(xraudio_hal_input_obj_t obj, xraudio_hal_input_stats_t *input_stats, bool reset);
-bool                     xraudio_hal_input_detection(xraudio_hal_input_obj_t obj, uint32_t chan, bool *ignore);
-bool                     xraudio_hal_input_eos_cmd(xraudio_hal_input_obj_t obj, xraudio_eos_cmd_t cmd, uint32_t chan);
-bool                     xraudio_hal_input_stream_params_get(xraudio_hal_input_obj_t obj, xraudio_hal_stream_params_t *stream_params);
-bool                     xraudio_hal_input_stream_start_set(xraudio_hal_input_obj_t obj, uint32_t start_sample);
-bool                     xraudio_hal_input_keyword_detector_reset(xraudio_hal_input_obj_t obj);
-bool                     xraudio_hal_input_test_mode(xraudio_hal_input_obj_t obj, bool enable);
-bool                     xraudio_hal_input_stream_latency_set(xraudio_hal_input_obj_t obj, xraudio_stream_latency_mode_t latency_mode);
+typedef xraudio_hal_input_obj_t  (*xraudio_hal_func_input_open_t)(xraudio_hal_obj_t hal_obj, xraudio_devices_input_t device, xraudio_input_format_t format, xraudio_device_input_configuration_t *configuration);
+typedef void                     (*xraudio_hal_func_input_close_t)(xraudio_hal_input_obj_t obj);
+typedef uint32_t                 (*xraudio_hal_func_input_buffer_size_get_t)(xraudio_hal_input_obj_t obj);
+typedef int32_t                  (*xraudio_hal_func_input_read_t)(xraudio_hal_input_obj_t obj, uint8_t *data, uint32_t size, xraudio_eos_event_t *eos_event);
+typedef bool                     (*xraudio_hal_func_input_mute_t)(xraudio_hal_input_obj_t obj, xraudio_devices_input_t device, bool enable);
+typedef bool                     (*xraudio_hal_func_input_focus_t)(xraudio_hal_input_obj_t obj, xraudio_sdf_mode_t mode);
+typedef bool                     (*xraudio_hal_func_input_stats_t)(xraudio_hal_input_obj_t obj, xraudio_hal_input_stats_t *input_stats, bool reset);
+typedef bool                     (*xraudio_hal_func_input_detection_t)(xraudio_hal_input_obj_t obj, uint32_t chan, bool *ignore);
+typedef bool                     (*xraudio_hal_func_input_eos_cmd_t)(xraudio_hal_input_obj_t obj, xraudio_eos_cmd_t cmd, uint32_t chan);
+typedef bool                     (*xraudio_hal_func_input_stream_params_get_t)(xraudio_hal_input_obj_t obj, xraudio_hal_stream_params_t *stream_params);
+typedef bool                     (*xraudio_hal_func_input_stream_start_set_t)(xraudio_hal_input_obj_t obj, uint32_t start_sample);
+typedef bool                     (*xraudio_hal_func_input_keyword_detector_reset_t)(xraudio_hal_input_obj_t obj);
+typedef bool                     (*xraudio_hal_func_input_test_mode_t)(xraudio_hal_input_obj_t obj, bool enable);
+typedef bool                     (*xraudio_hal_func_input_stream_latency_set_t)(xraudio_hal_input_obj_t obj, xraudio_stream_latency_mode_t latency_mode);
 
-xraudio_hal_output_obj_t xraudio_hal_output_open(xraudio_hal_obj_t hal_obj, xraudio_devices_output_t device, xraudio_resource_id_output_t resource, uint8_t user_id, xraudio_output_format_t *format, xraudio_volume_step_t left, xraudio_volume_step_t right);
-void                     xraudio_hal_output_close(xraudio_hal_output_obj_t obj, xraudio_devices_output_t device);
-uint32_t                 xraudio_hal_output_buffer_size_get(xraudio_hal_output_obj_t obj);
-int32_t                  xraudio_hal_output_write(xraudio_hal_output_obj_t obj, uint8_t *data, uint32_t size);
-bool                     xraudio_hal_output_volume_set_int(xraudio_hal_output_obj_t obj, xraudio_devices_output_t device, xraudio_volume_step_t left, xraudio_volume_step_t right);
-bool                     xraudio_hal_output_volume_set_float(xraudio_hal_output_obj_t obj, xraudio_devices_output_t device, float left, float right);
-uint32_t                 xraudio_hal_output_latency_get(xraudio_hal_output_obj_t obj);
+typedef xraudio_hal_output_obj_t (*xraudio_hal_func_output_open_t)(xraudio_hal_obj_t hal_obj, xraudio_devices_output_t device, xraudio_resource_id_output_t resource, uint8_t user_id, xraudio_output_format_t *format, xraudio_volume_step_t left, xraudio_volume_step_t right);
+typedef void                     (*xraudio_hal_func_output_close_t)(xraudio_hal_output_obj_t obj, xraudio_devices_output_t device);
+typedef uint32_t                 (*xraudio_hal_func_output_buffer_size_get_t)(xraudio_hal_output_obj_t obj);
+typedef int32_t                  (*xraudio_hal_func_output_write_t)(xraudio_hal_output_obj_t obj, uint8_t *data, uint32_t size);
+typedef bool                     (*xraudio_hal_func_output_volume_set_int_t)(xraudio_hal_output_obj_t obj, xraudio_devices_output_t device, xraudio_volume_step_t left, xraudio_volume_step_t right);
+typedef bool                     (*xraudio_hal_func_output_volume_set_float_t)(xraudio_hal_output_obj_t obj, xraudio_devices_output_t device, float left, float right);
+typedef uint32_t                 (*xraudio_hal_func_output_latency_get_t)(xraudio_hal_output_obj_t obj);
 
 const char *xraudio_resource_id_output_str(xraudio_resource_id_output_t type);
 const char *xraudio_resource_id_input_str(xraudio_resource_id_input_t type);
 const char *xraudio_capabilities_input_str(uint16_t type);
 const char *xraudio_capabilities_output_str(uint16_t type);
+
+typedef struct {
+   xraudio_hal_func_version_t               version;
+   xraudio_hal_func_init_t                  init;
+   xraudio_hal_func_capabilities_get_t      capabilities_get;
+   xraudio_hal_func_dsp_config_get_t        dsp_config_get;
+   xraudio_hal_func_available_devices_get_t available_devices_get;
+   xraudio_hal_func_open_t                  open;
+   xraudio_hal_func_power_mode_t            power_mode;
+   xraudio_hal_func_privacy_mode_t          privacy_mode;
+   xraudio_hal_func_privacy_mode_get_t      privacy_mode_get;
+   xraudio_hal_func_close_t                 close;
+   xraudio_hal_func_thread_poll_t           thread_poll;
+
+   xraudio_hal_func_input_open_t                   input_open;
+   xraudio_hal_func_input_close_t                  input_close;
+   xraudio_hal_func_input_buffer_size_get_t        input_buffer_size_get;
+   xraudio_hal_func_input_read_t                   input_read;
+   xraudio_hal_func_input_mute_t                   input_mute;
+   xraudio_hal_func_input_focus_t                  input_focus;
+   xraudio_hal_func_input_stats_t                  input_stats;
+   xraudio_hal_func_input_detection_t              input_detection;
+   xraudio_hal_func_input_eos_cmd_t                input_eos_cmd;
+   xraudio_hal_func_input_stream_params_get_t      input_stream_params_get;
+   xraudio_hal_func_input_stream_start_set_t       input_stream_start_set;
+   xraudio_hal_func_input_keyword_detector_reset_t input_keyword_detector_reset;
+   xraudio_hal_func_input_test_mode_t              input_test_mode;
+   xraudio_hal_func_input_stream_latency_set_t     input_stream_latency_set;
+
+   xraudio_hal_func_output_open_t             output_open;
+   xraudio_hal_func_output_close_t            output_close;
+   xraudio_hal_func_output_buffer_size_get_t  output_buffer_size_get;
+   xraudio_hal_func_output_write_t            output_write;
+   xraudio_hal_func_output_volume_set_int_t   output_volume_set_int;
+   xraudio_hal_func_output_volume_set_float_t output_volume_set_float;
+   xraudio_hal_func_output_latency_get_t      output_latency_get;
+} xraudio_hal_plugin_api_t;
+
+typedef xraudio_hal_plugin_api_t *(*xraudio_hal_plugin_api_get_t)(void);
+xraudio_hal_plugin_api_t *xraudio_hal_plugin_api_get(void);
 
 /// @}
 

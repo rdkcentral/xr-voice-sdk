@@ -26,7 +26,6 @@
 #include <openssl/ssl.h>
 #include <uuid/uuid.h>
 #include <xr_timestamp.h>
-#include <xraudio_version.h>
 #include <jansson.h>
 
 /// @file xrsr.h
@@ -46,8 +45,6 @@
 /// @brief Macros for constant values
 /// @details The speech router provides macros for some parameters which may change in the future.  User applications should use
 /// these names to allow the application code to function correctly if the values change.
-
-#define XRSR_VERSION_QTY_MAX (2 + XRAUDIO_VERSION_QTY_MAX) ///< The quantity of version information structures.
 
 #define XRSR_SAT_TOKEN_LEN_MAX             (5120)  ///< Maximum length of the NULL-terminated SAT token string.
 #define XRSR_USER_AGENT_LEN_MAX            (256)   ///< Maximum length of the NULL-terminated user agent string.
@@ -226,15 +223,6 @@ typedef enum {
 /// @brief Structures
 /// @details The speech router provides structures for grouping of values.
 
-/// @brief XRSR version information structure
-/// @details The version information data structure returned by the xrsr_version() api.
-typedef struct {
-   const char *name;      ///< component's name
-   const char *version;   ///< component's version
-   const char *branch;    ///< component's branch name
-   const char *commit_id; ///< component's commit identifier
-} xrsr_version_info_t;
-
 typedef struct {
    const char *filename;
    const char *passphrase;
@@ -398,13 +386,17 @@ typedef struct {
 /// @brief XRSR session stats structure
 /// @details The session statistics data structure indicates the statistics for an audio session.
 typedef struct {
-   xrsr_session_end_reason_t reason;                             ///< Reason why the session ended
+   union {
+      xrsr_session_end_reason_t session_end_reason;              ///< Reason why the session ended (preferred usage)
+      xrsr_session_end_reason_t reason;                          ///< Reason why the session ended (maintained alias for compatibility)
+   };
    xrsr_ret_code_internal_t  ret_code_internal;                  ///< Internal return code (speech router)
    long                      ret_code_protocol;                  ///< Protocol return code (HTTP, WS, etc)
    long                      ret_code_library;                   ///< Library return code (curl, nopoll, etc)
    char                      server_ip[XRSR_SESSION_IP_LEN_MAX]; ///< NULL-terminated string indicating the server's IP address
    double                    time_connect;                       ///< Amount of time elapsed during server connection (in seconds)
    double                    time_dns;                           ///< Amount of time elapsed during DNS lookup (in seconds)
+   xrsr_stream_end_reason_t  stream_end_reason;                  ///< Reason why the stream ended
 } xrsr_session_stats_t;
 
 /// @brief XRSR stream stats structure
@@ -591,6 +583,14 @@ typedef struct {
    xrsr_dst_t dsts[XRSR_DST_QTY_MAX]; ///< Array of destinations for the route
 } xrsr_route_t;
 
+/// @brief XRSR configuration structure
+/// @details The configuration data structure indicates detailed information for the xrsr module.
+typedef struct {
+   bool local_mic;         ///< Platform has a local microphone
+   bool local_mic_tap;     ///< Platform has a local microphone tap
+   bool networked_standby; ///< Platform has networked standby capability
+} xrsr_config_t;
+
 /// @brief XRSR keyword configuration structure
 /// @details The keyword configuration data structure indicates detailed information for the keyword detector.
 typedef struct {
@@ -619,12 +619,11 @@ extern "C" {
 /// @brief Function definitions
 /// @details The speech router provides functions to be called directly by the user application.
 
-/// @brief Retrieve the XRSR version
-/// @details Retrieves the detailed version information for the XRSR component.
-/// @param[in]    version_info Pointer to an array of version information structures
-/// @param[inout] qty          Quantity of entries in the version_info array
-/// @return The function has no return value.
-void xrsr_version(xrsr_version_info_t *version_info, uint32_t *qty);
+/// @brief Get the XRSR configuration
+/// @details Given a xrsr_config_t pointer, gets configuration information
+/// @param[in] type xrsr_config_t pointer
+/// @return The function returns true if successful or false otherwise
+bool xrsr_config_get(xrsr_config_t *config);
 
 /// @brief Opens the speech router
 /// @details Opens the router and begins processing voice sessions.
@@ -633,7 +632,7 @@ void xrsr_version(xrsr_version_info_t *version_info, uint32_t *qty);
 /// @param[in] keyword_config Keyword configuration information or NULL if not specified.
 /// @param[in] capture_config Capture configuration information or NULL if not specified.
 /// @return The function returns true if successful or false otherwise.
-bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, const json_t *json_obj_vsdk);
+bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, json_t *json_obj_vsdk);
 
 /// @brief Sets the speech router host name
 /// @details Replaces the host name.

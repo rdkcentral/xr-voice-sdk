@@ -38,11 +38,10 @@
 #include <errno.h>
 #include <jansson.h>
 #include "rdkversion.h"
+#include "vsdk_private.h"
 #include "xraudio.h"
 #include "xraudio_private.h"
-#ifdef XRAUDIO_DECODE_ADPCM
 #include "adpcm.h"
-#endif
 #ifdef XRAUDIO_DECODE_OPUS
 #include "xraudio_opus.h"
 #endif
@@ -71,13 +70,11 @@ typedef struct {
    int                               fifo_resource;
    bool                              resources_requested;
    bool                              opened;
-   #ifdef XRAUDIO_OUTPUT_ENABLED
    xraudio_output_object_t           obj_output;
    json_t*                           json_obj_output;
    xraudio_resource_id_output_t      resource_id_playback;
    uint16_t                          capabilities_playback;
    xraudio_devices_output_t          devices_output;
-   #endif
    json_t*                           json_obj_input;
    xraudio_input_object_t            obj_input;
    json_t*                           json_obj_hal;
@@ -86,6 +83,13 @@ typedef struct {
    int                               shared_mem_fd;
    #endif
    bool                              production_build;
+   xraudio_hal_plugin_api_t *        hal_plugin;
+   xraudio_dga_plugin_api_t *        dga_plugin;
+   xraudio_kwd_plugin_api_t *        kwd_plugin;
+   bool                              eos_enabled;
+   bool                              ppr_enabled;
+   bool                              out_enabled;
+   bool                              curtail_enabled;
    xraudio_internal_capture_params_t internal_capture_params;
 } xraudio_obj_t;
 
@@ -96,10 +100,8 @@ typedef struct {
    uint8_t                  user_cnt;
    #endif
    xraudio_hal_obj_t        hal_obj;
-   #ifdef XRAUDIO_KWD_ENABLED
    uint8_t                  hal_user_cnt;
    xraudio_hal_dsp_config_t dsp_config;
-   #endif
    xraudio_power_mode_t     power_mode;
    bool                     privacy_mode;
 } xraudio_process_t;
@@ -136,65 +138,14 @@ static xraudio_process_t g_xraudio_process = {
    .shm = -1, .shared_mem = NULL, .user_cnt = 0,
    #endif
    .hal_obj = NULL,
-   #ifdef XRAUDIO_KWD_ENABLED
    .hal_user_cnt = 0,
    .dsp_config = { .ppr_enabled = false,
                    .dga_enabled = false,
                    .eos_enabled = false,
                    .input_kwd_max_channel_qty = 0,
                    .input_asr_max_channel_qty = 0 },
-   #endif
    .power_mode = XRAUDIO_POWER_MODE_FULL, .privacy_mode = false,
 };
-
-void xraudio_version(xraudio_version_info_t *version_info, uint32_t *qty) {
-   if(qty == NULL || *qty < XRAUDIO_VERSION_QTY_MAX || version_info == NULL) {
-      return;
-   }
-   uint32_t qty_avail = *qty;
-
-   #ifdef XRAUDIO_EOS_ENABLED
-   uint32_t qty_eos = qty_avail;
-   xraudio_eos_version(version_info, &qty_eos);
-
-   version_info += qty_eos;
-   qty_avail    -= qty_eos;
-   #endif
-
-   #ifdef XRAUDIO_KWD_ENABLED
-   uint32_t qty_kwd = qty_avail;
-   xraudio_kwd_version(version_info, &qty_kwd);
-
-   version_info += qty_kwd;
-   qty_avail    -= qty_kwd;
-   #endif
-
-   #ifdef XRAUDIO_PPR_ENABLED
-   uint32_t qty_ppr = qty_avail;
-   xraudio_ppr_version(version_info, &qty_ppr);
-
-   version_info += qty_ppr;
-   qty_avail    -= qty_ppr;
-   #endif
-
-   #ifdef XRAUDIO_DGA_ENABLED
-   uint32_t qty_dga = qty_avail;
-   xraudio_dga_version(version_info, &qty_dga);
-
-   version_info += qty_dga;
-   qty_avail    -= qty_dga;
-   #endif
-
-   #ifdef XRAUDIO_KWD_ENABLED
-   uint32_t qty_hal = qty_avail;
-   xraudio_hal_version(version_info, &qty_hal);
-
-   version_info += qty_hal;
-   qty_avail    -= qty_hal;
-   #endif
-
-   *qty -= qty_avail;
-}
 
 xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    xraudio_obj_t *obj = (xraudio_obj_t *)malloc(sizeof(xraudio_obj_t));
@@ -208,13 +159,11 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->resource_id_record    = XRAUDIO_RESOURCE_ID_INPUT_INVALID;
    obj->capabilities_record   = XRAUDIO_CAPS_INPUT_NONE;
    obj->devices_input         = XRAUDIO_DEVICE_INPUT_NONE;
-   #ifdef XRAUDIO_OUTPUT_ENABLED
    obj->resource_id_playback  = XRAUDIO_RESOURCE_ID_OUTPUT_INVALID;
    obj->capabilities_playback = XRAUDIO_CAPS_OUTPUT_NONE;
    obj->devices_output        = XRAUDIO_DEVICE_OUTPUT_NONE;
    obj->obj_output            = NULL;
    obj->json_obj_output       = NULL;
-   #endif
    obj->input_format          = (xraudio_input_format_t) { .sample_rate = 0, .sample_size = 0, .channel_qty = 0 };
    obj->user_id               = XRAUDIO_USER_ID_MAX;
    obj->main_thread.id        = 0;
@@ -234,6 +183,14 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->shared_mem_fd         = -1;
    #endif
 
+   obj->hal_plugin                            = vsdk_hal_plugin_get();
+   obj->dga_plugin                            = vsdk_dga_plugin_get();
+   obj->kwd_plugin                            = vsdk_kwd_plugin_get();
+   obj->eos_enabled                           = (vsdk_eos_plugin_get() == NULL) ? false : true;
+   obj->ppr_enabled                           = (vsdk_ppr_plugin_get() == NULL) ? false : true;
+   obj->out_enabled                           = vsdk_hal_out_enabled();
+
+   obj->curtail_enabled                       = vsdk_curtail_xraudio_enabled();
    obj->internal_capture_params.enable        = false;
    obj->internal_capture_params.use_curtail   = false;
    obj->internal_capture_params.file_qty_max  = 0;
@@ -251,15 +208,15 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
          json_incref(obj->json_obj_input);
       }
 
-      #ifdef XRAUDIO_OUTPUT_ENABLED
-      obj->json_obj_output = json_object_get(json_obj_xraudio_config, JSON_OBJ_NAME_OUTPUT);
-      if(NULL == obj->json_obj_output || !json_is_object(obj->json_obj_output)) {
-         XLOGD_INFO("output object not found, using defaults");
-         obj->json_obj_output = NULL;
-      } else {
-         json_incref(obj->json_obj_output);
+      if(obj->out_enabled) {
+         obj->json_obj_output = json_object_get(json_obj_xraudio_config, JSON_OBJ_NAME_OUTPUT);
+         if(NULL == obj->json_obj_output || !json_is_object(obj->json_obj_output)) {
+            XLOGD_INFO("output object not found, using defaults");
+            obj->json_obj_output = NULL;
+         } else {
+            json_incref(obj->json_obj_output);
+         }
       }
-      #endif
 
       obj->json_obj_hal = json_object_get(json_obj_xraudio_config, JSON_OBJ_NAME_HAL);
       if(NULL == obj->json_obj_hal || !json_is_object(obj->json_obj_hal)) {
@@ -269,10 +226,10 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
          json_incref(obj->json_obj_hal);
       }
    }
-   #ifdef XRAUDIO_KWD_ENABLED
-   xraudio_hal_init(obj->json_obj_hal);
-   xraudio_hal_dsp_config_get(&g_xraudio_process.dsp_config);
-   #endif
+   if(obj->hal_plugin != NULL) {
+      obj->hal_plugin->init(obj->json_obj_hal);
+      obj->hal_plugin->dsp_config_get(&g_xraudio_process.dsp_config);
+   }
 
    sem_init(&obj->mutex_api, 0, 1);
 
@@ -304,12 +261,10 @@ void xraudio_object_destroy(xraudio_object_t object) {
          json_decref(obj->json_obj_input);
          obj->json_obj_input = NULL;
       }
-      #ifdef XRAUDIO_OUTPUT_ENABLED
-      if(obj->json_obj_output != NULL) {
+      if(obj->out_enabled && obj->json_obj_output != NULL) {
          json_decref(obj->json_obj_output);
          obj->json_obj_output = NULL;
       }
-      #endif
       if(obj->json_obj_hal != NULL) {
          json_decref(obj->json_obj_hal);
          obj->json_obj_hal = NULL;
@@ -342,12 +297,12 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
 
-   #if defined(XRAUDIO_KWD_ENABLED) || defined(XRAUDIO_OUTPUT_ENABLED)
-   if (!xraudio_hal_available_devices_get(inputs, input_qty_max, outputs, output_qty_max)) {
-      XLOGD_ERROR("Unable to get available xraudio hal devices");
-      return(XRAUDIO_RESULT_ERROR_INTERNAL);
+   if(obj->hal_plugin != NULL) {
+      if (!obj->hal_plugin->available_devices_get(inputs, input_qty_max, outputs, output_qty_max)) {
+         XLOGD_ERROR("Unable to get available xraudio hal devices");
+         return(XRAUDIO_RESULT_ERROR_INTERNAL);
+      }
    }
-   #endif
 
    return(XRAUDIO_RESULT_OK);
 }
@@ -529,60 +484,58 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
       return(XRAUDIO_RESULT_ERROR_OPEN);
    }
 
-   #if defined(XRAUDIO_KWD_ENABLED) || defined(XRAUDIO_OUTPUT_ENABLED)
-   #ifndef XRAUDIO_RESOURCE_MGMT
-   xraudio_hal_capabilities caps;
-   xraudio_hal_capabilities_get(&caps);
-   // Allocate the first resource since resource management is disabled
-   if(output != XRAUDIO_DEVICE_OUTPUT_NONE) {
-      #ifdef XRAUDIO_OUTPUT_ENABLED
-      obj->resource_id_playback  = XRAUDIO_RESOURCE_ID_OUTPUT_1;
-      obj->capabilities_playback = caps.output_caps[0];
-      #else
-      XLOGD_ERROR("Invalid output <%s>", xraudio_devices_output_str(output));
-      return(XRAUDIO_RESULT_ERROR_PARAMS);
-      #endif
-   }
-   if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(input) != XRAUDIO_DEVICE_INPUT_NONE) {
-      for(uint8_t index = 0; index < caps.input_qty; index++) { // Find the local microphone
-         if(caps.input_caps[index] & (XRAUDIO_CAPS_INPUT_LOCAL | XRAUDIO_CAPS_INPUT_LOCAL_32_BIT)) {
-            obj->resource_id_record    = XRAUDIO_RESOURCE_ID_INPUT_1;
-            obj->capabilities_record   = caps.input_caps[index];
+   if(obj->hal_plugin != NULL) {
+      #ifndef XRAUDIO_RESOURCE_MGMT
+      xraudio_hal_capabilities caps;
+      obj->hal_plugin->capabilities_get(&caps);
+      // Allocate the first resource since resource management is disabled
+      if(output != XRAUDIO_DEVICE_OUTPUT_NONE) {
+         if(obj->out_enabled) {
+            obj->resource_id_playback  = XRAUDIO_RESOURCE_ID_OUTPUT_1;
+            obj->capabilities_playback = caps.output_caps[0];
+         } else {
+            XLOGD_ERROR("Invalid output <%s>", xraudio_devices_output_str(output));
+            return(XRAUDIO_RESULT_ERROR_PARAMS);
          }
       }
+      if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(input) != XRAUDIO_DEVICE_INPUT_NONE) {
+         for(uint8_t index = 0; index < caps.input_qty; index++) { // Find the local microphone
+            if(caps.input_caps[index] & (XRAUDIO_CAPS_INPUT_LOCAL | XRAUDIO_CAPS_INPUT_LOCAL_32_BIT)) {
+               obj->resource_id_record    = XRAUDIO_RESOURCE_ID_INPUT_1;
+               obj->capabilities_record   = caps.input_caps[index];
+            }
+         }
+      }
+      #endif
    }
-   #endif
-   #endif
 
    if((!xraudio_devices_output_is_valid(output)) || (!xraudio_devices_input_is_valid(input))) {
       XLOGD_ERROR("invalid devices parameter <%s> <%s>", xraudio_devices_input_str(input), xraudio_devices_output_str(output));
       obj->devices_input  = XRAUDIO_DEVICE_INPUT_NONE;
-      #ifdef XRAUDIO_OUTPUT_ENABLED
-      obj->devices_output = XRAUDIO_DEVICE_OUTPUT_NONE;
-      #endif
+      if(obj->out_enabled) {
+         obj->devices_output = XRAUDIO_DEVICE_OUTPUT_NONE;
+      }
       result = XRAUDIO_RESULT_ERROR_PARAMS;
    } else if((output == XRAUDIO_DEVICE_OUTPUT_NONE) && (input == XRAUDIO_DEVICE_INPUT_NONE)) {
       XLOGD_ERROR("invalid devices parameter <%s> <%s>", xraudio_devices_input_str(input), xraudio_devices_output_str(output));
       obj->devices_input  = XRAUDIO_DEVICE_INPUT_NONE;
-      #ifdef XRAUDIO_OUTPUT_ENABLED
-      obj->devices_output = XRAUDIO_DEVICE_OUTPUT_NONE;
-      #endif
+      if(obj->out_enabled) {
+         obj->devices_output = XRAUDIO_DEVICE_OUTPUT_NONE;
+      }
       result = XRAUDIO_RESULT_ERROR_PARAMS;
-   #ifdef XRAUDIO_OUTPUT_ENABLED
-   } else if(((output                                != XRAUDIO_DEVICE_OUTPUT_NONE) && (obj->resource_id_playback >= XRAUDIO_RESOURCE_ID_OUTPUT_INVALID))) {
+   } else if(obj->out_enabled && ((output != XRAUDIO_DEVICE_OUTPUT_NONE) && (obj->resource_id_playback >= XRAUDIO_RESOURCE_ID_OUTPUT_INVALID))) {
       XLOGD_ERROR("invalid output resource allocation.");
       result = XRAUDIO_RESULT_ERROR_RESOURCE;
-   #endif
    } else if(((XRAUDIO_DEVICE_INPUT_LOCAL_GET(input) != XRAUDIO_DEVICE_INPUT_NONE)  && (obj->resource_id_record   >= XRAUDIO_RESOURCE_ID_INPUT_INVALID))) { // Only care about resources for local mic
       XLOGD_ERROR("invalid input resource allocation.");
       result = XRAUDIO_RESULT_ERROR_RESOURCE;
    } else {
       obj->devices_input  = input;
       XLOGD_INFO("input devices: <%s>, resources: <%s>", xraudio_devices_input_str(input), xraudio_resource_id_input_str(obj->resource_id_record));
-      #ifdef XRAUDIO_OUTPUT_ENABLED
-      obj->devices_output = output;
-      XLOGD_INFO("output devices: <%s>, resources: <%s>", xraudio_devices_output_str(output), xraudio_resource_id_output_str(obj->resource_id_playback));
-      #endif
+      if(obj->out_enabled) {
+         obj->devices_output = output;
+         XLOGD_INFO("output devices: <%s>, resources: <%s>", xraudio_devices_output_str(output), xraudio_resource_id_output_str(obj->resource_id_playback));
+      }
    }
 
    if(result != XRAUDIO_RESULT_OK) {
@@ -624,9 +577,9 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
    }
 
    xraudio_hal_dsp_config_t *dsp_config = NULL;
-   #ifdef XRAUDIO_KWD_ENABLED
-   dsp_config = &g_xraudio_process.dsp_config;
-   #endif
+   if(obj->hal_plugin != NULL) {
+      dsp_config = &g_xraudio_process.dsp_config;
+   }
 
    if(result == XRAUDIO_RESULT_OK) {
       XLOGD_INFO("input sample rate %u Hz %u-bit %s privacy <%s>", obj->input_format.sample_rate, obj->input_format.sample_size * 8, xraudio_channel_qty_str(obj->input_format.channel_qty), privacy_mode ? "YES" : "NO");
@@ -644,34 +597,30 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
          return result;
       }
 
-      #ifdef XRAUDIO_KWD_ENABLED
-      xraudio_hal_dsp_config_get(&g_xraudio_process.dsp_config);
-      #endif
+      if(obj->hal_plugin != NULL) {
+         obj->hal_plugin->dsp_config_get(&g_xraudio_process.dsp_config);
+      }
 
-      #ifdef XRAUDIO_OUTPUT_ENABLED
-      if(obj->devices_output != XRAUDIO_DEVICE_OUTPUT_NONE) { // Create speaker object
+      if(obj->out_enabled && obj->devices_output != XRAUDIO_DEVICE_OUTPUT_NONE) { // Create speaker object
          obj->obj_output = xraudio_output_object_create(g_xraudio_process.hal_obj, obj->user_id, obj->msgq_main, obj->capabilities_playback, dsp_config, obj->json_obj_output);
          xraudio_output_open(obj->obj_output, obj->devices_output, power_mode, obj->resource_id_playback, obj->capabilities_playback);
       }
-      #endif
 
       // Launch main xraudio thread
       if(XRAUDIO_RESULT_OK != main_thread_launch(obj)) {
          result = XRAUDIO_RESULT_ERROR_INTERNAL;
-         #ifdef XRAUDIO_OUTPUT_ENABLED
-         if(obj->obj_output != NULL) {
+         if(obj->out_enabled && obj->obj_output != NULL) {
             xraudio_output_close(obj->obj_output);
             xraudio_output_object_destroy(obj->obj_output);
             obj->obj_output = NULL;
          }
-         #endif
          if(obj->obj_input != NULL) {
             xraudio_input_close(obj->obj_input);
             xraudio_input_object_destroy(obj->obj_input);
             obj->obj_input = NULL;
          }
          xraudio_message_queue_main_close(obj);
-         xraudio_audio_hal_close(obj);
+         obj->hal_plugin->close(obj);
       } else {
          g_xraudio_process.power_mode   = power_mode;
          obj->opened                    = true;
@@ -690,11 +639,9 @@ void xraudio_close(xraudio_object_t object) {
 
    XRAUDIO_API_MUTEX_LOCK();
    if(obj->opened) {
-      #ifdef XRAUDIO_OUTPUT_ENABLED
-      if(obj->obj_output != NULL) {
+      if(obj->out_enabled && obj->obj_output != NULL) {
          xraudio_output_close(obj->obj_output);
       }
-      #endif
       if(obj->obj_input != NULL) {
          xraudio_input_close(obj->obj_input);
       }
@@ -706,12 +653,10 @@ void xraudio_close(xraudio_object_t object) {
          xraudio_input_object_destroy(obj->obj_input);
          obj->obj_input = NULL;
       }
-      #ifdef XRAUDIO_OUTPUT_ENABLED
-      if(obj->obj_output != NULL) { // Destroy speaker object
+      if(obj->out_enabled && obj->obj_output != NULL) { // Destroy speaker object
          xraudio_output_object_destroy(obj->obj_output);
          obj->obj_output = NULL;
       }
-      #endif
 
       xraudio_message_queue_main_close(obj);
 
@@ -777,10 +722,11 @@ xraudio_result_t xraudio_internal_capture_params_set(xraudio_object_t object, xr
       sem_init(&semaphore, 0, 0);
 
       xraudio_main_queue_msg_capture_params_set_t msg;
-      msg.header.type    = XRAUDIO_MAIN_QUEUE_MSG_TYPE_CAPTURE_PARAMS_SET;
-      msg.capture_params = obj->internal_capture_params;
-      msg.semaphore      = &semaphore;
-      msg.result         = &result;
+      msg.header.type     = XRAUDIO_MAIN_QUEUE_MSG_TYPE_CAPTURE_PARAMS_SET;
+      msg.capture_params  = obj->internal_capture_params;
+      msg.curtail_enabled = obj->curtail_enabled;
+      msg.semaphore       = &semaphore;
+      msg.result          = &result;
 
       queue_msg_push(obj->msgq_main, (const char*)&msg, sizeof(msg));
 
@@ -1170,34 +1116,34 @@ void xraudio_shared_mem_unlock(xraudio_object_t object) {
 #endif
 
 xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
-   #ifdef XRAUDIO_KWD_ENABLED
-   XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
+   if(obj->hal_plugin != NULL) {
+      XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
 
-   // Get qahw handle from process global memory
-   if(g_xraudio_process.hal_obj == NULL) {
-      XLOGD_INFO("hal open obj");
-      g_xraudio_process.hal_obj = xraudio_hal_open(false, g_xraudio_process.power_mode, g_xraudio_process.privacy_mode, xraudio_hal_msg_async_handler);
+      // Get qahw handle from process global memory
       if(g_xraudio_process.hal_obj == NULL) {
-         XLOGD_ERROR("hal open failed.");
-         return(XRAUDIO_RESULT_ERROR_INTERNAL);
+         XLOGD_INFO("hal open obj");
+         g_xraudio_process.hal_obj = obj->hal_plugin->open(false, g_xraudio_process.power_mode, g_xraudio_process.privacy_mode, xraudio_hal_msg_async_handler);
+         if(g_xraudio_process.hal_obj == NULL) {
+            XLOGD_ERROR("hal open failed.");
+            return(XRAUDIO_RESULT_ERROR_INTERNAL);
+         }
       }
+      g_xraudio_process.hal_user_cnt++;
+      XLOGD_INFO("hal obj %p", g_xraudio_process.hal_obj);
    }
-   g_xraudio_process.hal_user_cnt++;
-   XLOGD_INFO("hal obj %p", g_xraudio_process.hal_obj);
-   #endif
    return(XRAUDIO_RESULT_OK);
 }
 
 void xraudio_audio_hal_close(xraudio_obj_t *obj) {
-   #ifdef XRAUDIO_KWD_ENABLED
-   XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
-   g_xraudio_process.hal_user_cnt--;
-   if((g_xraudio_process.hal_user_cnt == 0) && (g_xraudio_process.hal_obj != NULL)) {
-      XLOGD_INFO("");
-      xraudio_hal_close(g_xraudio_process.hal_obj);
-      g_xraudio_process.hal_obj = NULL;
+   if(obj->hal_plugin != NULL) {
+      XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
+      g_xraudio_process.hal_user_cnt--;
+      if((g_xraudio_process.hal_user_cnt == 0) && (g_xraudio_process.hal_obj != NULL)) {
+         XLOGD_INFO("");
+         obj->hal_plugin->close(g_xraudio_process.hal_obj);
+         g_xraudio_process.hal_obj = NULL;
+      }
    }
-   #endif
 }
 
 xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
@@ -1213,15 +1159,28 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
    params.msgq                           = obj->msgq_main;
    params.semaphore                      = &semaphore;
    params.obj_input                      = obj->obj_input;
-   #ifdef XRAUDIO_OUTPUT_ENABLED
-   params.obj_output                     = obj->obj_output;
-   params.json_obj_output                = obj->json_obj_output;
-   #endif
-   #ifdef XRAUDIO_KWD_ENABLED
-   params.hal_obj                        = g_xraudio_process.hal_obj;
-   params.dsp_config                     = g_xraudio_process.dsp_config;
-   params.hal_input_obj                  = obj->obj_input ? xraudio_input_hal_obj_get(obj->obj_input) : NULL;
-   #endif
+   params.eos_enabled                    = obj->eos_enabled;
+   params.ppr_enabled                    = obj->ppr_enabled;
+   params.out_enabled                    = obj->out_enabled;
+   params.hal_plugin                     = obj->hal_plugin;
+   params.kwd_plugin                     = obj->kwd_plugin;
+   params.dga_plugin                     = obj->dga_plugin;
+   if(obj->out_enabled) {
+      params.obj_output                     = obj->obj_output;
+      params.json_obj_output                = obj->json_obj_output;
+   } else {
+      params.obj_output                     = NULL;
+      params.json_obj_output                = NULL;
+   }
+   if(obj->kwd_plugin != NULL && obj->obj_input != NULL) {
+      params.hal_obj                        = g_xraudio_process.hal_obj;
+      params.dsp_config                     = g_xraudio_process.dsp_config;
+      params.hal_input_obj                  = xraudio_input_hal_obj_get(obj->obj_input);
+   } else {
+      params.hal_obj                        = NULL;
+      memset(&params.dsp_config, 0, sizeof(params.dsp_config));
+      params.hal_input_obj                  = NULL;
+   }
    params.internal_capture_params        = obj->internal_capture_params;
    params.json_obj_input                 = obj->json_obj_input;
 
@@ -1363,7 +1322,7 @@ void queue_msg_push(xr_mq_t xrmq, const char *msg, xr_mq_msg_size_t msg_size) {
    }
 }
 
-xraudio_result_t xraudio_detect_params(xraudio_object_t object, xraudio_keyword_sensitivity_t keyword_sensitivity) {
+xraudio_result_t xraudio_detect_params(xraudio_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity) {
    xraudio_obj_t *  obj    = (xraudio_obj_t *)object;
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
    if(!xraudio_object_is_valid(obj)) {
@@ -1995,7 +1954,6 @@ xraudio_result_t xraudio_capture_stop(xraudio_object_t object) {
    return(result);
 }
 
-#ifdef XRAUDIO_OUTPUT_ENABLED
 xraudio_result_t xraudio_play_sound_intensity_transfer(xraudio_object_t object, const char *fifo_name) {
    xraudio_obj_t *  obj    = (xraudio_obj_t *)object;
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
@@ -2390,7 +2348,6 @@ xraudio_result_t xraudio_play_volume_config_get(xraudio_object_t object, xraudio
     XRAUDIO_API_MUTEX_UNLOCK();
     return(result);
 }
-#endif
 
 void xraudio_statistics_clear(xraudio_object_t object, uint32_t statistics) {
    xraudio_obj_t *obj = (xraudio_obj_t *)object;
@@ -2403,11 +2360,9 @@ void xraudio_statistics_clear(xraudio_object_t object, uint32_t statistics) {
    if((statistics & XRAUDIO_STATISTICS_INPUT_ALL) && obj->obj_input != NULL) {
       xraudio_input_statistics_clear(obj->obj_input, statistics & XRAUDIO_STATISTICS_INPUT_ALL);
    }
-   #ifdef XRAUDIO_OUTPUT_ENABLED
-   if((statistics & XRAUDIO_STATISTICS_OUTPUT_ALL) && obj->obj_output != NULL) {
+   if((statistics & XRAUDIO_STATISTICS_OUTPUT_ALL) && obj->out_enabled && obj->obj_output != NULL) {
       xraudio_output_statistics_clear(obj->obj_output, statistics & XRAUDIO_STATISTICS_OUTPUT_ALL);
    }
-   #endif
    XRAUDIO_API_MUTEX_UNLOCK();
 }
 
@@ -2422,15 +2377,12 @@ void xraudio_statistics_print(xraudio_object_t object, uint32_t statistics) {
    if((statistics & XRAUDIO_STATISTICS_INPUT_ALL) && obj->obj_input != NULL) {
       xraudio_input_statistics_print(obj->obj_input, statistics & XRAUDIO_STATISTICS_INPUT_ALL);
    }
-   #ifdef XRAUDIO_OUTPUT_ENABLED
-   if((statistics & XRAUDIO_STATISTICS_OUTPUT_ALL) && obj->obj_output != NULL) {
+   if((statistics & XRAUDIO_STATISTICS_OUTPUT_ALL) && obj->out_enabled && obj->obj_output != NULL) {
       xraudio_output_statistics_print(obj->obj_output, statistics & XRAUDIO_STATISTICS_OUTPUT_ALL);
    }
-   #endif
    XRAUDIO_API_MUTEX_UNLOCK();
 }
 
-#ifdef XRAUDIO_OUTPUT_ENABLED
 xraudio_result_t xraudio_bluetooth_hfp_start(xraudio_object_t object, xraudio_input_format_t *format) {
    xraudio_obj_t *obj = (xraudio_obj_t *)object;
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
@@ -2535,7 +2487,6 @@ xraudio_result_t xraudio_bluetooth_hfp_mute(xraudio_object_t object, unsigned ch
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
-#endif
 
 void xraudio_thread_poll(xraudio_object_t object, xraudio_thread_poll_func_t func) {
    xraudio_obj_t *obj = (xraudio_obj_t *)object;

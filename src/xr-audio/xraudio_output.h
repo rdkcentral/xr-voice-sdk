@@ -18,7 +18,6 @@
 # limitations under the License.
 ##########################################################################
 */
-#ifdef XRAUDIO_OUTPUT_ENABLED
 #ifndef _XRAUDIO_OUTPUT_H_
 #define _XRAUDIO_OUTPUT_H_
 
@@ -73,5 +72,4 @@ const char *             xraudio_output_state_str(xraudio_output_state_t type);
 }
 #endif
 
-#endif
 #endif

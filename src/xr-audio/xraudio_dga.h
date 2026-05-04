@@ -58,18 +58,18 @@ extern "C" {
 /// @param[in] version_info Pointer to an array of version information structures
 /// @param[inout] qty       Quantity of entries in the version_info array (in), qty of entries populated (out).
 /// @return The function has no return value.  It returns the version info for each component.
-void                 xraudio_dga_version(xraudio_version_info_t *version_info, uint32_t *qty);
+typedef void                 (*xraudio_dga_func_version_t)(xraudio_version_info_t *version_info, uint32_t *qty);
 
 /// @brief Create an xraudio DGA object
 /// @details Create an xraudio DGA object.
 /// @return The function returns a reference to the object or NULL if an error occurred.
-xraudio_dga_object_t xraudio_dga_object_create(const json_t *config);
+typedef xraudio_dga_object_t (*xraudio_dga_func_object_create_t)(const json_t *config);
 
 /// @brief Destroy an xraudio DGA object
 /// @details Destroy an xraudio DGA object.  If resources have been allocated, they will be released.
 /// @param[in] object Reference to an xraudio DGA object.
 /// @return The function has no return value.
-void                 xraudio_dga_object_destroy(xraudio_dga_object_t object);
+typedef void                 (*xraudio_dga_func_object_destroy_t)(xraudio_dga_object_t object);
 
 /// @brief Calculate gain based on an audio clip
 /// @details Calculate a gain value based on a set of audio samples.
@@ -80,7 +80,7 @@ void                 xraudio_dga_object_destroy(xraudio_dga_object_t object);
 /// @param[in]
 /// @param[out]   gain        Current dynamic gain value
 /// @param[out]   input_level Calculated audio level of input signal in dBFS
-void                 xraudio_dga_calculate(xraudio_dga_object_t object, uint8_t *pcm_bit_qty, uint32_t frame_qty, const float *samples[], uint32_t sample_qty[], float *gain, float *input_level);
+typedef void                 (*xraudio_dga_func_calculate_t)(xraudio_dga_object_t object, uint8_t *pcm_bit_qty, uint32_t frame_qty, const float *samples[], uint32_t sample_qty[], float *gain, float *input_level);
 
 /// @brief Update gain to apply to audio
 /// @details Update gain to apply to audio from an externally provided peak power value
@@ -88,14 +88,26 @@ void                 xraudio_dga_calculate(xraudio_dga_object_t object, uint8_t 
 /// @param[inout] pcm bit depth of audio samples to apply gain
 /// @param[in]    peak external keyword detector power in dBFS
 /// @param[out]   gain     Current dynamic gain value
-void                 xraudio_dga_update(xraudio_dga_object_t object, uint8_t *pcm_bit_qty, int16_t peak_power, float *gain);
+typedef void                 (*xraudio_dga_func_update_t)(xraudio_dga_object_t object, uint8_t *pcm_bit_qty, int16_t peak_power, float *gain);
 
 /// @brief Apply gain to audio
 /// @details Apply gain to the audio provided.
 /// @param[in]    object   Reference to an xraudio DGA object.
 /// @param[inout] samples
 /// @param[in]    sample_qty
-void                 xraudio_dga_apply(xraudio_dga_object_t object, float *samples, uint32_t sample_qty);
+typedef void                 (*xraudio_dga_func_apply_t)(xraudio_dga_object_t object, float *samples, uint32_t sample_qty);
+
+typedef struct {
+   xraudio_dga_func_version_t         version;
+   xraudio_dga_func_object_create_t   object_create;
+   xraudio_dga_func_object_destroy_t  object_destroy;
+   xraudio_dga_func_calculate_t       calculate;
+   xraudio_dga_func_update_t          update;
+   xraudio_dga_func_apply_t           apply;
+} xraudio_dga_plugin_api_t;
+
+typedef xraudio_dga_plugin_api_t *(*xraudio_dga_plugin_api_get_t)(void);
+xraudio_dga_plugin_api_t *xraudio_dga_plugin_api_get(void);
 
 /// @}
 

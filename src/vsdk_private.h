@@ -1,3 +1,4 @@
+/*
 ##########################################################################
 # If not stated otherwise in this file or this component's LICENSE
 # file the following copyright and licenses apply:
@@ -16,27 +17,39 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 ##########################################################################
+*/
+#ifndef __VSDK_PRIVATE__
+#define __VSDK_PRIVATE__
 
-cmake_minimum_required(VERSION 3.16)
+#include "xraudio_hal.h"
+#include "xraudio_kwd.h"
+#include "xraudio_dga.h"
+#include "xraudio_sdf.h"
+#include "xraudio_ovc.h"
+#include "xraudio_ppr.h"
 
-if(CMAKE_VERSION GREATER_EQUAL 3.21)
-   set(CMAKE_C_STANDARD 23)
-else()
-   set(CMAKE_C_STANDARD 11)
-endif()
+#ifdef __cplusplus
+extern "C" {
+#endif
 
-set(CMAKE_VERBOSE_MAKEFILE ON)
-set(CMAKE_BUILD_TYPE Release)
+bool vsdk_curtail_xraudio_enabled(void);
+bool vsdk_xraudio_allow_input_failure(void);
 
-set(STAGING_BINDIR_NATIVE,     "invalid" CACHE PATH "staging bin dir native")
+bool vsdk_hal_in_enabled(void);
+bool vsdk_hal_out_enabled(void);
 
-option(VSDK_VENDOR_XLOG,        "vendor layer logging"                        OFF)
+xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void);
+xraudio_kwd_plugin_api_t *vsdk_kwd_plugin_get(void);
+xraudio_eos_plugin_api_t *vsdk_eos_plugin_get(void);
+xraudio_dga_plugin_api_t *vsdk_dga_plugin_get(void);
+xraudio_sdf_plugin_api_t *vsdk_sdf_plugin_get(void);
+xraudio_ovc_plugin_api_t *vsdk_ovc_plugin_get(void);
+xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void);
 
-project(xr-voice-sdk VERSION ${CMAKE_PROJECT_VERSION})
+#ifdef __cplusplus
+}
+#endif
 
-if(VSDK_VENDOR_XLOG)
-   add_subdirectory(src/xr-logger)
-else()
-   add_subdirectory(src)
-endif()
+/// @}
 
+#endif

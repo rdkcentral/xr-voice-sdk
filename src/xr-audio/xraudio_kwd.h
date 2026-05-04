@@ -120,31 +120,31 @@ extern "C" {
 /// @param[in] version_info Pointer to an array of version information structures
 /// @param[inout] qty       Quantity of entries in the version_info array (in), qty of entries populated (out).
 /// @return The function has no return value.  It returns the version info for each component.
-void                 xraudio_kwd_version(xraudio_version_info_t *version_info, uint32_t *qty);
+typedef void                 (*xraudio_kwd_func_version_t)(xraudio_version_info_t *version_info, uint32_t *qty);
 
 /// @brief Create an xraudio KWD object
 /// @details Create an xraudio KWD object.
 /// @return The function returns a reference to the object or NULL if an error occurred.
-xraudio_kwd_object_t xraudio_kwd_object_create(const json_t *config);
+typedef xraudio_kwd_object_t (*xraudio_kwd_func_object_create_t)(const json_t *config);
 
 /// @brief Destroy an xraudio KWD object
 /// @details Destroy an xraudio KWD object.  If resources have been allocated, they will be released.
 /// @param[in] object Reference to an xraudio KWD object.
 /// @return The function has no return value.
-void                 xraudio_kwd_object_destroy(xraudio_kwd_object_t object);
+typedef void                 (*xraudio_kwd_func_object_destroy_t)(xraudio_kwd_object_t object);
 
 /// @brief Initialize an xraudio KWD session
 /// @details Initialize an xraudio KWD session with the provided parameters.  Returns true for success and false for failure.
 /// @param[in] object   Reference to an xraudio KWD object.
 /// @param[in]
 /// @param[in]
-bool                 xraudio_kwd_init(xraudio_kwd_object_t object, uint8_t chan_qty, xraudio_keyword_sensitivity_t sensitivity, int *spot_delay, xraudio_kwd_criterion_t *criterion);
+typedef bool                 (*xraudio_kwd_func_init_t)(xraudio_kwd_object_t object, uint8_t chan_qty, xraudio_keyword_sensitivity_t *sensitivity, int *spot_delay, xraudio_kwd_criterion_t *criterion);
 
 /// @brief Update xraudio KWD parameters
 /// @details Update an xraudio KWD object with the provided parameters.  Returns true for success and false for failure.
 /// @param[in] object   Reference to an xraudio KWD object.
 /// @param[in]
-bool                 xraudio_kwd_update(xraudio_kwd_object_t object, xraudio_keyword_sensitivity_t sensitivity);
+typedef bool                 (*xraudio_kwd_func_update_t)(xraudio_kwd_object_t object, xraudio_keyword_sensitivity_t *sensitivity);
 
 /// @brief Run an xraudio KWD
 /// @details Run the keyword detector with the provided input parameters.  Returns true for success and false for failure.
@@ -154,9 +154,9 @@ bool                 xraudio_kwd_update(xraudio_kwd_object_t object, xraudio_key
 /// @param[in]
 /// @param[in]
 /// @param[in]
-bool                 xraudio_kwd_run(xraudio_kwd_object_t object, uint8_t chan, const float *sample_buffer, uint32_t sample_qty, bool *detected, int16_t *scaled_kwd_samples);
+typedef bool                 (*xraudio_kwd_func_run_t)(xraudio_kwd_object_t object, uint8_t chan, const float *sample_buffer, uint32_t sample_qty, bool *detected, int16_t *scaled_kwd_samples);
 
-bool                 xraudio_kwd_run_int16(xraudio_kwd_object_t object, uint8_t chan, const int16_t *sample_buffer, uint32_t sample_qty, bool *detected);
+typedef bool                 (*xraudio_kwd_func_run_int16_t)(xraudio_kwd_object_t object, uint8_t chan, const int16_t *sample_buffer, uint32_t sample_qty, bool *detected);
 
 /// @brief Post-process and retrieve an xraudio KWD detection results
 /// @details Returns post-processed results after the most recent detection event if required by KWD library.  Returns true for success and false for failure.
@@ -165,7 +165,7 @@ bool                 xraudio_kwd_run_int16(xraudio_kwd_object_t object, uint8_t 
 /// @param[in]
 /// @param[in]
 /// @param[in]
-bool                 xraudio_kwd_postprocess(xraudio_kwd_object_t object, uint8_t chan, int32_t *start_wuw, int32_t *end_wuw);
+typedef bool                 (*xraudio_kwd_func_postprocess_t)(xraudio_kwd_object_t object, uint8_t chan, int32_t *start_wuw, int32_t *end_wuw);
 
 /// @brief Retrieve an xraudio KWD detection result
 /// @details Returns the results for the most recent keyword detection event.  Returns true for success and false for failure.
@@ -174,26 +174,44 @@ bool                 xraudio_kwd_postprocess(xraudio_kwd_object_t object, uint8_
 /// @param[in]
 /// @param[in]
 /// @param[in]
-bool                 xraudio_kwd_result(xraudio_kwd_object_t object, uint8_t chan, xraudio_kwd_score_t *score, xraudio_kwd_snr_t *snr, xraudio_kwd_endpoints_t *endpoints);
+typedef bool                 (*xraudio_kwd_func_result_t)(xraudio_kwd_object_t object, uint8_t chan, xraudio_kwd_score_t *score, xraudio_kwd_snr_t *snr, xraudio_kwd_endpoints_t *endpoints);
 
 /// @brief Terminate an xraudio KWD session
 /// @details Terminates an xraudio KWD session if it has been initialized.
 /// @param[in] object   Reference to an xraudio KWD object.
-void                 xraudio_kwd_term(xraudio_kwd_object_t object);
+typedef void                 (*xraudio_kwd_func_term_t)(xraudio_kwd_object_t object);
 
 /// @brief Retrieves an xraudio KWD object's parameters
 /// @details Retrieves an xraudio KWD object's sensitivity limits.
 /// @param[in] object   Reference to an xraudio KWD object.
 /// @param[in]
 /// @param[in]
-bool                 xraudio_kwd_sensitivity_limits_get(xraudio_kwd_object_t object, xraudio_keyword_sensitivity_t *min, xraudio_keyword_sensitivity_t *max);
+typedef bool                 (*xraudio_kwd_func_sensitivity_limits_get_t)(xraudio_kwd_object_t object, xraudio_keyword_sensitivity_t *min, xraudio_keyword_sensitivity_t *max);
 
 /// @brief TBD
 /// @details TBD
 /// @param[in] object   Reference to an xraudio KWD object.
 /// @param[in]
 /// @param[in]
-bool                 xraudio_kwd_sensitivity_lut_check(xraudio_kwd_object_t object, xraudio_keyword_sensitivity_t *sensitivity_lut, uint8_t sensitivity_lut_size);
+typedef bool                 (*xraudio_kwd_func_sensitivity_lut_check_t)(xraudio_kwd_object_t object, xraudio_keyword_sensitivity_t *sensitivity_lut, uint8_t sensitivity_lut_size);
+
+typedef struct {
+   xraudio_kwd_func_version_t                     version;
+   xraudio_kwd_func_object_create_t               object_create;
+   xraudio_kwd_func_object_destroy_t              object_destroy;
+   xraudio_kwd_func_init_t                        init;
+   xraudio_kwd_func_update_t                      update;
+   xraudio_kwd_func_run_t                         run;
+   xraudio_kwd_func_run_int16_t                   run_int16;
+   xraudio_kwd_func_postprocess_t                 postprocess;
+   xraudio_kwd_func_result_t                      result;
+   xraudio_kwd_func_term_t                        term;
+   xraudio_kwd_func_sensitivity_limits_get_t      sensitivity_limits_get;
+   xraudio_kwd_func_sensitivity_lut_check_t       sensitivity_lut_check;
+} xraudio_kwd_plugin_api_t;
+
+typedef xraudio_kwd_plugin_api_t *(*xraudio_kwd_plugin_api_get_t)(void);
+xraudio_kwd_plugin_api_t *xraudio_kwd_plugin_api_get(void);
 
 /// @}
 

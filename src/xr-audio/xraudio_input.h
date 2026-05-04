@@ -23,12 +23,8 @@
 
 typedef enum {
    XRAUDIO_INPUT_SESSION_GROUP_DEFAULT = 0, // Session index for regular voice sessions (PTT, FFV)
-   #ifdef MICROPHONE_TAP_ENABLED
    XRAUDIO_INPUT_SESSION_GROUP_MIC_TAP = 1, // Session index for microphone tap voice sessions
    XRAUDIO_INPUT_SESSION_GROUP_QTY     = 2
-   #else
-   XRAUDIO_INPUT_SESSION_GROUP_QTY     = 1
-   #endif
 } xraudio_input_session_group_t;
 
 typedef enum {
@@ -74,7 +70,7 @@ xraudio_result_t        xraudio_input_stream_to_pipe(xraudio_input_object_t obje
 xraudio_result_t        xraudio_input_stream_to_user(xraudio_input_object_t object, xraudio_devices_input_t source, audio_in_data_callback_t data, xraudio_input_record_from_t from, int32_t offset, xraudio_input_record_until_t until, xraudio_input_format_t *format_decoded, audio_in_callback_t callback, void *param); // Synchronous if callback is NULL
 xraudio_result_t        xraudio_input_detect_stop(xraudio_input_object_t object, xraudio_devices_input_t source);
 xraudio_result_t        xraudio_input_stop(xraudio_input_object_t object, xraudio_devices_input_t source, int32_t index);
-xraudio_result_t        xraudio_input_keyword_params(xraudio_input_object_t object, xraudio_keyword_sensitivity_t keyword_sensitivity);
+xraudio_result_t        xraudio_input_keyword_params(xraudio_input_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity);
 xraudio_result_t        xraudio_input_keyword_detect(xraudio_input_object_t object, keyword_callback_t callback, void *param, bool synchronous);
 void                    xraudio_input_statistics_clear(xraudio_input_object_t object, uint32_t statistics);
 void                    xraudio_input_statistics_print(xraudio_input_object_t object, uint32_t statistics);
@@ -94,7 +90,6 @@ void                    xraudio_input_stats_timestamp_frame_process(xraudio_inpu
 void                    xraudio_input_stats_timestamp_frame_end(xraudio_input_object_t object);
 void                    xraudio_input_stats_playback_status(xraudio_input_object_t object, bool is_active);
 void                    xraudio_input_ppr_info_get(xraudio_input_object_t object, char **dsp_name);
-xraudio_hal_input_obj_t xraudio_input_hal_obj_external_get(xraudio_hal_input_obj_t hal_obj_input, xraudio_devices_input_t device, xraudio_input_format_t format, xraudio_device_input_configuration_t *configuration);
 
 const char *xraudio_input_state_str(xraudio_input_state_t type);
 const char *xraudio_input_record_from_str(xraudio_input_record_from_t type);
@@ -105,12 +100,8 @@ const char *xraudio_input_record_until_str(xraudio_input_record_until_t type);
 #endif
 
 __inline uint32_t xraudio_input_source_to_group(xraudio_devices_input_t source) {
-   #ifdef MICROPHONE_TAP_ENABLED
    uint32_t group = (source == XRAUDIO_DEVICE_INPUT_MIC_TAP) ? XRAUDIO_INPUT_SESSION_GROUP_MIC_TAP : XRAUDIO_INPUT_SESSION_GROUP_DEFAULT; // Select the group based on source type
    return(group);
-   #else
-   return(XRAUDIO_INPUT_SESSION_GROUP_DEFAULT);
-   #endif
 }
 
 #endif

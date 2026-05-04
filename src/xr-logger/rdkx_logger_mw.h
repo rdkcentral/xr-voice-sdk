@@ -18,8 +18,8 @@
 # limitations under the License.
 ##########################################################################
 */
-#ifndef __RDKX_LOGGER__
-#define __RDKX_LOGGER__
+#ifndef __RDKX_LOGGER_MW__
+#define __RDKX_LOGGER_MW__
 
 #include <stdio.h>
 #include <stdarg.h>
@@ -138,8 +138,8 @@ extern xlog_level_t  g_xlog_modules[];
 extern "C" {
 #endif
 
-int          xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max);
-int          xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe);
+int          xlog_init(xlog_module_id_t id, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail);
+int          xlog_init_user_print(xlog_module_id_t id, xlog_print_t print, xlog_print_t print_safe, const char *filename, uint32_t file_size_max, bool ansi_color, bool use_curtail);
 void         xlog_term(void);
 xlog_level_t xlog_level_get(xlog_module_id_t id);
 void         xlog_level_set(xlog_module_id_t id, xlog_level_t level);
@@ -181,6 +181,13 @@ int xlog_vsnprintf(const xlog_args_t *args, char *str, size_t size, const char *
 #define XLOGD_ERROR(...)     XLOGD(XLOG_LEVEL_ERROR, XLOG_OPTS_DEFAULT, XLOG_COLOR_RED,  XLOG_BUF_SIZE_DEFAULT, __VA_ARGS__)
 #define XLOGD_FATAL(...)     do { XLOGD(XLOG_LEVEL_FATAL, XLOG_OPTS_DEFAULT, XLOG_COLOR_RED, XLOG_BUF_SIZE_DEFAULT, __VA_ARGS__); XLOG_FLUSH(); } while(0)
 #define XLOGD_TELEMETRY(...) XLOGD(XLOG_LEVEL_TELEMETRY, XLOG_OPTS_DEFAULT, XLOG_COLOR_BLU,  XLOG_BUF_SIZE_DEFAULT, __VA_ARGS__)
+
+#define XLOGD_AUTOMATION_DEBUG(...)     XLOGD_DEBUG(__VA_ARGS__)
+#define XLOGD_AUTOMATION_INFO(...)      XLOGD_INFO(__VA_ARGS__)
+#define XLOGD_AUTOMATION_WARN(...)      XLOGD_WARN(__VA_ARGS__)
+#define XLOGD_AUTOMATION_ERROR(...)     XLOGD_ERROR(__VA_ARGS__)
+#define XLOGD_AUTOMATION_FATAL(...)     XLOGD_FATAL(__VA_ARGS__)
+#define XLOGD_AUTOMATION_TELEMETRY(...) XLOGD_TELEMETRY(__VA_ARGS__)
 
 #define XLOGD_DEBUG_COLOR(COLOR, ...)  XLOGD(XLOG_LEVEL_DEBUG,  XLOG_OPTS_DEFAULT, COLOR, XLOG_BUF_SIZE_DEFAULT, __VA_ARGS__)
 #define XLOGD_INFO_COLOR(COLOR, ...)   XLOGD(XLOG_LEVEL_INFO,   XLOG_OPTS_DEFAULT, COLOR, XLOG_BUF_SIZE_DEFAULT, __VA_ARGS__)

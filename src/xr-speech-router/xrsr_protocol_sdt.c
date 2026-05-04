@@ -201,6 +201,7 @@ bool xrsr_sdt_connect(xrsr_state_sdt_t *sdt, xrsr_url_parts_t *url_parts, xrsr_s
    sdt->on_close           = false;
    memset(&sdt->stats, 0, sizeof(sdt->stats));
    memset(&sdt->audio_stats, 0, sizeof(sdt->audio_stats));
+   sdt->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
 
    if(!deferred) {
       xrsr_sdt_event(sdt, SM_EVENT_SESSION_BEGIN, false);
@@ -314,6 +315,7 @@ void xrsr_sdt_speech_stream_end(xrsr_state_sdt_t *sdt, xrsr_stream_end_reason_t 
    XLOGD_INFO("fd <%d> reason <%s>", sdt->audio_pipe_fd_read, xrsr_stream_end_reason_str(reason));
 
    xrsr_speech_stream_end(sdt->uuid, sdt->audio_src, sdt->dst_index, reason, detect_resume, &sdt->audio_stats);
+   sdt->stats.stream_end_reason = reason;
 
    if(sdt->audio_pipe_fd_read >= 0) {
       close(sdt->audio_pipe_fd_read);
@@ -324,7 +326,7 @@ void xrsr_sdt_speech_stream_end(xrsr_state_sdt_t *sdt, xrsr_stream_end_reason_t 
 void xrsr_sdt_speech_session_end(xrsr_state_sdt_t *sdt, xrsr_session_end_reason_t reason) {
    XLOGD_INFO("fd <%d> reason <%s>", sdt->audio_pipe_fd_read, xrsr_session_end_reason_str(reason));
 
-   sdt->stats.reason = reason;
+   sdt->stats.session_end_reason = reason;
 
    char uuid_str[37] = {'\0'};
    uuid_unparse_lower(sdt->uuid, uuid_str);
@@ -399,6 +401,8 @@ void xrsr_sdt_reset(xrsr_state_sdt_t *sdt) {
       sdt->detect_resume         = true;
       sdt->on_close              = false;
       sdt->retry_cnt             = 1;
+      memset(&sdt->stats, 0, sizeof(sdt->stats));
+      sdt->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
       if(sdt->audio_pipe_fd_read > -1) {
          close(sdt->audio_pipe_fd_read);
          sdt->audio_pipe_fd_read = -1;

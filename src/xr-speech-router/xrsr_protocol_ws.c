@@ -353,7 +353,7 @@ void xrsr_ws_handle_fds(xrsr_state_ws_t *ws, fd_set *readfds, fd_set *writefds, 
             XLOGD_DEBUG("src <%s> read would block", xrsr_src_str(ws->audio_src));
             xrsr_ws_event(ws, SM_EVENT_AUDIO_ERROR, false);
          } else {
-            XLOGD_ERROR("src <%s> pipe read error <%s>", xrsr_src_str(ws->audio_src), strerror(errsv));
+            XLOGD_AUTOMATION_ERROR("src <%s> pipe read error <%s>", xrsr_src_str(ws->audio_src), strerror(errsv));
             xrsr_ws_event(ws, SM_EVENT_AUDIO_ERROR, false);
          }
       } else if(rc == 0) { // EOF
@@ -370,13 +370,13 @@ void xrsr_ws_handle_fds(xrsr_state_ws_t *ws, fd_set *readfds, fd_set *writefds, 
             ws->write_pending_bytes = true;
          } else if(rc == 0) { // no bytes sent (see errno indication)
             int errsv = errno;
-            XLOGD_ERROR("src <%s> websocket failure <%s>", xrsr_src_str(ws->audio_src), strerror(errsv));
+            XLOGD_AUTOMATION_ERROR("src <%s> websocket failure <%s>", xrsr_src_str(ws->audio_src), strerror(errsv));
             xrsr_ws_event(ws, SM_EVENT_WS_ERROR, false);
          } else if(rc < 0) { // failure found
-            XLOGD_ERROR("src <%s> websocket failure <%d>", xrsr_src_str(ws->audio_src), rc);
+            XLOGD_AUTOMATION_ERROR("src <%s> websocket failure <%d>", xrsr_src_str(ws->audio_src), rc);
             xrsr_ws_event(ws, SM_EVENT_WS_ERROR, false);
          } else if(rc != bytes_read) { // partial bytes sent
-            XLOGD_WARN("src <%s> websocket size mismatch req <%u> sent <%d>", xrsr_src_str(ws->audio_src), bytes_read, rc);
+            XLOGD_AUTOMATION_ERROR("src <%s> websocket size mismatch req <%u> sent <%d>", xrsr_src_str(ws->audio_src), bytes_read, rc);
             // Set flag to wait for socket write ready
             ws->write_pending_bytes = true;
             ws->audio_txd_bytes    += (uint32_t) rc;
@@ -385,7 +385,7 @@ void xrsr_ws_handle_fds(xrsr_state_ws_t *ws, fd_set *readfds, fd_set *writefds, 
          }
          if(!ws->audio_kwd_notified && (ws->audio_txd_bytes >= ws->audio_kwd_bytes)) {
             if(!xrsr_speech_stream_kwd(ws->uuid,  ws->audio_src, ws->dst_index)) {
-               XLOGD_ERROR("src <%s> xrsr_speech_stream_kwd failed", xrsr_src_str(ws->audio_src));
+               XLOGD_AUTOMATION_ERROR("src <%s> xrsr_speech_stream_kwd failed", xrsr_src_str(ws->audio_src));
             }
             ws->audio_kwd_notified = true;
          }
@@ -440,7 +440,7 @@ bool xrsr_ws_connect(xrsr_state_ws_t *ws, xrsr_url_parts_t *url_parts, xrsr_src_
       } while(*query_strs != NULL);
    }
 
-   XLOGD_INFO("src <%s> local host <%s> remote host <%s> port <%s> url <%s> deferred <%s> family <%s> retry period <%u> ms", xrsr_src_str(ws->audio_src), ws->local_host_name, url_parts->host, url_parts->port_str, xrsr_mask_pii() ? "***" : ws->url, (deferred) ? "YES" : "NO", xrsr_address_family_str(url_parts->family), ws->timeout_session);
+   XLOGD_AUTOMATION_INFO("src <%s> local host <%s> remote host <%s> port <%s> url <%s> deferred <%s> family <%s> retry period <%u> ms", xrsr_src_str(ws->audio_src), ws->local_host_name, url_parts->host, url_parts->port_str, xrsr_mask_pii() ? "***" : ws->url, (deferred) ? "YES" : "NO", xrsr_address_family_str(url_parts->family), ws->timeout_session);
 
    nopoll_conn_connect_timeout(ws->obj_ctx, ws->timeout_connect * 1000);  // wait no more than N milliseconds
 
@@ -454,6 +454,7 @@ bool xrsr_ws_connect(xrsr_state_ws_t *ws, xrsr_url_parts_t *url_parts, xrsr_src_
    ws->close_status       = -1;
    memset(&ws->stats, 0, sizeof(ws->stats));
    memset(&ws->audio_stats, 0, sizeof(ws->audio_stats));
+   ws->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
 
    if(!deferred) {
       xrsr_ws_event(ws, SM_EVENT_SESSION_BEGIN, false);
@@ -639,7 +640,7 @@ int xrsr_ws_send_binary(xrsr_state_ws_t *ws, const uint8_t *buffer, uint32_t len
    int rc = nopoll_conn_send_binary(ws->obj_conn, (const char *)buffer, (long)length);
    if(rc <= 0) { // failure found
       int errsv = errno;
-      XLOGD_ERROR("src <%s> websocket failure <%d>, errno (%d) <%s>, setting ws->socket = -1;", xrsr_src_str(ws->audio_src), rc, errsv, strerror(errsv));
+      XLOGD_AUTOMATION_ERROR("src <%s> websocket failure <%d>, errno (%d) <%s>, setting ws->socket = -1;", xrsr_src_str(ws->audio_src), rc, errsv, strerror(errsv));
       ws->socket = -1;
    } else if(rc != length) { // partial bytes sent
       XLOGD_ERROR("src <%s> websocket size mismatch req <%u> sent <%d>", xrsr_src_str(ws->audio_src), length, rc);
@@ -761,6 +762,7 @@ void xrsr_ws_speech_stream_end(xrsr_state_ws_t *ws, xrsr_stream_end_reason_t rea
    XLOGD_INFO("src <%s> fd <%d> reason <%s>", xrsr_src_str(ws->audio_src), ws->audio_pipe_fd_read, xrsr_stream_end_reason_str(reason));
 
    xrsr_speech_stream_end(ws->uuid, ws->audio_src, ws->dst_index, reason, detect_resume, &ws->audio_stats);
+   ws->stats.stream_end_reason = reason;
 
    if(ws->audio_pipe_fd_read >= 0) {
       close(ws->audio_pipe_fd_read);
@@ -771,7 +773,8 @@ void xrsr_ws_speech_stream_end(xrsr_state_ws_t *ws, xrsr_stream_end_reason_t rea
 void xrsr_ws_speech_session_end(xrsr_state_ws_t *ws, xrsr_session_end_reason_t reason) {
    XLOGD_INFO("src <%s> fd <%d> reason <%s> close code <%d>", xrsr_src_str(ws->audio_src), ws->audio_pipe_fd_read, xrsr_session_end_reason_str(reason), ws->close_status);
 
-   ws->stats.reason = reason;
+   ws->stats.session_end_reason = reason;
+   ws->stats.ret_code_protocol = ws->close_status;
 
    char uuid_str[37] = {'\0'};
    uuid_unparse_lower(ws->uuid, uuid_str);
@@ -901,6 +904,8 @@ void xrsr_ws_reset(xrsr_state_ws_t *ws) {
          close(ws->audio_pipe_fd_read);
          ws->audio_pipe_fd_read = -1;
       }
+      memset(&ws->stats, 0, sizeof(ws->stats));
+      ws->stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
       xrsr_ws_clear_msg_out(ws);
    }
 }
@@ -971,6 +976,7 @@ void St_Ws_Disconnecting(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuard
             // only call close if network is available
             XLOG_DEBUG("src <%s> nopoll ref count %d, should be 2...", xrsr_src_str(ws->audio_src), nopoll_conn_ref_count(ws->obj_conn));
             if(ws->on_close == false) {
+               ws->close_status = nopoll_conn_get_close_status(ws->obj_conn);
                nopoll_conn_close(ws->obj_conn);
             } else {
                XLOG_DEBUG("src <%s> server closed the connection", xrsr_src_str(ws->audio_src));

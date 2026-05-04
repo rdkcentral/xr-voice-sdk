@@ -30,6 +30,7 @@
 #include <semaphore.h>
 #include <xr_mq.h>
 #include <pthread.h>
+#include <vsdk_private.h>
 #include <xrsr_private.h>
 #include <xraudio.h>
 #include <opus/opus.h>
@@ -141,6 +142,10 @@ typedef struct {
    #ifdef HTTP_ENABLED
    xrsr_http_json_config_t        http_json_config;
    #endif
+   
+   bool                           networked_standby;
+   bool                           local_mic;
+   bool                           local_mic_tap;
 } xrsr_global_t;
 
 static void xrsr_session_stream_kwd(const uuid_t uuid, const char *uuid_str, xrsr_src_t src, uint32_t dst_index);
@@ -217,100 +222,76 @@ static void xrsr_route_update(const char *host_name, const xrsr_route_t *route, 
 
 static xrsr_audio_format_t xrsr_audio_format_get(uint32_t formats_supported_dst, xraudio_input_format_t format_src);
 
-void xrsr_version(xrsr_version_info_t *version_info, uint32_t *qty) {
-   if(qty == NULL || *qty < XRSR_VERSION_QTY_MAX || version_info == NULL) {
-      return;
+static void xrsr_config_default(void);
+static void xrsr_config_apply(json_t *obj);
+
+bool xrsr_config_get(xrsr_config_t *config) {
+   if(config == NULL) {
+      return(false);
    }
-   uint32_t qty_avail = *qty;
 
-   xraudio_version_info_t xraudio_version_info[XRAUDIO_VERSION_QTY_MAX];
-   memset(xraudio_version_info, 0, sizeof(xraudio_version_info));
-
-   uint32_t qty_xraudio = qty_avail;
-   xraudio_version(xraudio_version_info, &qty_xraudio);
-
-   for(uint32_t index = 0; index < qty_xraudio; index++) {
-      xraudio_version_info_t *entry = &xraudio_version_info[index];
-      version_info->name      = entry->name;
-      version_info->version   = entry->version;
-      version_info->branch    = entry->branch;
-      version_info->commit_id = entry->commit_id;
-      version_info++;
-      qty_avail--;
+   if(vsdk_hal_in_enabled()) {
+      config->networked_standby = true;
+      config->local_mic         = true;
+      config->local_mic_tap     = true;
+   } else {
+      config->networked_standby = false;
+      config->local_mic         = false;
+      config->local_mic_tap     = false;
    }
-   *qty -= qty_avail;
+
+   return(true);
 }
 
-bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, const json_t *json_obj_vsdk) {
-   json_t *json_obj_xraudio = NULL;
-   if(g_xrsr.opened) {
-      XLOGD_ERROR("already open");
-      return(false);
-   }
-   if(routes == NULL) {
-      XLOGD_ERROR("invalid parameter");
-      return(false);
-   }
-   if((uint32_t)power_mode >= XRSR_POWER_MODE_INVALID) {
-      XLOGD_ERROR("invalid power mode <%s>", xrsr_power_mode_str(power_mode));
-      return(false);
-   }
+void xrsr_config_default(void) {
+   #ifdef HTTP_ENABLED
+   memset(&g_xrsr.http_json_config, 0, sizeof(xrsr_http_json_config_t));
+   g_xrsr.http_json_config.debug = JSON_BOOL_VALUE_HTTP_DEBUG;
+   #endif
 
-   memset(g_xrsr.routes, 0, sizeof(g_xrsr.routes));
+   #ifdef WS_ENABLED
+   memset(&g_xrsr.ws_json_config_fpm, 0, sizeof(xrsr_ws_json_config_t));
+   memset(&g_xrsr.ws_json_config_lpm, 0, sizeof(xrsr_ws_json_config_t));
 
-   uint32_t index = 0;
-   do {
-      if(routes[index].src >= XRSR_SRC_INVALID) {
-         break;
-      }
-      XLOGD_INFO("%u: src <%s>", index, xrsr_src_str(routes[index].src));
+   g_xrsr.ws_json_config_fpm.val_debug                  = JSON_BOOL_VALUE_WS_DEBUG;
+   g_xrsr.ws_json_config_fpm.ptr_debug                  = &g_xrsr.ws_json_config_fpm.val_debug;
+   g_xrsr.ws_json_config_fpm.val_connect_check_interval = JSON_INT_VALUE_WS_FPM_CONNECT_CHECK_INTERVAL;
+   g_xrsr.ws_json_config_fpm.ptr_connect_check_interval = &g_xrsr.ws_json_config_fpm.val_connect_check_interval;
+   g_xrsr.ws_json_config_fpm.val_timeout_connect        = JSON_INT_VALUE_WS_FPM_TIMEOUT_CONNECT;
+   g_xrsr.ws_json_config_fpm.ptr_timeout_connect        = &g_xrsr.ws_json_config_fpm.val_timeout_connect;
+   g_xrsr.ws_json_config_fpm.val_timeout_inactivity     = JSON_INT_VALUE_WS_FPM_TIMEOUT_INACTIVITY;
+   g_xrsr.ws_json_config_fpm.ptr_timeout_inactivity     = &g_xrsr.ws_json_config_fpm.val_timeout_inactivity;
+   g_xrsr.ws_json_config_fpm.val_timeout_session        = JSON_INT_VALUE_WS_FPM_TIMEOUT_SESSION;
+   g_xrsr.ws_json_config_fpm.ptr_timeout_session        = &g_xrsr.ws_json_config_fpm.val_timeout_session;
+   g_xrsr.ws_json_config_fpm.val_ipv4_fallback          = JSON_BOOL_VALUE_WS_FPM_IPV4_FALLBACK;
+   g_xrsr.ws_json_config_fpm.ptr_ipv4_fallback          = &g_xrsr.ws_json_config_fpm.val_ipv4_fallback;
+   g_xrsr.ws_json_config_fpm.val_backoff_delay          = JSON_INT_VALUE_WS_FPM_BACKOFF_DELAY;
+   g_xrsr.ws_json_config_fpm.ptr_backoff_delay          = &g_xrsr.ws_json_config_fpm.val_backoff_delay;
 
-      if(routes[index].dst_qty < 1 || routes[index].dst_qty > XRSR_DST_QTY_MAX) {
-         XLOGD_ERROR("invalid dsts array");
-         break;
-      }
+   g_xrsr.ws_json_config_lpm.val_debug                  = JSON_BOOL_VALUE_WS_DEBUG;
+   g_xrsr.ws_json_config_lpm.ptr_debug                  = &g_xrsr.ws_json_config_lpm.val_debug;
+   g_xrsr.ws_json_config_lpm.val_connect_check_interval = JSON_INT_VALUE_WS_LPM_CONNECT_CHECK_INTERVAL;
+   g_xrsr.ws_json_config_lpm.ptr_connect_check_interval = &g_xrsr.ws_json_config_lpm.val_connect_check_interval;
+   g_xrsr.ws_json_config_lpm.val_timeout_connect        = JSON_INT_VALUE_WS_LPM_TIMEOUT_CONNECT;
+   g_xrsr.ws_json_config_lpm.ptr_timeout_connect        = &g_xrsr.ws_json_config_lpm.val_timeout_connect;
+   g_xrsr.ws_json_config_lpm.val_timeout_inactivity     = JSON_INT_VALUE_WS_LPM_TIMEOUT_INACTIVITY;
+   g_xrsr.ws_json_config_lpm.ptr_timeout_inactivity     = &g_xrsr.ws_json_config_lpm.val_timeout_inactivity;
+   g_xrsr.ws_json_config_lpm.val_timeout_session        = JSON_INT_VALUE_WS_LPM_TIMEOUT_SESSION;
+   g_xrsr.ws_json_config_lpm.ptr_timeout_session        = &g_xrsr.ws_json_config_lpm.val_timeout_session;
+   g_xrsr.ws_json_config_lpm.val_ipv4_fallback          = JSON_BOOL_VALUE_WS_LPM_IPV4_FALLBACK;
+   g_xrsr.ws_json_config_lpm.ptr_ipv4_fallback          = &g_xrsr.ws_json_config_lpm.val_ipv4_fallback;
+   g_xrsr.ws_json_config_lpm.val_backoff_delay          = JSON_INT_VALUE_WS_LPM_BACKOFF_DELAY;
+   g_xrsr.ws_json_config_lpm.ptr_backoff_delay          = &g_xrsr.ws_json_config_lpm.val_backoff_delay;
+   #endif
+}
 
-      for(uint32_t dst_index = 0; dst_index < routes[index].dst_qty; dst_index++) {
-         const xrsr_dst_t *dst = &routes[index].dsts[dst_index];
-         XLOGD_INFO("dst <%s>", dst->url);
-      }
-      index++;
-   } while(1);
-
-   // Create xraudio object
-   xraudio_keyword_sensitivity_t sensitivity = (keyword_config == NULL) ? XRAUDIO_INPUT_DEFAULT_KEYWORD_SENSITIVITY : (xraudio_keyword_sensitivity_t)keyword_config->sensitivity;
-
-   for(uint32_t group = 0; group < XRSR_SESSION_GROUP_QTY; group++) {
-      xrsr_session_t *session = &g_xrsr.sessions[group];
-      session->src                  = XRSR_SRC_INVALID;
-      session->xraudio_device_input = XRAUDIO_DEVICE_INPUT_NONE;
-      session->requested_more_audio = false;
-      session->stream_id            = 0;
-
-      for(index = 0; index < XRSR_DST_QTY_MAX; index++) {
-         session->pipe_fds_rd[index] = -1;
-      }
-   }
-
-   if(NULL == json_obj_vsdk) {
-      XLOGD_INFO("xraudio json object not found, using defaults");
-   } else {
-      json_obj_xraudio = json_object_get(json_obj_vsdk, JSON_OBJ_NAME_XRAUDIO);
-      if(NULL == json_obj_xraudio) {
-         XLOGD_INFO("xraudio json object not found, using defaults");
-      } else {
-         if(!json_is_object(json_obj_xraudio))  {
-            XLOGD_WARN("json_obj_xraudio is not object, using defaults");
-            json_obj_xraudio = NULL;
-         }
-      }
-   }
-
+void xrsr_config_apply(json_t *json_obj_in) {
    json_t *json_obj;
+
    #ifdef HTTP_ENABLED
    memset(&g_xrsr.http_json_config, 0, sizeof(xrsr_http_json_config_t));
 
-   json_t *json_obj_http  = json_object_get(json_obj_vsdk, JSON_OBJ_NAME_HTTP);
+   json_t *json_obj_http  = json_object_get(json_obj_in, JSON_OBJ_NAME_HTTP);
    if(NULL == json_obj_http || !json_is_object(json_obj_http)) {
       XLOGD_INFO("http json object not found, using defaults");
    } else {
@@ -326,7 +307,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    memset(&g_xrsr.ws_json_config_fpm, 0, sizeof(xrsr_ws_json_config_t));
    memset(&g_xrsr.ws_json_config_lpm, 0, sizeof(xrsr_ws_json_config_t));
 
-   json_t *json_obj_ws     = json_object_get(json_obj_vsdk, JSON_OBJ_NAME_WS);
+   json_t *json_obj_ws     = json_object_get(json_obj_in, JSON_OBJ_NAME_WS);
    if(NULL == json_obj_ws || !json_is_object(json_obj_ws)) {
       XLOGD_INFO("ws json object not found, using defaults");
    } else {
@@ -455,6 +436,115 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
       }
       #endif
    }
+}
+
+bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, json_t *json_obj_vsdk) {
+   json_t *json_obj_xraudio = NULL;
+   if(g_xrsr.opened) {
+      XLOGD_ERROR("already open");
+      return(false);
+   }
+   if(routes == NULL) {
+      XLOGD_ERROR("invalid parameter");
+      return(false);
+   }
+   if((uint32_t)power_mode >= XRSR_POWER_MODE_INVALID) {
+      XLOGD_ERROR("invalid power mode <%s>", xrsr_power_mode_str(power_mode));
+      return(false);
+   }
+
+   memset(g_xrsr.routes, 0, sizeof(g_xrsr.routes));
+
+   uint32_t index = 0;
+   do {
+      if(routes[index].src >= XRSR_SRC_INVALID) {
+         break;
+      }
+      XLOGD_INFO("%u: src <%s>", index, xrsr_src_str(routes[index].src));
+
+      if(routes[index].dst_qty < 1 || routes[index].dst_qty > XRSR_DST_QTY_MAX) {
+         XLOGD_ERROR("invalid dsts array");
+         break;
+      }
+
+      for(uint32_t dst_index = 0; dst_index < routes[index].dst_qty; dst_index++) {
+         const xrsr_dst_t *dst = &routes[index].dsts[dst_index];
+         XLOGD_INFO("dst <%s>", dst->url);
+      }
+      index++;
+   } while(1);
+
+   // Create xraudio object
+   for(uint32_t group = 0; group < XRSR_SESSION_GROUP_QTY; group++) {
+      xrsr_session_t *session = &g_xrsr.sessions[group];
+      session->src                  = XRSR_SRC_INVALID;
+      session->xraudio_device_input = XRAUDIO_DEVICE_INPUT_NONE;
+      session->requested_more_audio = false;
+      session->stream_id            = 0;
+
+      for(index = 0; index < XRSR_DST_QTY_MAX; index++) {
+         session->pipe_fds_rd[index] = -1;
+      }
+   }
+
+   // Load default config, optional oem append and then append provided json values
+   xrsr_config_default();
+
+   const char *config_fn_oem = "/etc/vendor/input/vsdk_config.json";
+
+   bool oem_append = (access(config_fn_oem, F_OK) == 0) ? true : false;
+
+   json_t *json_obj_final = NULL;
+   if(!oem_append && NULL == json_obj_vsdk) {
+      XLOGD_INFO("Using default config");
+   } else { // Load default values and append with oem and/or provided json
+      json_error_t error;
+         
+      if(oem_append) {
+         json_obj_final = json_load_file(config_fn_oem, 0, &error);
+         if(json_obj_final == NULL) {
+            XLOGD_WARN("Failed to load OEM config file <%s>: %s", config_fn_oem, error.text);
+         } else {
+            XLOGD_INFO("Appending OEM config file <%s>", config_fn_oem);
+         }
+      }
+
+      if(NULL != json_obj_vsdk) {
+         if(json_obj_final == NULL) {
+            json_obj_final = json_obj_vsdk;
+            XLOGD_INFO("Loading VSDK config json object");
+         } else {
+            XLOGD_INFO("Appending VSDK config json object");
+            json_object_update(json_obj_final, json_obj_vsdk);
+         }
+      }
+
+      // Print the configuration since it was loaded from files
+      char *json_dump = json_dumps(json_obj_final, JSON_INDENT(3) | JSON_SORT_KEYS);
+      if(json_dump == NULL) {
+         XLOGD_ERROR("unable to dump JSON object");
+         json_decref(json_obj_final);
+         json_obj_final = NULL;
+         return(false);
+      } else {
+         XLOGD_INFO_OPTS(XLOG_OPTS_DEFAULT, 20 * 1024, "Final configuration:\n%s", json_dump);
+         free(json_dump);
+      }
+   }
+   
+   if(json_obj_final != NULL) {
+      xrsr_config_apply(json_obj_final);
+
+      json_obj_xraudio = json_object_get(json_obj_final, JSON_OBJ_NAME_XRAUDIO);
+      if(NULL == json_obj_xraudio) {
+         XLOGD_INFO("xraudio json object not found, using defaults");
+      } else {
+         if(!json_is_object(json_obj_xraudio))  {
+            XLOGD_WARN("json_obj_xraudio is not object, using defaults");
+            json_obj_xraudio = NULL;
+         }
+      }
+   }
 
    xraudio_power_mode_t xraudio_power_mode;
 
@@ -473,10 +563,21 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
          break;
       default:
          XLOGD_ERROR("Invalid power mode");
+         if(json_obj_final != NULL) {
+            json_decref(json_obj_final);
+            json_obj_final = NULL;
+         }
          return(false);
    }
 
+   const xraudio_keyword_sensitivity_t *sensitivity = (keyword_config == NULL) ? NULL : &keyword_config->sensitivity;
+
    g_xrsr.xrsr_xraudio_object = xrsr_xraudio_create(sensitivity, xraudio_power_mode, privacy_mode, json_obj_xraudio);
+
+   if(json_obj_final != NULL) {
+      json_decref(json_obj_final);
+      json_obj_final = NULL;
+   }
 
    if(capture_config != NULL) {
       if(!xrsr_capture_config_apply(capture_config)) {
@@ -504,9 +605,20 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    sem_wait(&semaphore);
    sem_destroy(&semaphore);
 
-   g_xrsr.power_mode   = power_mode;
-   g_xrsr.privacy_mode = privacy_mode;
-   g_xrsr.mask_pii     = mask_pii;
+   g_xrsr.power_mode        = power_mode;
+   g_xrsr.privacy_mode      = privacy_mode;
+   g_xrsr.mask_pii          = mask_pii;
+   
+   if(!vsdk_hal_in_enabled()) {
+      g_xrsr.networked_standby = false;
+      g_xrsr.local_mic         = false;
+      g_xrsr.local_mic_tap     = false;
+   } else {
+      g_xrsr.networked_standby = true;
+      g_xrsr.local_mic         = true;
+      g_xrsr.local_mic_tap     = true;
+   }
+
    g_xrsr.opened       = true;
    return(true);
 }
@@ -1584,7 +1696,7 @@ void xrsr_msg_capture_config_update(const xrsr_thread_params_t *params, xrsr_thr
 void xrsr_msg_power_mode_update(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg) {
    xrsr_queue_msg_power_mode_update_t *power_mode_update = (xrsr_queue_msg_power_mode_update_t *)msg;
 
-   XLOGD_INFO("power mode <%s>", xrsr_power_mode_str(power_mode_update->power_mode));
+   XLOGD_AUTOMATION_INFO("power mode <%s>", xrsr_power_mode_str(power_mode_update->power_mode));
 
    if(power_mode_update->power_mode != XRSR_POWER_MODE_FULL) { // Terminate active sessions
       for(uint32_t group = 0; group < XRSR_SESSION_GROUP_QTY; group++) {
@@ -1765,7 +1877,6 @@ void xrsr_msg_keyword_detect_error(const xrsr_thread_params_t *params, xrsr_thre
       xrsr_msg_session_terminate(params, state, &terminate);
    }
 
-   #ifdef MICROPHONE_TAP_ENABLED
    if(keyword_detected->source == XRSR_SRC_MICROPHONE && xrsr_is_source_active(XRSR_SRC_MICROPHONE_TAP)) { // Terminate active session on this source since an error occurred
       XLOGD_INFO("terminate source <%s>", xrsr_src_str(XRSR_SRC_MICROPHONE_TAP));
       xrsr_queue_msg_session_terminate_t terminate;
@@ -1774,7 +1885,6 @@ void xrsr_msg_keyword_detect_error(const xrsr_thread_params_t *params, xrsr_thre
       terminate.src         = XRSR_SRC_MICROPHONE_TAP;
       xrsr_msg_session_terminate(params, state, &terminate);
    }
-   #endif
 }
 
 void xrsr_msg_keyword_detect_sensitivity_limits_get(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg) {
@@ -1910,7 +2020,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             session_config->user_initiated    = begin->user_initiated;
             session_config->cb_session_config = xrsr_callback_session_config_in_http;
 
-            XLOGD_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
+            XLOGD_AUTOMATION_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
 
             // Set the handlers based on source
             http->handlers       = dst->handlers;
@@ -1979,7 +2089,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                session_config->user_initiated    = begin->user_initiated;
                session_config->cb_session_config = xrsr_callback_session_config_in_ws;
 
-               XLOGD_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
+               XLOGD_AUTOMATION_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
 
                // Set the handlers based on source
                ws->handlers       = dst->handlers;
@@ -2043,7 +2153,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                session_config->format            = xrsr_audio_format_get(dst->formats, begin->xraudio_format);
                session_config->cb_session_config = NULL;
 
-               XLOGD_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
+               XLOGD_AUTOMATION_INFO("src <%s(%u)> prot <%s> uuid <%s> format <%s>", xrsr_src_str(session->src), dst_index, xrsr_protocol_str(prot), uuid_str, xrsr_audio_format_str(session_config->format.type));
 
                // Set the handlers based on source
                sdt->handlers       = dst->handlers;
@@ -3258,19 +3368,15 @@ bool xrsr_is_group_active(uint32_t group) {
 }
 
 uint32_t xrsr_source_to_group(xrsr_src_t src) {
-   #ifdef MICROPHONE_TAP_ENABLED
    if(src == XRSR_SRC_MICROPHONE_TAP) {
       return(1);
    }
-   #endif
    return(0);
 }
 
 bool xrsr_has_keyword_detector(xrsr_src_t src) {
-   #ifdef MICROPHONE_TAP_ENABLED
    if(src == XRSR_SRC_MICROPHONE_TAP) {
       return(false);
    }
-   #endif
    return(true);
 }
