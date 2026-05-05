@@ -32,12 +32,16 @@
 #define VSDK_VENDOR_OPTIONS_FILE  "/etc/vendor/input/vsdk_options.json"
 
 typedef struct {
+   #ifdef FFV_HAL_V2
+   void *handle_xr_ffv_hal;
+   #else
    void *handle_ffv_hal;
    void *handle_ffv_kwd;
    void *handle_ffv_alg;
+   void *handle_ffv_ppr;
+   #endif
    void *handle_ffv_sdf;
    void *handle_ffv_ovc;
-   void *handle_ffv_ppr;
 } vsdk_ffv_plugin_handles_t;
 
 typedef struct {
@@ -47,13 +51,16 @@ typedef struct {
    vsdk_ffv_plugin_handles_t ffv_plugins;
    bool                      hal_in_enabled;
    bool                      hal_out_enabled;
+   #ifdef FFV_HAL_V2
+   xr_ffv_hal_plugin_func_t *xr_ffv_hal_plugin;
+   #endif
    xraudio_hal_plugin_api_t *hal_plugin;
    xraudio_kwd_plugin_api_t *kwd_plugin;
    xraudio_eos_plugin_api_t *eos_plugin;
    xraudio_dga_plugin_api_t *dga_plugin;
+   xraudio_ppr_plugin_api_t *ppr_plugin;
    xraudio_sdf_plugin_api_t *sdf_plugin;
    xraudio_ovc_plugin_api_t *ovc_plugin;
-   xraudio_ppr_plugin_api_t *ppr_plugin;
    vsdk_thread_poll_func_t   func;
    void *                    data;
 } vsdk_global_t;
@@ -64,9 +71,13 @@ static void  vsdk_thread_response(void);
 static bool  vsdk_file_exists(const char *filename);
 static void  vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio_allow_input_failure);
 static bool  vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles);
+#ifdef FFV_HAL_V2
+static void *vsdk_load_plugin_xr_ffv_hal(void);
+#else
 static void *vsdk_load_plugin_ffv_hal(bool *out_enabled);
 static void *vsdk_load_plugin_ffv_kwd(void);
 static void *vsdk_load_plugin_ffv_alg(void **handle_ppr);
+#endif
 static void *vsdk_load_plugin_ffv_sdf(void);
 static void *vsdk_load_plugin_ffv_ovc(void);
 
@@ -141,6 +152,16 @@ void vsdk_term(void) {
    }
    xlog_term();
 
+#ifdef FFV_HAL_V2
+   if(g_vsdk.hal_in_enabled || g_vsdk.hal_out_enabled) {
+      XLOGD_INFO("unload XR FFV HAL");
+      if(dlclose(g_vsdk.ffv_plugins.handle_xr_ffv_hal) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for XR FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+      }
+      g_vsdk.ffv_plugins.handle_xr_ffv_hal = NULL;
+   }
+   #else
    if(g_vsdk.hal_in_enabled || g_vsdk.hal_out_enabled) {
       XLOGD_INFO("unload FFV hal");
       if(dlclose(g_vsdk.ffv_plugins.handle_ffv_hal) != 0) {
@@ -159,6 +180,15 @@ void vsdk_term(void) {
       g_vsdk.ffv_plugins.handle_ffv_kwd = NULL;
       g_vsdk.ffv_plugins.handle_ffv_alg = NULL;
    }
+   if(g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) {
+      XLOGD_INFO("unload FFV PPR");
+      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_ppr) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV PPR <%s>", (err != NULL) ? err : "unknown error");
+      }
+      g_vsdk.ffv_plugins.handle_ffv_ppr = NULL;
+   }
+   #endif
    if(g_vsdk.ffv_plugins.handle_ffv_sdf != NULL) {
       XLOGD_INFO("unload FFV SDF");
       if(dlclose(g_vsdk.ffv_plugins.handle_ffv_sdf) != 0) {
@@ -174,14 +204,6 @@ void vsdk_term(void) {
          XLOGD_ERROR("dlclose failed for FFV OVC <%s>", (err != NULL) ? err : "unknown error");
       }
       g_vsdk.ffv_plugins.handle_ffv_ovc = NULL;
-   }
-   if(g_vsdk.ffv_plugins.handle_ffv_ppr != NULL) {
-      XLOGD_INFO("unload FFV PPR");
-      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_ppr) != 0) {
-         const char *err = dlerror();
-         XLOGD_ERROR("dlclose failed for FFV PPR <%s>", (err != NULL) ? err : "unknown error");
-      }
-      g_vsdk.ffv_plugins.handle_ffv_ppr = NULL;
    }
 
    g_vsdk.initialized = false;
@@ -236,6 +258,12 @@ bool vsdk_hal_out_enabled(void) {
    return(g_vsdk.hal_out_enabled);
 }
 
+#ifdef FFV_HAL_V2
+xr_ffv_hal_plugin_func_t *vsdk_xr_ffv_hal_plugin_get(void) {
+   return(g_vsdk.xr_ffv_hal_plugin);
+}
+#endif
+
 xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void) {
    return(g_vsdk.hal_plugin);
 }
@@ -252,16 +280,16 @@ xraudio_dga_plugin_api_t *vsdk_dga_plugin_get(void) {
    return(g_vsdk.dga_plugin);
 }
 
+xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void) {
+   return(g_vsdk.ppr_plugin);
+}
+
 xraudio_sdf_plugin_api_t *vsdk_sdf_plugin_get(void) {
    return(g_vsdk.sdf_plugin);
 }
 
 xraudio_ovc_plugin_api_t *vsdk_ovc_plugin_get(void) {
    return(g_vsdk.ovc_plugin);
-}
-
-xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void) {
-   return(g_vsdk.ppr_plugin);
 }
 
 bool vsdk_xraudio_allow_input_failure(void) {
@@ -348,6 +376,43 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
    bool ret = false;
 
    memset(handles, 0, sizeof(*handles));
+   #ifdef FFV_HAL_V2
+   handles->handle_xr_ffv_hal = vsdk_load_plugin_xr_ffv_hal();
+   if(handles->handle_xr_ffv_hal != NULL) {
+      ret = true;
+   }
+   handles->handle_ffv_sdf = vsdk_load_plugin_ffv_sdf();
+   handles->handle_ffv_ovc = vsdk_load_plugin_ffv_ovc();
+   g_vsdk.hal_plugin = NULL;
+   g_vsdk.kwd_plugin = NULL;
+   g_vsdk.dga_plugin = NULL;
+   g_vsdk.eos_plugin = NULL;
+   g_vsdk.ppr_plugin = NULL;
+
+   if(!ret) {
+      if(handles->handle_xr_ffv_hal != NULL) {
+         if(dlclose(handles->handle_xr_ffv_hal) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for XR FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+         }
+         handles->handle_xr_ffv_hal = NULL;
+      }
+      if(handles->handle_ffv_sdf != NULL) {
+         if(dlclose(handles->handle_ffv_sdf) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV SDF <%s>", (err != NULL) ? err : "unknown error");
+         }
+         handles->handle_ffv_sdf = NULL;
+      }
+      if(handles->handle_ffv_ovc != NULL) {
+         if(dlclose(handles->handle_ffv_ovc) != 0) {
+            const char *err = dlerror();
+            XLOGD_ERROR("dlclose failed for FFV OVC <%s>", (err != NULL) ? err : "unknown error");
+         }
+         handles->handle_ffv_ovc = NULL;
+      }
+   }
+   #else
    do {
       handles->handle_ffv_hal = vsdk_load_plugin_ffv_hal(&g_vsdk.hal_out_enabled);
 
@@ -416,12 +481,34 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
          handles->handle_ffv_ppr = NULL;
       }
    }
+   #endif
 
    XLOGD_INFO("FFV plugin is <%s>", ret ? "enabled" : "disabled");
 
    return(ret);
 }
 
+#ifdef FFV_HAL_V2
+void *vsdk_load_plugin_xr_ffv_hal(void) {
+   void *handle = xr_ffv_hal_plugin_handle_get();
+
+   if(NULL == handle) {
+      XLOGD_INFO("XR FFV HAL plugin is not present.");
+      return(NULL);
+   }
+
+   XLOGD_INFO("Loading required XR FFV HAL plugin.");
+   g_vsdk.xr_ffv_hal_plugin = xr_ffv_hal_plugin_func_get();
+
+   if(g_vsdk.xr_ffv_hal_plugin == NULL) {
+      XLOGD_ERROR("Failed to load XR FFV HAL plugin");
+      dlclose(handle);
+      return(NULL);
+   }
+   XLOGD_INFO("Loaded required XR FFV HAL plugin.");
+   return(handle);
+}
+#else
 void *vsdk_load_plugin_ffv_kwd(void) {
    void *handle = NULL;
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-kwd.so";
@@ -734,6 +821,7 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
       
    return(handle);
 }
+#endif // #ifdef FFV_HAL_V2
 
 void *vsdk_load_plugin_ffv_sdf(void) {
    void *handle = NULL;

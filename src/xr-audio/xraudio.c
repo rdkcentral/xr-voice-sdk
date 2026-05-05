@@ -86,6 +86,11 @@ typedef struct {
    xraudio_hal_plugin_api_t *        hal_plugin;
    xraudio_dga_plugin_api_t *        dga_plugin;
    xraudio_kwd_plugin_api_t *        kwd_plugin;
+   #ifdef FFV_HAL_V2
+   xr_ffv_hal_plugin_func_t *        xr_ffv_hal_plugin;
+   void *                            xr_ffv_hal_handle;
+   void *                            xr_ffv_hal_controller_handle;
+   #endif
    bool                              eos_enabled;
    bool                              ppr_enabled;
    bool                              out_enabled;
@@ -101,6 +106,10 @@ typedef struct {
    #endif
    xraudio_hal_obj_t        hal_obj;
    uint8_t                  hal_user_cnt;
+   #ifdef FFV_HAL_V2
+   xr_ffv_hal_obj_t         xr_ffv_hal_obj;
+   uint8_t                  xr_ffv_hal_cnt;
+   #endif
    xraudio_hal_dsp_config_t dsp_config;
    xraudio_power_mode_t     power_mode;
    bool                     privacy_mode;
@@ -139,6 +148,10 @@ static xraudio_process_t g_xraudio_process = {
    #endif
    .hal_obj = NULL,
    .hal_user_cnt = 0,
+   #ifdef FFV_HAL_V2
+   .xr_ffv_hal_obj = NULL,
+   .xr_ffv_hal_cnt = 0,
+   #endif
    .dsp_config = { .ppr_enabled = false,
                    .dga_enabled = false,
                    .eos_enabled = false,
@@ -186,6 +199,11 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->hal_plugin                            = vsdk_hal_plugin_get();
    obj->dga_plugin                            = vsdk_dga_plugin_get();
    obj->kwd_plugin                            = vsdk_kwd_plugin_get();
+   #ifdef FFV_HAL_V2
+   obj->xr_ffv_hal_plugin                     = vsdk_xr_ffv_hal_plugin_get();
+   obj->xr_ffv_hal_handle                     = NULL;
+   obj->xr_ffv_hal_controller_handle          = NULL;
+   #endif
    obj->eos_enabled                           = (vsdk_eos_plugin_get() == NULL) ? false : true;
    obj->ppr_enabled                           = (vsdk_ppr_plugin_get() == NULL) ? false : true;
    obj->out_enabled                           = vsdk_hal_out_enabled();
@@ -226,10 +244,21 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
          json_incref(obj->json_obj_hal);
       }
    }
+   #ifdef FFV_HAL_V2
+   if(obj->xr_ffv_hal_plugin != NULL) {
+      obj->xr_ffv_hal_handle = obj->xr_ffv_hal_plugin->get_handle();
+      XLOGD_INFO("ffv hal handle <%p>", obj->xr_ffv_hal_handle);
+      if(obj->xr_ffv_hal_handle == NULL) {
+         XLOGD_WARN("failed to get ffv hal handle");
+         obj->xr_ffv_hal_plugin = NULL;
+      }
+   }
+   #else
    if(obj->hal_plugin != NULL) {
       obj->hal_plugin->init(obj->json_obj_hal);
       obj->hal_plugin->dsp_config_get(&g_xraudio_process.dsp_config);
    }
+   #endif
 
    sem_init(&obj->mutex_api, 0, 1);
 
@@ -269,6 +298,13 @@ void xraudio_object_destroy(xraudio_object_t object) {
          json_decref(obj->json_obj_hal);
          obj->json_obj_hal = NULL;
       }
+      #ifdef FFV_HAL_V2
+      if(obj->xr_ffv_hal_handle != NULL) {
+         obj->xr_ffv_hal_plugin->destroy(obj->xr_ffv_hal_handle);
+         obj->xr_ffv_hal_handle = NULL;
+         XLOGD_INFO("xr ffv hal destroyed");
+      }
+      #endif
 
       if(sem_destroy(&obj->mutex_api) < 0) {
          int errsv = errno;
@@ -297,12 +333,36 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
 
+   #ifdef FFV_HAL_V2
+   if(obj->xr_ffv_hal_plugin != NULL) {
+      FFVhalCapabilities_t caps;
+      FFVhalApiStatus_t status = obj->xr_ffv_hal_plugin->get_capabilities(obj->xr_ffv_hal_handle, &caps);
+      if(status != EX_NONE) {
+         XLOGD_ERROR("Unable to get xr ffv hal capabilities <%s>", xr_ffv_hal_status_str(status));
+         return(XRAUDIO_RESULT_ERROR_INTERNAL);
+      }
+      for(int i = 0; i < MAX_FFV_CHAN_TYPES; i++) {
+         const char *channel_type = caps.channelTypes[i];
+         if(channel_type == NULL) {
+            continue;
+         }
+         if(((strcmp(channel_type, "KEYWORD") == 0) || (strcmp(channel_type, "MICROPHONES") == 0)) &&
+               (input_qty_max > 1)) {
+            *inputs = XRAUDIO_DEVICE_INPUT_TRI;
+         }
+      }
+      if(!(*inputs & XRAUDIO_DEVICE_INPUT_TRI)) {
+         XLOGD_INFO("Unable to get xr ffv hal device");
+      }
+   }
+   #else
    if(obj->hal_plugin != NULL) {
       if (!obj->hal_plugin->available_devices_get(inputs, input_qty_max, outputs, output_qty_max)) {
          XLOGD_ERROR("Unable to get available xraudio hal devices");
          return(XRAUDIO_RESULT_ERROR_INTERNAL);
       }
    }
+   #endif
 
    return(XRAUDIO_RESULT_OK);
 }
@@ -484,7 +544,24 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
       return(XRAUDIO_RESULT_ERROR_OPEN);
    }
 
-   if(obj->hal_plugin != NULL) {
+   if(obj->xr_ffv_hal_plugin != NULL) {
+      FFVhalCapabilities_t caps;
+      FFVhalApiStatus_t status = obj->xr_ffv_hal_plugin->get_capabilities(obj->xr_ffv_hal_handle, &caps);
+      if(status != EX_NONE) {
+         XLOGD_ERROR("Unable to get xr ffv hal capabilities <%s>", xr_ffv_hal_status_str(status));
+         XRAUDIO_API_MUTEX_UNLOCK();
+         return(XRAUDIO_RESULT_ERROR_INTERNAL);
+      }
+      if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(input) != XRAUDIO_DEVICE_INPUT_NONE) {
+         for(uint8_t index = 0; index < MAX_FFV_CHAN_TYPES; index++) { // Find the local microphone
+            const char *channel_type = caps.channelTypes[index];
+            if((channel_type != NULL) && ((strcmp(channel_type, "KEYWORD") == 0) || (strcmp(channel_type, "MICROPHONES") == 0))) {
+               obj->resource_id_record    = XRAUDIO_RESOURCE_ID_INPUT_1;
+               obj->capabilities_record   = XRAUDIO_CAPS_INPUT_LOCAL;
+            }
+         }
+      }
+   } else if(obj->hal_plugin != NULL) {
       #ifndef XRAUDIO_RESOURCE_MGMT
       xraudio_hal_capabilities caps;
       obj->hal_plugin->capabilities_get(&caps);
@@ -1116,32 +1193,88 @@ void xraudio_shared_mem_unlock(xraudio_object_t object) {
 #endif
 
 xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
-   if(obj->hal_plugin != NULL) {
-      XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
+   if(obj->xr_ffv_hal_plugin != NULL) {
+      XLOGD_INFO("xr ffv hal obj %p user count %u", g_xraudio_process.xr_ffv_hal_obj, g_xraudio_process.xr_ffv_hal_cnt);
 
-      // Get qahw handle from process global memory
-      if(g_xraudio_process.hal_obj == NULL) {
-         XLOGD_INFO("hal open obj");
-         g_xraudio_process.hal_obj = obj->hal_plugin->open(false, g_xraudio_process.power_mode, g_xraudio_process.privacy_mode, xraudio_hal_msg_async_handler);
-         if(g_xraudio_process.hal_obj == NULL) {
-            XLOGD_ERROR("hal open failed.");
+      // Get xr ffv hal handle from process global memory
+      if(g_xraudio_process.xr_ffv_hal_obj == NULL) {
+         XLOGD_INFO("xr ffv hal open obj");
+         g_xraudio_process.xr_ffv_hal_obj = obj->xr_ffv_hal_handle;
+         XLOGD_INFO("ffv hal obj <%p>", g_xraudio_process.xr_ffv_hal_obj);
+         if(g_xraudio_process.xr_ffv_hal_obj == NULL) {
+            XLOGD_ERROR("Unable to get xr ffv hal obj");
             return(XRAUDIO_RESULT_ERROR_INTERNAL);
          }
+
+         // open the xr ffv hal object, set callbacks, and get hal controller handle
+         void *xr_ffv_hal_controller_handle = NULL;
+         FFVhalApiStatus_t status = obj->xr_ffv_hal_plugin->open(g_xraudio_process.xr_ffv_hal_obj, NULL, NULL, &xr_ffv_hal_controller_handle);
+         if(status != EX_NONE) {
+            XLOGD_ERROR("xr ffv hal open failed <%s>", xr_ffv_hal_status_str(status));
+            g_xraudio_process.xr_ffv_hal_obj = NULL;
+            xr_ffv_hal_controller_handle = NULL;
+            return(XRAUDIO_RESULT_ERROR_INTERNAL);
+         }
+         if(xr_ffv_hal_controller_handle == NULL) {
+            XLOGD_ERROR("xr ffv hal open unable to get controller handle <%s>", xr_ffv_hal_status_str(status));
+            obj->xr_ffv_hal_plugin->close(obj->xr_ffv_hal_handle);
+            g_xraudio_process.xr_ffv_hal_obj = NULL;
+            return(XRAUDIO_RESULT_ERROR_INTERNAL);
+         }
+
+         // set power mode
+         obj->xr_ffv_hal_controller_handle = xr_ffv_hal_controller_handle;
+         status = obj->xr_ffv_hal_plugin->set_power_mode(obj->xr_ffv_hal_controller_handle, xraudio_power_mode_xr_ffv_hal(g_xraudio_process.power_mode));
+         if(status != EX_NONE) {
+            XLOGD_WARN("unable to set power state <%s>", xr_ffv_hal_status_str(status));
+         }
+
+         // set privacy mode
+         status = obj->xr_ffv_hal_plugin->set_privacy_state(obj->xr_ffv_hal_controller_handle, g_xraudio_process.privacy_mode);
+         if(status != EX_NONE) {
+            XLOGD_WARN("unable to set privacy state <%s>", xr_ffv_hal_status_str(status));
+         }
       }
-      g_xraudio_process.hal_user_cnt++;
-      XLOGD_INFO("hal obj %p", g_xraudio_process.hal_obj);
+      g_xraudio_process.xr_ffv_hal_cnt++;
+      XLOGD_INFO("xr ffv hal obj %p", g_xraudio_process.xr_ffv_hal_obj);
+   } else {
+      if(obj->hal_plugin != NULL) {
+         XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
+
+         // Get qahw handle from process global memory
+         if(g_xraudio_process.hal_obj == NULL) {
+            XLOGD_INFO("hal open obj");
+            g_xraudio_process.hal_obj = obj->hal_plugin->open(false, g_xraudio_process.power_mode, g_xraudio_process.privacy_mode, xraudio_hal_msg_async_handler);
+            if(g_xraudio_process.hal_obj == NULL) {
+               XLOGD_ERROR("hal open failed.");
+               return(XRAUDIO_RESULT_ERROR_INTERNAL);
+            }
+         }
+         g_xraudio_process.hal_user_cnt++;
+         XLOGD_INFO("hal obj %p", g_xraudio_process.hal_obj);
+      }
    }
    return(XRAUDIO_RESULT_OK);
 }
 
 void xraudio_audio_hal_close(xraudio_obj_t *obj) {
-   if(obj->hal_plugin != NULL) {
-      XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
-      g_xraudio_process.hal_user_cnt--;
-      if((g_xraudio_process.hal_user_cnt == 0) && (g_xraudio_process.hal_obj != NULL)) {
+   if(obj->xr_ffv_hal_plugin != NULL) {
+      XLOGD_INFO("xr ffv hal obj %p user count %u", g_xraudio_process.xr_ffv_hal_obj, g_xraudio_process.xr_ffv_hal_cnt);
+      g_xraudio_process.xr_ffv_hal_cnt--;
+      if((g_xraudio_process.xr_ffv_hal_cnt == 0) && (g_xraudio_process.xr_ffv_hal_obj != NULL)) {
          XLOGD_INFO("");
-         obj->hal_plugin->close(g_xraudio_process.hal_obj);
-         g_xraudio_process.hal_obj = NULL;
+         obj->xr_ffv_hal_plugin->close(g_xraudio_process.xr_ffv_hal_obj);
+         g_xraudio_process.xr_ffv_hal_obj = NULL;
+      }
+   } else {
+      if(obj->hal_plugin != NULL) {
+         XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
+         g_xraudio_process.hal_user_cnt--;
+         if((g_xraudio_process.hal_user_cnt == 0) && (g_xraudio_process.hal_obj != NULL)) {
+            XLOGD_INFO("");
+            obj->hal_plugin->close(g_xraudio_process.hal_obj);
+            g_xraudio_process.hal_obj = NULL;
+         }
       }
    }
 }

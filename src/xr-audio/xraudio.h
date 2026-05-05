@@ -51,6 +51,9 @@
 #include <xraudio_kwd.h>
 #include <xraudio_eos.h>
 #include <xraudio_ppr.h>
+#ifdef FFV_HAL_V2
+#include <xr_ffv_hal_interface.h>
+#endif
 
 #define XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE      (16000)                             ///< Default input sample rate (in Hertz)
 #define XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE      (2)                                 ///< Default input sample size (in bytes)

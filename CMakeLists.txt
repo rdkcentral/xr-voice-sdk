@@ -36,6 +36,7 @@ option(HTTP_ENABLED,            "speech router http protocol"                 OF
 option(WS_ENABLED,              "speech router websocket protocol"            OFF)
 option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
+option(FFV_HAL_V2,              "use xr ffv hal"                              ON)
 
 set(XRAUDIO_CONFIG_JSON_HAL, "" CACHE FILEPATH "xraudio config hal")
 set(XRAUDIO_CONFIG_JSON_KWD, "" CACHE FILEPATH "xraudio config kwd")
@@ -158,6 +159,14 @@ find_library(CURTAIL_LIBRARY NAMES curtail)
 if(CURTAIL_LIBRARY)
    target_compile_definitions(xr-voice-sdk PUBLIC VSDK_CURTAIL_ENABLED)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
+endif()
+
+if(FFV_HAL_V2)
+   target_sources(xr-voice-sdk PUBLIC
+      src/xr-ffv-hal/xr_ffv_hal_interface.c
+      )
+   target_compile_definitions(xr-voice-sdk PUBLIC FFV_HAL_V2)
+   target_include_directories(xr-voice-sdk PUBLIC src/xr-ffv-hal/)
 endif()
 
 # CONFIG FILES

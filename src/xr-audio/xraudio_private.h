@@ -41,6 +41,7 @@
 #include "xraudio_input.h"
 
 #define XLOG_MODULE_ID XLOG_MODULE_ID_XRAUDIO
+#define  XLOG_PRINT_LINE
 #include "rdkx_logger.h"
 
 #define WAVE_HEADER_SIZE_MIN              (44)
@@ -148,6 +149,7 @@ typedef struct {
    xraudio_hal_plugin_api_t *        hal_plugin;
    xraudio_kwd_plugin_api_t *        kwd_plugin;
    xraudio_dga_plugin_api_t *        dga_plugin;
+   xr_ffv_hal_plugin_func_t *        xr_ffv_hal_plugin;
    xraudio_input_object_t            obj_input;
    xraudio_output_object_t           obj_output;
    json_t*                           json_obj_output;
