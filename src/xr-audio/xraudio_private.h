@@ -28,6 +28,7 @@
 #include <xr_mq.h>
 #include <xr_timestamp.h>
 #include <xr_timer.h>
+#include <xrsr.h>
 #include <jansson.h>
 #include "xraudio_hal.h"
 #include "xraudio_config.h"
@@ -50,7 +51,7 @@
 #define XRAUDIO_FIFO_NAME_LENGTH_MAX      (64)
 #define XRAUDIO_FIFO_NAME_LENGTH_MIN      (2)
 
-#define XRAUDIO_FIFO_QTY_MAX              (2)
+#define XRAUDIO_FIFO_QTY_MAX              (XRSR_DST_QTY_MAX) // The quantity of FIFOs needed is based on the maximum quantity of destinations for a source in xrsr
 
 #define BLOCK_INTERFERER_DURING_VREX       (1)
 

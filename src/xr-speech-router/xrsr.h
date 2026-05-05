@@ -50,7 +50,7 @@
 #define XRSR_USER_AGENT_LEN_MAX            (256)   ///< Maximum length of the NULL-terminated user agent string.
 #define XRSR_SESSION_IP_LEN_MAX            (48)    ///< Maximum length of the NULL-terminated IP address string.
 
-#define XRSR_DST_QTY_MAX                   (2)     ///< Maximum quantity of destinations for a source
+#define XRSR_DST_QTY_MAX                   (1)     ///< Maximum quantity of destinations for a source
 
 #define XRSR_SESSION_BY_TEXT_MAX_LENGTH    (128)   ///< Maximum text string length for text-only sessions
 #define XRSR_SESSION_AUDIO_FILE_MAX_LENGTH (256)   ///< Maximum string length for audio file name
