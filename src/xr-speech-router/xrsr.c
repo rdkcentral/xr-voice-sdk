@@ -157,7 +157,9 @@ static void xrsr_session_stream_end(const uuid_t uuid, const char *uuid_str, xrs
 static void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config_in_t *config_in);
 #endif
 
+#ifdef WS_ENABLED
 static void xrsr_callback_session_config_in_ws(const uuid_t uuid, xrsr_session_config_in_t *config_in);
+#endif
 
 typedef void (*xrsr_msg_handler_t)(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg);
 
@@ -288,9 +290,8 @@ void xrsr_config_default(void) {
 }
 
 void xrsr_config_apply(json_t *json_obj_in) {
-   json_t *json_obj;
-
    #ifdef HTTP_ENABLED
+   json_t *json_obj;
    memset(&g_xrsr.http_json_config, 0, sizeof(xrsr_http_json_config_t));
 
    json_t *json_obj_http  = json_object_get(json_obj_in, JSON_OBJ_NAME_HTTP);
@@ -306,6 +307,7 @@ void xrsr_config_apply(json_t *json_obj_in) {
    #endif
 
    #ifdef WS_ENABLED
+   json_t *json_obj;
    memset(&g_xrsr.ws_json_config_fpm, 0, sizeof(xrsr_ws_json_config_t));
    memset(&g_xrsr.ws_json_config_lpm, 0, sizeof(xrsr_ws_json_config_t));
 
@@ -436,8 +438,9 @@ void xrsr_config_apply(json_t *json_obj_in) {
             }
          }
       }
-      #endif
    }
+
+   #endif
 }
 
 bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, json_t *json_obj_vsdk) {
@@ -553,15 +556,21 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    switch(power_mode) {
       case XRSR_POWER_MODE_FULL:
          xraudio_power_mode = XRAUDIO_POWER_MODE_FULL;
+#ifdef WS_ENABLED
          g_xrsr.ws_json_config = &g_xrsr.ws_json_config_fpm;
+#endif
          break;
       case XRSR_POWER_MODE_LOW:
          xraudio_power_mode = XRAUDIO_POWER_MODE_LOW;
+#ifdef WS_ENABLED
          g_xrsr.ws_json_config = &g_xrsr.ws_json_config_lpm;
+#endif
          break;
       case XRSR_POWER_MODE_SLEEP:
          xraudio_power_mode = XRAUDIO_POWER_MODE_SLEEP;
+#ifdef WS_ENABLED
          g_xrsr.ws_json_config = &g_xrsr.ws_json_config_lpm;
+#endif
          break;
       default:
          XLOGD_ERROR("Invalid power mode");
