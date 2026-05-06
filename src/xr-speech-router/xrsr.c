@@ -33,7 +33,9 @@
 #include <vsdk_private.h>
 #include <xrsr_private.h>
 #include <xraudio.h>
+#ifdef XRAUDIO_DECODE_OPUS
 #include <opus/opus.h>
+#endif
 
 typedef enum {
    XRSR_THREAD_MAIN = 0,
@@ -3066,8 +3068,12 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
             // verify the audio format
             uint32_t data_length = 0;
             bool encoding_opus = (output_format.encoding.type == XRAUDIO_ENCODING_OPUS);
+
+#ifdef XRAUDIO_DECODE_OPUS
             OpusDecoder *obj_opus = NULL;
+#endif
             if(encoding_opus) {
+#ifdef XRAUDIO_DECODE_OPUS
                int opus_error = 0;
                obj_opus = opus_decoder_create(16000, 1, &opus_error);
                if(obj_opus == NULL || opus_error != OPUS_OK) {
@@ -3084,6 +3090,10 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      data_length = statbuf.st_size; // the full length of the file
                   }
                }
+#else
+               XLOGD_ERROR("opus input is not supported in this build");
+               stream_begin_failure = true;
+#endif
             } else {
                xraudio_output_format_t format;
                int32_t offset =  xraudio_container_header_parse_wave(fd, NULL, 0, &format, &data_length);
@@ -3121,6 +3131,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      size_t chunk_size = 0;
 
                      if(encoding_opus) { // Process one packet at a time
+#ifdef XRAUDIO_DECODE_OPUS
                         uint8_t length_bytes[2] = { '\0' };
                         errno = 0;
                         int rc = read(fd, &length_bytes[0], 1); // Read opus self-delimiting header first byte
@@ -3164,6 +3175,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            break;
                         }
                         chunk_size = samples * sizeof(int16_t);
+#else
+                        XLOGD_ERROR("opus input is not supported in this build");
+                        stream_begin_failure = true;
+                        break;
+#endif
 
                      } else {
                         chunk_size = (data_length >= sizeof(buffer)) ? sizeof(buffer) : data_length;
@@ -3210,9 +3226,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                }
             }
             close(fd);
-            if(obj_opus == NULL) {
+#ifdef XRAUDIO_DECODE_OPUS
+            if(obj_opus != NULL) {
                opus_decoder_destroy(obj_opus);
             }
+#endif
          }
       }
 
