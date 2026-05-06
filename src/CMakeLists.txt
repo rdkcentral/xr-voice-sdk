@@ -1,3 +1,5 @@
+include(GNUInstallDirs)
+
 option(RDK_VERSION_ENABLED,     "Build with RDK versioning support"           OFF)
 option(HTTP_ENABLED,            "speech router http protocol"                 OFF)
 option(WS_ENABLED,              "speech router websocket protocol"            OFF)
