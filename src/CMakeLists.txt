@@ -123,11 +123,15 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_I
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
 
 # HEADER FILES
-install(FILES xr_voice_sdk.h TYPE INCLUDE)
-install(FILES xr-speech-router/xrsr.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE)
+install(FILES xr_voice_sdk.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-router/xrsr.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-mq/xr_mq.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-timestamp/xr_timestamp.h TYPE INCLUDE COMPONENT headers)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.h TYPE INCLUDE COMPONENT headers)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_modules.h TYPE INCLUDE COMPONENT headers)
 
 # LIBRARY FILES
 install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
@@ -147,7 +151,7 @@ add_custom_command(
    VERBATIM)
 
 add_custom_command(
-   OUTPUT rdkx_logger_modules.hash rdkx_logger_modules_lookup.c
+   OUTPUT rdkx_logger_modules.hash rdkx_logger_modules.h rdkx_logger_modules_lookup.c
    COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/rdkx_logger_modules_to_c.py" ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger_modules "mw"
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
