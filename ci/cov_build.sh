@@ -44,6 +44,7 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DCMAKE_C_FLAGS=" \
     -I ${HEADERS_DIR} \
     -I ${MOCK_DIR} \
+    -DSAFEC_DUMMY_API \
     -Wall -Wno-error"
 
 # We should remove this hack to disable -Werror once the warnings are fixed in the codebase.
