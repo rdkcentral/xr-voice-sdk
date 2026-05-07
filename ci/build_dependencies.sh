@@ -58,8 +58,8 @@ RDKVERSION_DIR="$GITHUB_WORKSPACE/rdkversion"
 SAFEC_WRAPPER_DIR="$GITHUB_WORKSPACE/meta-rdk-oss-reference/recipes-common/safec-common-wrapper/files"
 
 ###########################################
-# 3. Clone and build nopoll from source
-# (libnopoll-dev is not available in the CI docker image)
+# 3. Build nopoll from source
+# libnopoll-dev is not available in the CI image.
 
 git clone --depth 1 https://github.com/ASPLes/nopoll.git
 
@@ -82,15 +82,12 @@ mkdir -p "${HEADERS_DIR}"
 
 cd "${HEADERS_DIR}"
 
-# rdkversion.h — real header from upstream
+# Use the upstream rdkversion.h.
 cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 [ -f rdkversion.h ]
 
-# safec_lib.h from meta-rdk-oss-reference/safec-common-wrapper — the same header
-# the Yocto build installs into the sysroot. Built with SAFEC_DUMMY_API so the
-# header's inline stubs handle everything and libsafec-dev is not needed.
-# The upstream file lacks include guards, so add them to prevent redefinition
-# errors when a translation unit includes safec_lib.h more than once.
+# Use the Yocto safec_lib.h sysroot header for CI builds without libsafec.
+# Add include guards because the upstream header does not provide them.
 cp "$SAFEC_WRAPPER_DIR/safec_lib.h" safec_lib.h
 sed -i '1s/^/#ifndef XR_VOICE_SDK_CI_SAFEC_LIB_H\n#define XR_VOICE_SDK_CI_SAFEC_LIB_H\n/' safec_lib.h
 printf '\n#endif /* XR_VOICE_SDK_CI_SAFEC_LIB_H */\n' >> safec_lib.h
