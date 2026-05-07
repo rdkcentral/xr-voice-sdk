@@ -89,7 +89,11 @@ cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 # safec_lib.h from meta-rdk-oss-reference/safec-common-wrapper — the same header
 # the Yocto build installs into the sysroot. Built with SAFEC_DUMMY_API so the
 # header's inline stubs handle everything and libsafec-dev is not needed.
+# The upstream file lacks include guards, so add them to prevent redefinition
+# errors when a translation unit includes safec_lib.h more than once.
 cp "$SAFEC_WRAPPER_DIR/safec_lib.h" safec_lib.h
+sed -i '1s/^/#ifndef XR_VOICE_SDK_CI_SAFEC_LIB_H\n#define XR_VOICE_SDK_CI_SAFEC_LIB_H\n/' safec_lib.h
+printf '\n#endif /* XR_VOICE_SDK_CI_SAFEC_LIB_H */\n' >> safec_lib.h
 
 echo "Stub headers created successfully"
 
