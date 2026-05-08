@@ -59,7 +59,7 @@ target_sources(xr-voice-sdk PUBLIC
                xr-audio/xraudio_utils.c
                xr-audio/xraudio_atomic.c)
 
-target_compile_options(xr-voice-sdk PUBLIC -fPIC -rdynamic -Wall -Werror)
+target_compile_options(xr-voice-sdk PUBLIC -fPIC -rdynamic -Wall -Werror -Wno-error=format)
 
 target_compile_definitions(xr-voice-sdk PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE)
 

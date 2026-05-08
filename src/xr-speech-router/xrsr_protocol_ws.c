@@ -523,6 +523,8 @@ noPollConnOpts *xrsr_conn_opts_get(xrsr_state_ws_t *ws, const char *sat_token) {
       nopoll_conn_opts_set_extra_headers(nopoll_opts, sat_token_str);
    }
 
+   printf("Test coverity workflow %s\n");
+
    if(ws->prot == XRSR_PROTOCOL_WSS) {
       if(!ws->session_config_in.ws.host_verify) {
          XLOGD_WARN("hostname verification disabled");
