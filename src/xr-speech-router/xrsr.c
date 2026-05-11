@@ -1948,6 +1948,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
    }
    session->src                  = begin->src;
 
+#if defined(HTTP_ENABLED) || defined(WS_ENABLED)
    xrsr_keyword_detector_result_t *detector_result_ptr = NULL;
    xrsr_keyword_detector_result_t  detector_result;
    if(begin->has_result) {
@@ -1980,9 +1981,12 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
    }
 
    const char *transcription_in = (begin->transcription_in[0] == '\0') ? NULL : begin->transcription_in;
+#endif
+#if defined(HTTP_ENABLED) || defined(WS_ENABLED) || defined(SDT_ENABLED)
    const char *audio_file_in    = (begin->audio_file_in[0]    == '\0') ? NULL : begin->audio_file_in;
 
    bool create_stream = true;
+#endif
    for(uint32_t dst_index = 0; dst_index < XRSR_DST_QTY_MAX; dst_index++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[session->src].dsts[dst_index];
 
@@ -2295,7 +2299,9 @@ void xrsr_msg_session_config_in(const xrsr_thread_params_t *params, xrsr_thread_
    xrsr_session_t *session = &g_xrsr.sessions[xrsr_source_to_group(config_in->src)];
 
    bool found_session = false;
+#if defined(HTTP_ENABLED) || defined(WS_ENABLED)
    bool create_stream = true;
+#endif
    for(uint32_t dst_index = 0; dst_index < XRSR_DST_QTY_MAX; dst_index++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[session->src].dsts[dst_index];
 
@@ -2658,7 +2664,9 @@ void xrsr_msg_session_audio_stream_start(const xrsr_thread_params_t *params, xrs
    }
 
    uint32_t index_src = src;
+#ifdef WS_ENABLED
    bool create_stream = true;
+#endif
    for(uint32_t index_dst = 0; index_dst < XRSR_DST_QTY_MAX; index_dst++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[index_src].dsts[index_dst];
 
