@@ -290,7 +290,9 @@ void xrsr_config_default(void) {
 }
 
 void xrsr_config_apply(json_t *json_obj_in) {
+   #if defined(HTTP_ENABLED) || defined(WS_ENABLED)
    json_t *json_obj;
+   #endif
 
    #ifdef HTTP_ENABLED
    memset(&g_xrsr.http_json_config, 0, sizeof(xrsr_http_json_config_t));
