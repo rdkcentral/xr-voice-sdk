@@ -2038,18 +2038,12 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             if(transcription_in == NULL) {
                http->transcription_ptr = NULL;
             } else {
-               errno_t safec_rc = -1;
-               safec_rc = strncpy_s(http->transcription_in, sizeof(http->transcription_in), transcription_in, sizeof(http->transcription_in) - 1);
-               ERR_CHK(safec_rc);
-               http->transcription_in[sizeof(http->transcription_in) - 1] = '\0';
+               strlcpy(http->transcription_in, transcription_in, sizeof(http->transcription_in));
                http->transcription_ptr = &http->transcription_in[0];
             }
 
             if(http->is_session_by_file) {
-               errno_t safec_rc = -1;
-               safec_rc = strncpy_s(http->audio_file_in, sizeof(http->audio_file_in), audio_file_in, sizeof(http->audio_file_in) - 1);
-               ERR_CHK(safec_rc);
-               http->audio_file_in[sizeof(http->audio_file_in) - 1] = '\0';
+               strlcpy(http->audio_file_in, audio_file_in, sizeof(http->audio_file_in));
             }
 
             // Call session begin handler
@@ -2105,10 +2099,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                ws->low_cpu_util   = begin->low_cpu_util;
 
                if(ws->is_session_by_file) {
-                  errno_t safec_rc = -1;
-                  safec_rc = strncpy_s(ws->audio_file_in, sizeof(ws->audio_file_in), audio_file_in, sizeof(ws->audio_file_in) - 1);
-                  ERR_CHK(safec_rc);
-                  ws->audio_file_in[sizeof(ws->audio_file_in) - 1] = '\0';
+                  strlcpy(ws->audio_file_in, audio_file_in, sizeof(ws->audio_file_in));
                }
 
                if(!begin->retry && ws->handlers.session_begin != NULL) { // Call session begin handler
