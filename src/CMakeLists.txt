@@ -123,11 +123,33 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_I
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
 
 # HEADER FILES
-install(FILES xr_voice_sdk.h TYPE INCLUDE)
-install(FILES xr-speech-router/xrsr.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE)
+# External headers: public API consumed by downstream users (e.g. control manager).
+install(FILES xr_voice_sdk.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-router/xrsr.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE COMPONENT headers)
+# Internal headers: sub-component interfaces from the great component consolidation.
+# Consumed by xr-voice-sdk-headers.bb and other internal dependents; not part of the
+# public API installed by the main xr-voice-sdk recipe.
+install(FILES xr-mq/xr_mq.h               TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-fdc/xr_fdc.h             TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-timer/xr_timer.h         TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-timestamp/xr_timestamp.h TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-sm-engine/xr_sm_engine.h TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio.h          TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_hal.h      TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_eos.h      TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_dga.h      TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_kwd.h      TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_sdf.h      TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_ovc.h      TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_ppr.h      TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_common.h   TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_platform.h TYPE INCLUDE COMPONENT internal-headers)
+install(FILES xr-audio/xraudio_version.h  TYPE INCLUDE COMPONENT internal-headers)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.h         TYPE INCLUDE COMPONENT internal-headers)
+install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_modules.h TYPE INCLUDE COMPONENT internal-headers)
 
 # LIBRARY FILES
 install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
@@ -147,7 +169,7 @@ add_custom_command(
    VERBATIM)
 
 add_custom_command(
-   OUTPUT rdkx_logger_modules.hash rdkx_logger_modules_lookup.c
+   OUTPUT rdkx_logger_modules.hash rdkx_logger_modules.h rdkx_logger_modules_lookup.c
    COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/rdkx_logger_modules_to_c.py" ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger_modules "mw"
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
