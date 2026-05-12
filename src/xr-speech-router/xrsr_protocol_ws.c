@@ -716,30 +716,41 @@ void xrsr_ws_on_msg(xrsr_state_ws_t *ws, noPollConn *conn, noPollMsg *msg) {
    }
    nopoll_msg_unref(msg);
 
-   if((unsigned int)recv_event < XRSR_RECV_EVENT_NONE) {
-      if(recv_event == XRSR_RECV_EVENT_EOS_SERVER) {
+   switch(recv_event) {
+      case XRSR_RECV_EVENT_EOS_SERVER: {
          ws->stream_end_reason  = XRSR_STREAM_END_REASON_AUDIO_EOF;
          ws->session_end_reason = XRSR_SESSION_END_REASON_EOS;
          XLOGD_INFO("src <%s> recv_event %s", xrsr_src_str(ws->audio_src), xrsr_recv_event_str(recv_event));
          xrsr_ws_event(ws, SM_EVENT_EOS_PIPE, true);
-      } else if(recv_event == XRSR_RECV_EVENT_DISCONNECT_REMOTE) {
+         break;
+      }
+      case XRSR_RECV_EVENT_DISCONNECT_REMOTE: {
          ws->stream_end_reason  = XRSR_STREAM_END_REASON_DISCONNECT_REMOTE;
          ws->session_end_reason = XRSR_SESSION_END_REASON_ERROR_WS_SEND;
          XLOGD_INFO("src <%s> recv_event %s", xrsr_src_str(ws->audio_src), xrsr_recv_event_str(recv_event));
          // Close the connection
          xrsr_ws_event(ws, SM_EVENT_APP_CLOSE, false);
-      } else if(recv_event == XRSR_RECV_EVENT_TIMEOUT_SERVER) {
+         break;
+      }
+      case XRSR_RECV_EVENT_TIMEOUT_SERVER: {
          ws->stream_end_reason  = XRSR_STREAM_END_REASON_AUDIO_EOF;
          ws->session_end_reason = XRSR_SESSION_END_REASON_EOS;
          XLOGD_INFO("src <%s> recv_event %s", xrsr_src_str(ws->audio_src), xrsr_recv_event_str(recv_event));
          // Close the connection
          xrsr_ws_event(ws, SM_EVENT_APP_CLOSE, false);
-      } else if(recv_event == XRSR_RECV_EVENT_USER_QUIT) {
+         break;
+      }
+      case XRSR_RECV_EVENT_USER_QUIT: {
          ws->stream_end_reason  = XRSR_STREAM_END_REASON_AUDIO_EOF;
          ws->session_end_reason = XRSR_SESSION_END_REASON_EOS;
          XLOGD_INFO("src <%s> recv_event %s", xrsr_src_str(ws->audio_src), xrsr_recv_event_str(recv_event));
          // Close the connection
          xrsr_ws_event(ws, SM_EVENT_APP_CLOSE, false);
+         break;
+      }
+      case XRSR_RECV_EVENT_NONE:
+      case XRSR_RECV_EVENT_INVALID: {
+         break;
       }
    }
 }
