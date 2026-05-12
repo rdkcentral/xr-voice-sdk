@@ -29,7 +29,6 @@ git config --global --add safe.directory "${GITHUB_WORKSPACE}"
 # Build xr-voice-sdk
 echo "building xr-voice-sdk"
 
-MOCK_DIR="$GITHUB_WORKSPACE/ci/mocks"
 HEADERS_DIR="$GITHUB_WORKSPACE/ci/headers"
 
 cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
@@ -43,7 +42,6 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DWS_NOPOLL_PATCHES=OFF \
     -DCMAKE_C_FLAGS=" \
     -I ${HEADERS_DIR} \
-    -I ${MOCK_DIR} \
     -DSAFEC_DUMMY_API \
     -Wall -Wno-error"
 
