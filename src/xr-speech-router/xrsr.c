@@ -1981,13 +1981,13 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
          }
       }
    }
-
-   const char *transcription_in = (begin->transcription_in[0] == '\0') ? NULL : begin->transcription_in;
 #endif
+
 #if defined(HTTP_ENABLED) || defined(WS_ENABLED) || defined(SDT_ENABLED)
+   const char *transcription_in = (begin->transcription_in[0] == '\0') ? NULL : begin->transcription_in;
    const char *audio_file_in    = (begin->audio_file_in[0]    == '\0') ? NULL : begin->audio_file_in;
 #endif
-#ifdef WS_ENABLED
+#if defined(WS_ENABLED) || defined(SDT_ENABLED)
    bool create_stream = true;
 #endif
    for(uint32_t dst_index = 0; dst_index < XRSR_DST_QTY_MAX; dst_index++) {
