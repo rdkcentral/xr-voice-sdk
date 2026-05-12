@@ -124,15 +124,11 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_I
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
 
 # HEADER FILES
-# External headers: public API consumed by downstream users (e.g. control manager).
 install(FILES xr_voice_sdk.h TYPE INCLUDE COMPONENT headers)
 install(FILES xr-speech-router/xrsr.h TYPE INCLUDE COMPONENT headers)
 install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE COMPONENT headers)
 install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE COMPONENT headers)
 install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE COMPONENT headers)
-# Internal headers: sub-component interfaces from the great component consolidation.
-# Only installed when INSTALL_INTERNAL_HEADERS=ON (used by the xr-voice-sdk-headers
-# recipe); excluded from default installs so they are not part of the public API.
 if(INSTALL_INTERNAL_HEADERS)
    install(FILES xr-mq/xr_mq.h               TYPE INCLUDE COMPONENT internal-headers)
    install(FILES xr-fdc/xr_fdc.h             TYPE INCLUDE COMPONENT internal-headers)
