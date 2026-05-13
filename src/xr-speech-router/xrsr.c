@@ -154,11 +154,11 @@ static void xrsr_session_stream_kwd(const uuid_t uuid, const char *uuid_str, xrs
 static void xrsr_session_stream_end(const uuid_t uuid, const char *uuid_str, xrsr_src_t src, uint32_t dst_index, xrsr_stream_stats_t *stats);
 
 #ifdef HTTP_ENABLED
-void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config_in_t *config_in);
+static void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config_in_t *config_in);
 #endif
 
 #ifdef WS_ENABLED
-void xrsr_callback_session_config_in_ws(const uuid_t uuid, xrsr_session_config_in_t *config_in);
+static void xrsr_callback_session_config_in_ws(const uuid_t uuid, xrsr_session_config_in_t *config_in);
 #endif
 
 typedef void (*xrsr_msg_handler_t)(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg);
@@ -2204,7 +2204,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
 }
 
 #ifdef HTTP_ENABLED
-void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config_in_t *config_in) {
+static void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config_in_t *config_in) {
    xrsr_queue_msg_session_config_in_t msg;
 
    msg.header.type = XRSR_QUEUE_MSG_TYPE_SESSION_CONFIG_IN;
@@ -2241,7 +2241,7 @@ void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config
 #endif
 
 #ifdef WS_ENABLED
-void xrsr_callback_session_config_in_ws(const uuid_t uuid, xrsr_session_config_in_t *config_in) {
+static void xrsr_callback_session_config_in_ws(const uuid_t uuid, xrsr_session_config_in_t *config_in) {
    xrsr_queue_msg_session_config_in_t msg;
 
    msg.header.type = XRSR_QUEUE_MSG_TYPE_SESSION_CONFIG_IN;
@@ -3137,7 +3137,10 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
 
                if(!stream_begin_failure) { // Read the audio file in chunks and write to the pipe
                   while(data_length) {
-                     uint8_t buffer[4096];
+                     union {
+                        opus_int16 samples[2048]; // 4096 bytes; opus_int16-aligned for decoded PCM
+                        uint8_t    bytes[4096];   // raw byte view for PCM file reads and pipe writes
+                     } buffer;
                      size_t chunk_size = 0;
 
                      if(encoding_opus) { // Process one packet at a time
@@ -3178,15 +3181,14 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            data_length -= opus_packet_size;
                         }
                         // Decode opus to pcm
-                        opus_int16 *pcm_buffer = (opus_int16 *)buffer;
-                        const int pcm_capacity = sizeof(buffer) / sizeof(*pcm_buffer);
-                        int samples = opus_decode(obj_opus, opus_packet_buf, opus_packet_size, pcm_buffer, pcm_capacity, 0);
+                        const int pcm_capacity = (int)(sizeof(buffer.samples) / sizeof(buffer.samples[0]));
+                        int samples = opus_decode(obj_opus, opus_packet_buf, opus_packet_size, buffer.samples, pcm_capacity, 0);
                         if(samples < 0) {
                            XLOGD_ERROR("failed to decode opus frame <%d>", samples);
                            stream_begin_failure = true;
                            break;
                         }
-                        chunk_size = samples * sizeof(*pcm_buffer);
+                        chunk_size = samples * sizeof(buffer.samples[0]);
 #else
                         XLOGD_ERROR("opus input is not supported in this build");
                         stream_begin_failure = true;
@@ -3194,9 +3196,9 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
 #endif
 
                      } else {
-                        chunk_size = (data_length >= sizeof(buffer)) ? sizeof(buffer) : data_length;
+                        chunk_size = (data_length >= sizeof(buffer.bytes)) ? sizeof(buffer.bytes) : data_length;
                         errno = 0;
-                        int rc = read(fd, buffer, chunk_size);
+                        int rc = read(fd, buffer.bytes, chunk_size);
                         if(rc != chunk_size) {
                            int errsv = errno;
                            XLOGD_ERROR("failed to read wave data <%s> exp <%u> rxd <%d> <%s>", audio_file_in, chunk_size, rc, strerror(errsv));
@@ -3214,7 +3216,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            continue;
                         }
                         errno = 0;
-                        int rc = write(dsts[index].pipe, buffer, chunk_size);
+                        int rc = write(dsts[index].pipe, buffer.bytes, chunk_size);
                         if(rc != chunk_size) {
                            int errsv = errno;
                            XLOGD_ERROR("failed to write wave data - exp <%u> rxd <%d> <%s>", chunk_size, rc, strerror(errsv));
