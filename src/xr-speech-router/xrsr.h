@@ -693,7 +693,7 @@ bool xrsr_route(const xrsr_route_t routes[]);
 /// @brief Requests a speech router session
 /// @details Requests to start a session manually by user pressing a button on the device or other means.
 /// @param[in] src Source type for the session
-/// @param[in] dst_index Destination index for the session
+/// @param[in] dst_index Destination index for the session. Valid destination-specific values are 0..(XRSR_DST_QTY_MAX - 1). XRSR_DST_INDEX_ALL is also accepted and requests the session for all destinations associated with the source.
 /// @param[in] output_format Audio output format for the session
 /// @param[in] input_format Input format for the session
 /// @param[in] uuid UUID for the session (optional)
