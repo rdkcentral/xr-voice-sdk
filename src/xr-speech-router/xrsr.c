@@ -290,13 +290,15 @@ void xrsr_config_default(void) {
 }
 
 void xrsr_config_apply(json_t *json_obj_in) {
+   // Reset to defaults before applying JSON overrides so that any omitted
+   // fields (including ptr_* pointers) remain valid.
+   xrsr_config_default();
+
    #if defined(HTTP_ENABLED) || defined(WS_ENABLED)
    json_t *json_obj;
    #endif
 
    #ifdef HTTP_ENABLED
-   memset(&g_xrsr.http_json_config, 0, sizeof(xrsr_http_json_config_t));
-
    json_t *json_obj_http  = json_object_get(json_obj_in, JSON_OBJ_NAME_HTTP);
    if(NULL == json_obj_http || !json_is_object(json_obj_http)) {
       XLOGD_INFO("http json object not found, using defaults");
@@ -310,9 +312,6 @@ void xrsr_config_apply(json_t *json_obj_in) {
    #endif
 
    #ifdef WS_ENABLED
-   memset(&g_xrsr.ws_json_config_fpm, 0, sizeof(xrsr_ws_json_config_t));
-   memset(&g_xrsr.ws_json_config_lpm, 0, sizeof(xrsr_ws_json_config_t));
-
    json_t *json_obj_ws     = json_object_get(json_obj_in, JSON_OBJ_NAME_WS);
    if(NULL == json_obj_ws || !json_is_object(json_obj_ws)) {
       XLOGD_INFO("ws json object not found, using defaults");
