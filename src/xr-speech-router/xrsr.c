@@ -3179,13 +3179,15 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            data_length -= opus_packet_size;
                         }
                         // Decode opus to pcm
-                        int samples = opus_decode(obj_opus, opus_packet_buf, opus_packet_size, (opus_int16 *)buffer, sizeof(buffer), 0);
+                        opus_int16 *pcm_buffer = (opus_int16 *)buffer;
+                        const int pcm_capacity = sizeof(buffer) / sizeof(*pcm_buffer);
+                        int samples = opus_decode(obj_opus, opus_packet_buf, opus_packet_size, pcm_buffer, pcm_capacity, 0);
                         if(samples < 0) {
                            XLOGD_ERROR("failed to decode opus frame <%d>", samples);
                            stream_begin_failure = true;
                            break;
                         }
-                        chunk_size = samples * sizeof(int16_t);
+                        chunk_size = samples * sizeof(*pcm_buffer);
 #else
                         XLOGD_ERROR("opus input is not supported in this build");
                         stream_begin_failure = true;
