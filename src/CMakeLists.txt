@@ -1,9 +1,9 @@
-option(RDK_VERSION_ENABLED,     "Build with RDK versioning support"           OFF)
-option(HTTP_ENABLED,            "speech router http protocol"                 OFF)
+option(RDK_VERSION_ENABLED     "Build with RDK versioning support"           OFF)
+option(HTTP_ENABLED            "speech router http protocol"                 OFF)
 option(INSTALL_INTERNAL_HEADERS "Install internal sub-component headers"      OFF)
-option(WS_ENABLED,              "speech router websocket protocol"            OFF)
-option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
-option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
+option(WS_ENABLED              "speech router websocket protocol"            OFF)
+option(WS_NOPOLL_PATCHES       "speech router websocket nopoll patches"      OFF)
+option(SDT_ENABLED             "speech router secure data transfer protocol" OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
