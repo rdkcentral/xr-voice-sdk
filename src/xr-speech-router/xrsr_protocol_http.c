@@ -528,7 +528,7 @@ bool xrsr_http_connect(xrsr_state_http_t *http, xrsr_url_parts_t *url_parts, xrs
     if(false == delay) {
         xrsr_http_event(http, SM_EVENT_SESSION_BEGIN, false);
     } else {
-        xrsr_http_event(http, SM_EVENT_SESSION_BEGIN_STM, false);
+        xrsr_http_event(http, SM_EVENT_SESSION_BEGIN_STREAM_CHK, false);
     }
     return(true);
 }
@@ -703,10 +703,27 @@ void xrsr_http_handle_speech_event(xrsr_state_http_t *http, xrsr_speech_event_t 
             break;
         }
         case XRSR_EVENT_STREAM_TIME_MINIMUM: {
-            xrsr_http_event(http, SM_EVENT_STM, false);
+            http->stream_time_min_rxd = true;
+            if(http->stream_vad_detect_rxd) {
+               xrsr_http_event(http, SM_EVENT_STREAM_VALID, false);
+            }
             break;
         }
         case XRSR_EVENT_STREAM_KWD_INFO: {
+            break;
+        }
+        case XRSR_EVENT_STREAM_VOICE_ACTIVITY: {
+            if(http->stream_vad_detect_rxd) {
+                XLOGD_INFO("src <%s> voice activity detection event ignored", xrsr_src_str(http->audio_src));
+            } else {
+                XLOGD_INFO("voice activity detected <%s> confidence <%.2f>", event->data.vad_info.voice_detected ? "YES" : "NO", event->data.vad_info.confidence);
+                if(event->data.vad_info.voice_detected) {
+                    http->stream_vad_detect_rxd = true;
+                    if(http->stream_time_min_rxd) {
+                       xrsr_http_event(http, SM_EVENT_STREAM_VALID, false);
+                    }
+                }
+            }
             break;
         }
         default: {
@@ -832,7 +849,7 @@ void St_Http_Buffering(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardRe
             switch(pEvent->mID) {
                 case SM_EVENT_EOS: {
                     xrsr_speech_stream_end(http->uuid, http->audio_src, http->dst_index, XRSR_STREAM_END_REASON_DID_NOT_BEGIN, http->detect_resume, &http->audio_stats);
-                    http->session_stats.session_end_reason = XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
+                    http->session_stats.session_end_reason = (http->stream_time_min_rxd) ? XRSR_SESSION_END_REASON_ERROR_AUDIO_SILENT : XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
                     http->session_stats.stream_end_reason = XRSR_STREAM_END_REASON_DID_NOT_BEGIN;
                     break;
                 }

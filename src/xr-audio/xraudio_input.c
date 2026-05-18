@@ -84,6 +84,8 @@ typedef struct {
    uint8_t                        frame_group_qty;
    char                           stream_identifer[XRAUDIO_STREAM_ID_SIZE_MAX];
    uint16_t                       stream_time_minimum;
+   bool                           vad_enabled;
+   xraudio_input_vad_config_t     vad_config;
    uint32_t                       stream_keyword_begin;
    uint32_t                       stream_keyword_duration;
    xraudio_stream_latency_mode_t  latency_mode;
@@ -197,6 +199,7 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       session->latency_mode             = XRAUDIO_STREAM_LATENCY_NORMAL;
       session->cpu_util_mode            = XRAUDIO_STREAM_CPU_UTIL_NORMAL;
       session->stream_time_minimum      = 0;
+      session->vad_enabled              = false;
       session->stream_keyword_begin     = 0;
       session->stream_keyword_duration  = 0;
       session->fifo_audio_data[0]       = -1;
@@ -669,6 +672,56 @@ xraudio_result_t xraudio_input_stream_time_minimum(xraudio_object_t object, xrau
       XLOGD_INFO("Minimum Audio Threshold %u ms", ms);
       session->stream_time_minimum = ms;
    }
+   return(XRAUDIO_RESULT_OK);
+}
+
+xraudio_result_t xraudio_input_vad_config(xraudio_input_object_t object, xraudio_devices_input_t source, xraudio_input_vad_config_t *vad_config) {
+   xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
+   if(!xraudio_input_object_is_valid(obj)) {
+      XLOGD_ERROR("Invalid object.");
+      return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+   
+   XRAUDIO_RECORD_MUTEX_LOCK();
+   xraudio_input_session_t *session = xraudio_input_source_to_session(obj, source);
+   
+   if(session->state == XRAUDIO_INPUT_STATE_RECORDING || session->state == XRAUDIO_INPUT_STATE_STREAMING) {
+      XLOGD_ERROR("Cannot modify VAD settings during active session. State: %s", xraudio_input_state_str(session->state));
+      XRAUDIO_RECORD_MUTEX_UNLOCK();
+      return(XRAUDIO_RESULT_ERROR_STATE);
+   }
+   
+   session->vad_enabled = false; // Default to disabled if config is NULL or invalid
+   if(vad_config == NULL) {
+      XLOGD_INFO("VAD disabled for source %s", xraudio_devices_input_str(source));
+   } else {
+      if(vad_config->sensitivity < XRAUDIO_VAD_MIN_SENSITIVITY || vad_config->sensitivity > XRAUDIO_VAD_MAX_SENSITIVITY) {
+         XLOGD_ERROR("Invalid VAD sensitivity: %f (range: %f - %f)", vad_config->sensitivity, XRAUDIO_VAD_MIN_SENSITIVITY, XRAUDIO_VAD_MAX_SENSITIVITY);
+         XRAUDIO_RECORD_MUTEX_UNLOCK();
+         return(XRAUDIO_RESULT_ERROR_PARAMS);
+      }
+      if(vad_config->analysis_window_ms < XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS || vad_config->analysis_window_ms > XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS) {
+         XLOGD_ERROR("Invalid VAD analysis window: %u (range: %u - %u)", vad_config->analysis_window_ms, XRAUDIO_VAD_MIN_ANALYSIS_WINDOW_MS, XRAUDIO_VAD_MAX_ANALYSIS_WINDOW_MS);
+         XRAUDIO_RECORD_MUTEX_UNLOCK();
+         return(XRAUDIO_RESULT_ERROR_PARAMS);
+      }
+      if(vad_config->audio_rms_level_min < XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN || vad_config->audio_rms_level_min > XRAUDIO_VAD_MAX_AUDIO_RMS_LEVEL_MIN) {
+         XLOGD_ERROR("Invalid VAD minimum audio RMS level: %f dB (range: %f - %f)", vad_config->audio_rms_level_min, XRAUDIO_VAD_MIN_AUDIO_RMS_LEVEL_MIN, XRAUDIO_VAD_MAX_AUDIO_RMS_LEVEL_MIN);
+         XRAUDIO_RECORD_MUTEX_UNLOCK();
+         return(XRAUDIO_RESULT_ERROR_PARAMS);
+      }
+      if(vad_config->intro_window_ms < XRAUDIO_VAD_MIN_INTRO_WINDOW_MS || vad_config->intro_window_ms > XRAUDIO_VAD_MAX_INTRO_WINDOW_MS) {
+         XLOGD_ERROR("Invalid VAD introductory window: %u ms (range: %u - %u)", vad_config->intro_window_ms, XRAUDIO_VAD_MIN_INTRO_WINDOW_MS, XRAUDIO_VAD_MAX_INTRO_WINDOW_MS);
+         XRAUDIO_RECORD_MUTEX_UNLOCK();
+         return(XRAUDIO_RESULT_ERROR_PARAMS);
+      }
+
+      XLOGD_INFO("VAD enabled for source <%s> sensitivity <%.2f> analysis window <%u ms> rms min <%.2f dB> intro window <%u ms>", xraudio_devices_input_str(source), vad_config->sensitivity, vad_config->analysis_window_ms, vad_config->audio_rms_level_min, vad_config->intro_window_ms);
+      session->vad_config  = *vad_config;
+      session->vad_enabled = true;
+   }
+   
+   XRAUDIO_RECORD_MUTEX_UNLOCK();
    return(XRAUDIO_RESULT_OK);
 }
 
@@ -1486,6 +1539,7 @@ xraudio_result_t xraudio_input_stop_locked(xraudio_input_obj_t *obj, xraudio_dev
       session->audio_buf_sample_qty    = 0;
       session->data_callback           = NULL;
       session->stream_time_minimum     = 0;
+      session->vad_enabled             = false;
       session->stream_keyword_begin    = 0;
       session->stream_keyword_duration = 0;
 
@@ -1640,6 +1694,8 @@ xraudio_result_t xraudio_input_dispatch_record(xraudio_input_obj_t *obj, xraudio
    msg.data_callback           = session->data_callback;
    msg.fifo_sound_intensity    = session->fifo_sound_intensity;
    msg.stream_time_minimum     = session->stream_time_minimum;
+   msg.vad_enabled             = session->vad_enabled;
+   msg.vad_config              = session->vad_config;
    msg.stream_keyword_begin    = session->stream_keyword_begin;
    msg.stream_keyword_duration = session->stream_keyword_duration;
    msg.format_decoded          = (format_decoded != NULL) ? *format_decoded : (xraudio_input_format_t){ .container = XRAUDIO_CONTAINER_INVALID, .encoding.type = XRAUDIO_ENCODING_INVALID, .sample_rate = 0, .sample_size = 0, .channel_qty = 0 };

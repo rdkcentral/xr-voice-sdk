@@ -24,9 +24,9 @@
 // State Events
 //-------------------------------------------------------------------------------
 #define SM_EVENT_SESSION_BEGIN            (0)
-#define SM_EVENT_SESSION_BEGIN_STM        (1)
+#define SM_EVENT_SESSION_BEGIN_STREAM_CHK (1)
 #define SM_EVENT_DISCONNECTED             (2)
-#define SM_EVENT_STM                      (3)
+#define SM_EVENT_STREAM_VALID             (3)
 #define SM_EVENT_EOS                      (4)
 #define SM_EVENT_TERMINATE                (5)
 #define SM_EVENT_XRSR_ERROR               (6)
@@ -60,7 +60,7 @@ STATE_DECLARE( St_Sdt_Streaming );
 tStateGuard St_Sdt_Disconnected_NextStates[] = 
 {
     { SM_EVENT_SESSION_BEGIN, &St_Sdt_Connecting_Info },
-    { SM_EVENT_SESSION_BEGIN_STM, &St_Sdt_Buffering_Info }
+    { SM_EVENT_SESSION_BEGIN_STREAM_CHK, &St_Sdt_Buffering_Info }
 };
 
 tStateInfo St_Sdt_Disconnected_Info = 
@@ -94,7 +94,7 @@ tStateGuard St_Sdt_Buffering_NextStates[] =
 {
     { SM_EVENT_EOS, &St_Sdt_Disconnected_Info },
     { SM_EVENT_TERMINATE, &St_Sdt_Disconnected_Info },
-    { SM_EVENT_STM, &St_Sdt_Connecting_Info }
+    { SM_EVENT_STREAM_VALID, &St_Sdt_Connecting_Info }
 };
 
 tStateInfo St_Sdt_Buffering_Info = 

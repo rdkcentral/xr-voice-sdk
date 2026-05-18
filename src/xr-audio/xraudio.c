@@ -1602,6 +1602,32 @@ xraudio_result_t xraudio_stream_time_minimum(xraudio_object_t object, xraudio_de
    return(result);
 }
 
+xraudio_result_t xraudio_stream_vad_config(xraudio_object_t object, xraudio_devices_input_t source, xraudio_input_vad_config_t *vad_config) {
+   xraudio_obj_t *  obj    = (xraudio_obj_t *)object;
+   xraudio_result_t result = XRAUDIO_RESULT_OK;
+   if(!xraudio_object_is_valid(obj)) {
+      XLOGD_ERROR("Invalid object.");
+      return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+
+   XRAUDIO_API_MUTEX_LOCK();
+   if(!obj->opened) {
+      XLOGD_ERROR("xraudio is not open!");
+      result = XRAUDIO_RESULT_ERROR_OPEN;
+   } else if(obj->devices_input == XRAUDIO_DEVICE_INPUT_NONE) {
+      XLOGD_ERROR("input not opened!");
+      result = XRAUDIO_RESULT_ERROR_INPUT;
+   } else if(obj->obj_input == NULL) {
+      XLOGD_ERROR("input object is NULL!");
+      result = XRAUDIO_RESULT_ERROR_OPEN;
+   } else {
+      // Configure VAD
+      result = xraudio_input_vad_config(obj->obj_input, source, vad_config);
+   }
+   XRAUDIO_API_MUTEX_UNLOCK();
+   return(result);
+}
+
 xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration) {
    xraudio_obj_t *  obj    = (xraudio_obj_t *)object;
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
