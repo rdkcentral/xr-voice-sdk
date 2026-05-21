@@ -43,7 +43,7 @@
  *   --analysis-window <ms>        Analysis window in ms  (default: 100)
  *   --rms-level-min <dB>          Minimum RMS level dB   (default: -60)
  *   --intro-window <ms>           Intro window in ms     (default: 100)
- *   --frame-size-ms <ms>          Frame size in ms       (default: 20)
+ *   --frame-size-ms <ms>          Frame size in ms       (default: 10)
  *   --help                        Print this help message
  *
  * The output file contains a top-level JSON object with the keys:
@@ -585,7 +585,11 @@ static void print_usage(const char *prog) {
         "  output_file  Path for the JSON statistics report\n"
         "\n"
         "Options:\n"
-        "  --sensitivity <0.0-1.0>   VAD sensitivity          (default: %.1f)\n"
+        "  --sensitivity <0.0-1.0>   VAD sensitivity as a fraction of voice frames\n"
+        "                             in the analysis window    (default: %.1f)\n"
+        "  --silence-chunks <N>      Sensitivity expressed as the number of 10 ms\n"
+        "                             silence chunks allowed in the analysis window.\n"
+        "                             Overrides --sensitivity; recomputed per window size.\n"
         "  --analysis-window <ms|min-max>  Analysis window in ms, or a range (e.g. 100-300)\n"
         "                                  stepped in 10 ms increments. Values must be\n"
         "                                  positive multiples of 10  (default: %u)\n"
@@ -598,7 +602,7 @@ static void print_usage(const char *prog) {
         (unsigned)XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS,
         (double)XRAUDIO_VAD_DEFAULT_AUDIO_RMS_LEVEL_MIN,
         (unsigned)XRAUDIO_VAD_DEFAULT_INTRO_WINDOW_MS,
-        20u);
+        10u);
 }
 
 /* -------------------------------------------------------------------------
@@ -613,9 +617,10 @@ int main(int argc, char *argv[]) {
         .audio_rms_level_min = (float)XRAUDIO_VAD_DEFAULT_AUDIO_RMS_LEVEL_MIN,
         .intro_window_ms     = XRAUDIO_VAD_DEFAULT_INTRO_WINDOW_MS,
     };
-    uint32_t frame_size_ms = 20;
+    uint32_t frame_size_ms = 10;
     uint16_t aw_min = XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS;
     uint16_t aw_max = XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS;
+    int32_t  silence_chunks = -1;  /* -1 = not set; >= 0 overrides --sensitivity per run */
 
     /* Parse optional arguments */
     int arg_idx = 1;
@@ -625,6 +630,12 @@ int main(int argc, char *argv[]) {
             return 0;
         } else if (strcmp(argv[arg_idx], "--sensitivity") == 0 && arg_idx + 1 < argc) {
             config.sensitivity = (float)atof(argv[++arg_idx]);
+        } else if (strcmp(argv[arg_idx], "--silence-chunks") == 0 && arg_idx + 1 < argc) {
+            silence_chunks = atoi(argv[++arg_idx]);
+            if (silence_chunks < 0) {
+                fprintf(stderr, "ERROR: --silence-chunks must be >= 0\n");
+                return 1;
+            }
         } else if (strcmp(argv[arg_idx], "--analysis-window") == 0 && arg_idx + 1 < argc) {
             if (!parse_analysis_window(argv[++arg_idx], &aw_min, &aw_max)) {
                 fprintf(stderr, "ERROR: --analysis-window value(s) must be positive multiples of 10"
@@ -723,20 +734,39 @@ int main(int argc, char *argv[]) {
 
     fprintf(stdout, "xraudio_vad_test: %u silent + %u normal file(s) from '%s'\n",
             silent_count, normal_count, wave_dir);
-    fprintf(stdout, "  sensitivity=%.2f  analysis_window=%u-%u ms (step 10)  rms_min=%.1f dB"
-                    "  intro_window=%u ms  frame=%u ms (%u samples)\n",
-            (double)config.sensitivity,
-            (unsigned)aw_min, (unsigned)aw_max,
-            (double)config.audio_rms_level_min,
-            (unsigned)config.intro_window_ms,
-            (unsigned)frame_size_ms,
-            (unsigned)samples_per_frame);
+    if (silence_chunks >= 0) {
+        fprintf(stdout, "  silence_chunks=%d  analysis_window=%u-%u ms (step 10)  rms_min=%.1f dB"
+                        "  intro_window=%u ms  frame=%u ms (%u samples)\n",
+                (int)silence_chunks,
+                (unsigned)aw_min, (unsigned)aw_max,
+                (double)config.audio_rms_level_min,
+                (unsigned)config.intro_window_ms,
+                (unsigned)frame_size_ms,
+                (unsigned)samples_per_frame);
+    } else {
+        fprintf(stdout, "  sensitivity=%.4f  analysis_window=%u-%u ms (step 10)  rms_min=%.1f dB"
+                        "  intro_window=%u ms  frame=%u ms (%u samples)\n",
+                (double)config.sensitivity,
+                (unsigned)aw_min, (unsigned)aw_max,
+                (double)config.audio_rms_level_min,
+                (unsigned)config.intro_window_ms,
+                (unsigned)frame_size_ms,
+                (unsigned)samples_per_frame);
+    }
 
     uint32_t run_idx = 0;
     for (uint16_t aw = aw_min; aw <= aw_max; aw = (uint16_t)(aw + 10), run_idx++) {
         config.analysis_window_ms = aw;
 
-        fprintf(stdout, "\n[analysis_window_ms=%u]\n", (unsigned)aw);
+        /* Recompute sensitivity from silence-chunk count when that mode is active */
+        if (silence_chunks >= 0) {
+            float chunks_in_window = (float)aw / 10.0f;
+            float s = 1.0f - (float)silence_chunks / chunks_in_window;
+            config.sensitivity = (s < 0.0f) ? 0.0f : (s > 1.0f ? 1.0f : s);
+        }
+
+        fprintf(stdout, "\n[analysis_window_ms=%u  sensitivity=%.4f]\n",
+                (unsigned)aw, (double)config.sensitivity);
 
         /* Fresh results for this run, filenames/categories copied from template */
         vad_file_result_t *results = (vad_file_result_t *)calloc(wav_count, sizeof(vad_file_result_t));
