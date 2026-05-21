@@ -28,8 +28,15 @@
  *   xraudio_vad_test [OPTIONS] <wave_dir> <output_file>
  *
  * Arguments:
- *   wave_dir     Directory containing 16-bit mono 16 kHz PCM WAV files
+ *   wave_dir     Directory containing two subdirectories:
+ *                  silent/  - WAV files expected to be rejected by the VAD
+ *                  normal/  - WAV files expected to be accepted by the VAD
+ *                Each subdirectory must contain 16-bit mono 16 kHz PCM WAV files.
  *   output_file  Path to write the statistics report (JSON format)
+ *
+ * The output summary includes:
+ *   "false_accept_rate" - % of silent files incorrectly accepted by the VAD
+ *   "false_reject_rate" - % of normal files incorrectly rejected by the VAD
  *
  * Options:
  *   --sensitivity <0.0-1.0>       VAD sensitivity (default: 0.9)
@@ -224,10 +231,17 @@ static void wav_close(wav_file_t *wav) {
  * Per-file result
  * ------------------------------------------------------------------------- */
 
+typedef enum {
+    VAD_CATEGORY_SILENT = 0,  /* file should be rejected by the VAD */
+    VAD_CATEGORY_NORMAL = 1,  /* file should be accepted by the VAD */
+} vad_file_category_t;
+
 typedef struct {
-    char               filename[512];
-    bool               processed;
-    uint32_t           duration_ms;
+    char                filename[512];   /* relative path: "silent/foo.wav" or "normal/foo.wav" */
+    vad_file_category_t category;
+    bool                processed;
+    bool                vad_accepted;    /* true if VAD detected voice activity (frames_voice > 0) */
+    uint32_t            duration_ms;
     xraudio_vad_stats_t stats;
 } vad_file_result_t;
 
@@ -295,8 +309,10 @@ static bool write_report(const char *output_path,
         const vad_file_result_t *r = &results[i];
         fprintf(fp, "    {\n");
         fprintf(fp, "      \"filename\": \"%s\",\n",  r->filename);
+        fprintf(fp, "      \"category\": \"%s\",\n",  r->category == VAD_CATEGORY_SILENT ? "silent" : "normal");
         fprintf(fp, "      \"processed\": %s,\n",     r->processed ? "true" : "false");
         if (r->processed) {
+            fprintf(fp, "      \"vad_accepted\": %s,\n", r->vad_accepted ? "true" : "false");
             fprintf(fp, "      \"duration_ms\": %u,\n", r->duration_ms);
             write_stats_fields(fp, &r->stats);
             fprintf(fp, "\n");
@@ -310,7 +326,42 @@ static bool write_report(const char *output_path,
     fprintf(fp, "  \"summary\": {\n");
     fprintf(fp, "    \"total_files\": %u,\n",      result_count);
     fprintf(fp, "    \"processed_files\": %u,\n",  processed_count);
-    fprintf(fp, "    \"failed_files\": %u", result_count - processed_count);
+    fprintf(fp, "    \"failed_files\": %u,\n",     result_count - processed_count);
+
+    /* Per-category VAD accuracy metrics */
+    uint32_t silent_total = 0, silent_processed = 0, silent_false_accepts = 0;
+    uint32_t normal_total = 0, normal_processed = 0, normal_false_rejects  = 0;
+
+    for (uint32_t i = 0; i < result_count; i++) {
+        const vad_file_result_t *r = &results[i];
+        if (r->category == VAD_CATEGORY_SILENT) {
+            silent_total++;
+            if (r->processed) {
+                silent_processed++;
+                if (r->vad_accepted) { silent_false_accepts++; }
+            }
+        } else {
+            normal_total++;
+            if (r->processed) {
+                normal_processed++;
+                if (!r->vad_accepted) { normal_false_rejects++; }
+            }
+        }
+    }
+
+    float false_accept_rate = (silent_processed > 0)
+        ? 100.0f * (float)silent_false_accepts / (float)silent_processed : 0.0f;
+    float false_reject_rate = (normal_processed > 0)
+        ? 100.0f * (float)normal_false_rejects / (float)normal_processed : 0.0f;
+
+    fprintf(fp, "    \"silent_files\": %u,\n",         silent_total);
+    fprintf(fp, "    \"silent_processed\": %u,\n",     silent_processed);
+    fprintf(fp, "    \"silent_false_accepts\": %u,\n", silent_false_accepts);
+    fprintf(fp, "    \"false_accept_rate\": %.2f,\n",  (double)false_accept_rate);
+    fprintf(fp, "    \"normal_files\": %u,\n",         normal_total);
+    fprintf(fp, "    \"normal_processed\": %u,\n",     normal_processed);
+    fprintf(fp, "    \"normal_false_rejects\": %u,\n", normal_false_rejects);
+    fprintf(fp, "    \"false_reject_rate\": %.2f",     (double)false_reject_rate);
 
     if (processed_count > 0) {
         xraudio_vad_stats_t agg;
@@ -375,6 +426,114 @@ static bool write_report(const char *output_path,
 }
 
 /* -------------------------------------------------------------------------
+ * File collection
+ * ------------------------------------------------------------------------- */
+
+/*
+ * Scan dir_path for .wav files, sort them alphabetically, and populate a
+ * newly-allocated vad_file_result_t array.  Each entry's filename field is
+ * set to "subdir_name/basename.wav" for both display and path construction.
+ *
+ * Returns the number of entries placed in *out_results (may be 0).
+ * The caller must free(*out_results).
+ */
+static uint32_t collect_wav_files(const char          *dir_path,
+                                   const char          *subdir_name,
+                                   vad_file_category_t  category,
+                                   vad_file_result_t  **out_results)
+{
+    *out_results = NULL;
+
+    struct stat st;
+    if (stat(dir_path, &st) != 0 || !S_ISDIR(st.st_mode)) {
+        fprintf(stderr, "WARNING: subdirectory '%s' not found or not a directory\n", dir_path);
+        return 0;
+    }
+
+    DIR *dp = opendir(dir_path);
+    if (dp == NULL) {
+        fprintf(stderr, "WARNING: cannot open directory '%s': %s\n", dir_path, strerror(errno));
+        return 0;
+    }
+
+    /* Count .wav files */
+    uint32_t count = 0;
+    struct dirent *entry;
+    while ((entry = readdir(dp)) != NULL) {
+        if (entry->d_type != DT_REG && entry->d_type != DT_UNKNOWN) { continue; }
+        size_t len = strlen(entry->d_name);
+        if (len > 4 && strcasecmp(entry->d_name + len - 4, ".wav") == 0) {
+            count++;
+        }
+    }
+    rewinddir(dp);
+
+    if (count == 0) {
+        fprintf(stderr, "WARNING: no .wav files found in '%s'\n", dir_path);
+        closedir(dp);
+        return 0;
+    }
+
+    /* Collect filenames */
+    char **names = (char **)calloc(count, sizeof(char *));
+    if (names == NULL) {
+        fprintf(stderr, "ERROR: out of memory\n");
+        closedir(dp);
+        return 0;
+    }
+    uint32_t idx = 0;
+    while ((entry = readdir(dp)) != NULL && idx < count) {
+        if (entry->d_type != DT_REG && entry->d_type != DT_UNKNOWN) { continue; }
+        size_t len = strlen(entry->d_name);
+        if (len > 4 && strcasecmp(entry->d_name + len - 4, ".wav") == 0) {
+            names[idx] = strdup(entry->d_name);
+            if (names[idx] == NULL) {
+                fprintf(stderr, "ERROR: out of memory\n");
+                for (uint32_t j = 0; j < idx; j++) { free(names[j]); }
+                free(names);
+                closedir(dp);
+                return 0;
+            }
+            idx++;
+        }
+    }
+    closedir(dp);
+    count = idx;
+
+    /* Sort alphabetically for deterministic ordering */
+    for (uint32_t i = 0; i < count - 1; i++) {
+        for (uint32_t j = i + 1; j < count; j++) {
+            if (strcmp(names[i], names[j]) > 0) {
+                char *tmp  = names[i];
+                names[i]   = names[j];
+                names[j]   = tmp;
+            }
+        }
+    }
+
+    /* Build result entries */
+    vad_file_result_t *res = (vad_file_result_t *)calloc(count, sizeof(vad_file_result_t));
+    if (res == NULL) {
+        fprintf(stderr, "ERROR: out of memory\n");
+        for (uint32_t i = 0; i < count; i++) { free(names[i]); }
+        free(names);
+        return 0;
+    }
+
+    for (uint32_t i = 0; i < count; i++) {
+        snprintf(res[i].filename, sizeof(res[i].filename), "%s/%s", subdir_name, names[i]);
+        res[i].category     = category;
+        res[i].processed    = false;
+        res[i].vad_accepted = false;
+        free(names[i]);
+    }
+    free(names);
+
+    *out_results = res;
+    return count;
+}
+
+/* -------------------------------------------------------------------------
  * Usage
  * ------------------------------------------------------------------------- */
 
@@ -383,7 +542,10 @@ static void print_usage(const char *prog) {
         "Usage: %s [OPTIONS] <wave_dir> <output_file>\n"
         "\n"
         "Arguments:\n"
-        "  wave_dir     Directory containing 16-bit mono 16 kHz PCM WAV files\n"
+        "  wave_dir     Directory containing 'silent' and 'normal' subdirectories,\n"
+        "               each holding 16-bit mono 16 kHz PCM WAV files.\n"
+        "                 silent/  files expected to be rejected by the VAD\n"
+        "                 normal/  files expected to be accepted by the VAD\n"
         "  output_file  Path for the JSON statistics report\n"
         "\n"
         "Options:\n"
@@ -449,6 +611,15 @@ int main(int argc, char *argv[]) {
     const char *wave_dir    = argv[arg_idx];
     const char *output_file = argv[arg_idx + 1];
 
+    /* Build subdirectory paths */
+    char silent_dir[1024];
+    char normal_dir[1024];
+    if (snprintf(silent_dir, sizeof(silent_dir), "%s/silent", wave_dir) >= (int)sizeof(silent_dir) ||
+        snprintf(normal_dir, sizeof(normal_dir), "%s/normal", wave_dir) >= (int)sizeof(normal_dir)) {
+        fprintf(stderr, "ERROR: wave_dir path too long\n");
+        return 1;
+    }
+
     /* Validate wave_dir */
     struct stat dir_stat;
     if (stat(wave_dir, &dir_stat) != 0 || !S_ISDIR(dir_stat.st_mode)) {
@@ -456,74 +627,35 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* Collect sorted list of *.wav files */
-    DIR *dp = opendir(wave_dir);
-    if (dp == NULL) {
-        fprintf(stderr, "ERROR: cannot open directory '%s': %s\n", wave_dir, strerror(errno));
-        return 1;
-    }
-
-    /* First pass: count */
-    uint32_t wav_count = 0;
-    struct dirent *entry;
-    while ((entry = readdir(dp)) != NULL) {
-        if (entry->d_type != DT_REG && entry->d_type != DT_UNKNOWN) { continue; }
-        size_t len = strlen(entry->d_name);
-        if (len > 4 && strcasecmp(entry->d_name + len - 4, ".wav") == 0) {
-            wav_count++;
-        }
-    }
-    rewinddir(dp);
+    /* Collect wav files from the 'silent' and 'normal' subdirectories */
+    vad_file_result_t *silent_results = NULL;
+    vad_file_result_t *normal_results = NULL;
+    uint32_t silent_count = collect_wav_files(silent_dir, "silent", VAD_CATEGORY_SILENT, &silent_results);
+    uint32_t normal_count = collect_wav_files(normal_dir, "normal", VAD_CATEGORY_NORMAL, &normal_results);
+    uint32_t wav_count    = silent_count + normal_count;
 
     if (wav_count == 0) {
-        fprintf(stderr, "WARNING: no .wav files found in '%s'\n", wave_dir);
-        closedir(dp);
-        /* Write an empty report */
+        fprintf(stderr, "WARNING: no .wav files found in '%s/silent' or '%s/normal'\n", wave_dir, wave_dir);
         write_report(output_file, &config, frame_size_ms, NULL, 0);
         return 0;
     }
 
-    /* Collect filenames */
-    char **wav_names = (char **)calloc(wav_count, sizeof(char *));
-    if (wav_names == NULL) {
-        fprintf(stderr, "ERROR: out of memory\n");
-        closedir(dp);
-        return 1;
-    }
-    uint32_t name_idx = 0;
-    while ((entry = readdir(dp)) != NULL && name_idx < wav_count) {
-        if (entry->d_type != DT_REG && entry->d_type != DT_UNKNOWN) { continue; }
-        size_t len = strlen(entry->d_name);
-        if (len > 4 && strcasecmp(entry->d_name + len - 4, ".wav") == 0) {
-            wav_names[name_idx] = strdup(entry->d_name);
-            if (wav_names[name_idx] == NULL) {
-                fprintf(stderr, "ERROR: out of memory\n");
-                closedir(dp);
-                return 1;
-            }
-            name_idx++;
-        }
-    }
-    closedir(dp);
-    wav_count = name_idx; /* actual count after second pass */
-
-    /* Sort alphabetically for deterministic output */
-    for (uint32_t i = 0; i < wav_count - 1; i++) {
-        for (uint32_t j = i + 1; j < wav_count; j++) {
-            if (strcmp(wav_names[i], wav_names[j]) > 0) {
-                char *tmp    = wav_names[i];
-                wav_names[i] = wav_names[j];
-                wav_names[j] = tmp;
-            }
-        }
-    }
-
-    /* Allocate result array */
+    /* Merge into a single results array: silent files first, then normal */
     vad_file_result_t *results = (vad_file_result_t *)calloc(wav_count, sizeof(vad_file_result_t));
     if (results == NULL) {
         fprintf(stderr, "ERROR: out of memory\n");
+        free(silent_results);
+        free(normal_results);
         return 1;
     }
+    if (silent_count > 0) {
+        memcpy(results,                silent_results, silent_count * sizeof(vad_file_result_t));
+    }
+    if (normal_count > 0) {
+        memcpy(results + silent_count, normal_results, normal_count * sizeof(vad_file_result_t));
+    }
+    free(silent_results);
+    free(normal_results);
 
     /* Frame size in samples (16 kHz, 16-bit mono) */
     const uint32_t samples_per_frame = (WAV_REQUIRED_RATE * frame_size_ms) / 1000u;
@@ -535,7 +667,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    fprintf(stdout, "xraudio_vad_test: processing %u file(s) from '%s'\n", wav_count, wave_dir);
+    fprintf(stdout, "xraudio_vad_test: processing %u silent + %u normal file(s) from '%s'\n",
+            silent_count, normal_count, wave_dir);
     fprintf(stdout, "  sensitivity=%.2f  analysis_window=%u ms  rms_min=%.1f dB"
                     "  intro_window=%u ms  frame=%u ms (%u samples)\n",
             (double)config.sensitivity,
@@ -548,18 +681,18 @@ int main(int argc, char *argv[]) {
     /* Process each file */
     for (uint32_t i = 0; i < wav_count; i++) {
         vad_file_result_t *res = &results[i];
-        snprintf(res->filename, sizeof(res->filename), "%s", wav_names[i]);
-        res->processed = false;
+        res->processed    = false;
+        res->vad_accepted = false;
 
-        /* Build full path */
+        /* Construct full path from wave_dir and the relative filename stored by collect_wav_files */
         char path[1024];
-        int  path_len = snprintf(path, sizeof(path), "%s/%s", wave_dir, wav_names[i]);
+        int  path_len = snprintf(path, sizeof(path), "%s/%s", wave_dir, res->filename);
         if (path_len < 0 || (size_t)path_len >= sizeof(path)) {
-            fprintf(stderr, "  [%u/%u] SKIP '%s': path too long\n", i + 1, wav_count, wav_names[i]);
+            fprintf(stderr, "  [%u/%u] SKIP '%s': path too long\n", i + 1, wav_count, res->filename);
             continue;
         }
 
-        fprintf(stdout, "  [%u/%u] %s ... ", i + 1, wav_count, wav_names[i]);
+        fprintf(stdout, "  [%u/%u] %s ... ", i + 1, wav_count, res->filename);
         fflush(stdout);
 
         /* Open WAV */
@@ -621,12 +754,14 @@ int main(int argc, char *argv[]) {
             if (rc != XRAUDIO_RESULT_OK) {
                 fprintf(stdout, "FAILED (vad_get_stats rc=%d)\n", rc);
             } else {
-                res->processed = true;
-                fprintf(stdout, "OK  (%u frames, voice=%.1f%%)\n",
+                res->processed    = true;
+                res->vad_accepted = (res->stats.confidence_peak >= config.sensitivity);
+                fprintf(stdout, "OK  (%u frames, voice=%.1f%%, %s)\n",
                         res->stats.frames_processed,
                         res->stats.frames_processed > 0
                             ? 100.0 * (double)res->stats.frames_voice / (double)res->stats.frames_processed
-                            : 0.0);
+                            : 0.0,
+                        res->vad_accepted ? "ACCEPTED" : "REJECTED");
             }
         } else {
             fprintf(stdout, "FAILED (process_frame)\n");
@@ -637,17 +772,33 @@ int main(int argc, char *argv[]) {
 
     free(frame_buf);
 
+    /* Print accuracy summary to stdout */
+    uint32_t s_processed = 0, s_false_accepts = 0;
+    uint32_t n_processed = 0, n_false_rejects  = 0;
+    for (uint32_t i = 0; i < wav_count; i++) {
+        const vad_file_result_t *r = &results[i];
+        if (!r->processed) { continue; }
+        if (r->category == VAD_CATEGORY_SILENT) {
+            s_processed++;
+            if (r->vad_accepted) { s_false_accepts++; }
+        } else {
+            n_processed++;
+            if (!r->vad_accepted) { n_false_rejects++; }
+        }
+    }
+    float far_pct = (s_processed > 0) ? 100.0f * (float)s_false_accepts / (float)s_processed : 0.0f;
+    float frr_pct = (n_processed > 0) ? 100.0f * (float)n_false_rejects / (float)n_processed : 0.0f;
+    fprintf(stdout, "\nFalse Accept Rate (FAR): %.2f%% (%u/%u silent files accepted by VAD)\n",
+            (double)far_pct, s_false_accepts, s_processed);
+    fprintf(stdout, "False Reject Rate (FRR): %.2f%% (%u/%u normal files rejected by VAD)\n",
+            (double)frr_pct, n_false_rejects, n_processed);
+
     /* Write the report */
     bool report_ok = write_report(output_file, &config, frame_size_ms, results, wav_count);
     if (report_ok) {
         fprintf(stdout, "\nReport written to: %s\n", output_file);
     }
 
-    /* Free resources */
-    for (uint32_t i = 0; i < wav_count; i++) {
-        free(wav_names[i]);
-    }
-    free(wav_names);
     free(results);
 
     return report_ok ? 0 : 1;
