@@ -63,6 +63,8 @@
 #include <math.h>
 #include <time.h>
 
+#define XLOG_MODULE_ID XLOG_MODULE_ID_XRAUDIO
+#include "rdkx_logger_mw.h"
 #include "xraudio_vad.h"
 #include "xraudio_common.h"
 
@@ -276,6 +278,7 @@ static void write_stats_fields(FILE *fp, const char *indent, const xraudio_vad_s
 
 static bool write_report(const char      *output_path,
                          uint32_t         frame_size_ms,
+                         bool             verbose,
                          const vad_run_t *runs,
                          uint32_t         run_count)
 {
@@ -316,6 +319,7 @@ static bool write_report(const char      *output_path,
         fprintf(fp, "      },\n");
 
         /* Per-file results */
+        if (verbose) {
         fprintf(fp, "      \"files\": [\n");
         uint32_t processed_count = 0;
         for (uint32_t i = 0; i < result_count; i++) {
@@ -336,6 +340,7 @@ static bool write_report(const char      *output_path,
             fprintf(fp, "        }%s\n", (i + 1 < result_count) ? "," : "");
         }
         fprintf(fp, "      ],\n");
+        } /* end if (verbose) */
 
         /* Per-category VAD accuracy metrics */
         uint32_t silent_total = 0, silent_processed = 0, silent_false_accepts = 0;
@@ -364,8 +369,8 @@ static bool write_report(const char      *output_path,
         /* Summary */
         fprintf(fp, "      \"summary\": {\n");
         fprintf(fp, "        \"total_files\": %u,\n",          result_count);
-        fprintf(fp, "        \"processed_files\": %u,\n",      processed_count);
-        fprintf(fp, "        \"failed_files\": %u,\n",         result_count - processed_count);
+        fprintf(fp, "        \"processed_files\": %u,\n",      silent_processed + normal_processed);
+        fprintf(fp, "        \"failed_files\": %u,\n",         result_count - (silent_processed + normal_processed));
         fprintf(fp, "        \"silent_files\": %u,\n",         silent_total);
         fprintf(fp, "        \"silent_processed\": %u,\n",     silent_processed);
         fprintf(fp, "        \"silent_false_accepts\": %u,\n", silent_false_accepts);
@@ -375,7 +380,7 @@ static bool write_report(const char      *output_path,
         fprintf(fp, "        \"normal_false_rejects\": %u,\n", normal_false_rejects);
         fprintf(fp, "        \"false_reject_rate\": %.2f",     (double)false_reject_rate);
 
-        if (processed_count > 0) {
+        if (silent_processed + normal_processed > 0) {
             xraudio_vad_stats_t agg;
             memset(&agg, 0, sizeof(agg));
             agg.rms_level_peak  = -200.0f;
@@ -623,6 +628,7 @@ static void print_usage(const char *prog) {
         "  --rms-level-min <dB>      Minimum audio RMS dB      (default: %.0f)\n"
         "  --intro-window <ms>       Intro window in ms        (default: %u)\n"
         "  --frame-size-ms <ms>      Audio frame size in ms    (default: %u, min: 10)\n"
+        "  --verbose                 Include per-file results in the JSON report\n"
         "  --help                    Print this help message\n",
         prog,
         (double)XRAUDIO_VAD_DEFAULT_SENSITIVITY,
@@ -637,6 +643,8 @@ static void print_usage(const char *prog) {
  * ------------------------------------------------------------------------- */
 
 int main(int argc, char *argv[]) {
+    xlog_init(XLOG_MODULE_ID_XRAUDIO, NULL, 0, true, false);
+
     /* Default VAD configuration */
     xraudio_input_vad_config_t config = {
         .sensitivity         = (float)XRAUDIO_VAD_DEFAULT_SENSITIVITY,
@@ -649,12 +657,14 @@ int main(int argc, char *argv[]) {
     uint16_t aw_max = XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS;
     int32_t  sc_min = -1;          /* silence-chunks range; -1 = not set */
     int32_t  sc_max = -1;
+    bool     verbose = false;
 
     /* Parse optional arguments */
     int arg_idx = 1;
     for (; arg_idx < argc; arg_idx++) {
         if (strcmp(argv[arg_idx], "--help") == 0) {
             print_usage(argv[0]);
+            xlog_term();
             return 0;
         } else if (strcmp(argv[arg_idx], "--sensitivity") == 0 && arg_idx + 1 < argc) {
             config.sensitivity = (float)atof(argv[++arg_idx]);
@@ -662,12 +672,14 @@ int main(int argc, char *argv[]) {
             if (!parse_silence_chunks_range(argv[++arg_idx], &sc_min, &sc_max)) {
                 fprintf(stderr, "ERROR: --silence-chunks value(s) must be non-negative integers"
                                 " (e.g. 5 or 0-10)\n");
+                xlog_term();
                 return 1;
             }
         } else if (strcmp(argv[arg_idx], "--analysis-window") == 0 && arg_idx + 1 < argc) {
             if (!parse_analysis_window(argv[++arg_idx], &aw_min, &aw_max)) {
                 fprintf(stderr, "ERROR: --analysis-window value(s) must be positive multiples of 10"
                                 " (e.g. 100 or 100-300)\n");
+                xlog_term();
                 return 1;
             }
         } else if (strcmp(argv[arg_idx], "--rms-level-min") == 0 && arg_idx + 1 < argc) {
@@ -678,8 +690,11 @@ int main(int argc, char *argv[]) {
             frame_size_ms = (uint32_t)atoi(argv[++arg_idx]);
             if (frame_size_ms < 10) {
                 fprintf(stderr, "ERROR: --frame-size-ms must be >= 10\n");
+                xlog_term();
                 return 1;
             }
+        } else if (strcmp(argv[arg_idx], "--verbose") == 0) {
+            verbose = true;
         } else {
             /* Not an option — stop parsing */
             break;
@@ -688,6 +703,7 @@ int main(int argc, char *argv[]) {
 
     if (argc - arg_idx < 2) {
         print_usage(argv[0]);
+        xlog_term();
         return 1;
     }
 
@@ -700,6 +716,7 @@ int main(int argc, char *argv[]) {
     if (snprintf(silent_dir, sizeof(silent_dir), "%s/silent", wave_dir) >= (int)sizeof(silent_dir) ||
         snprintf(normal_dir, sizeof(normal_dir), "%s/normal", wave_dir) >= (int)sizeof(normal_dir)) {
         fprintf(stderr, "ERROR: wave_dir path too long\n");
+        xlog_term();
         return 1;
     }
 
@@ -707,6 +724,7 @@ int main(int argc, char *argv[]) {
     struct stat dir_stat;
     if (stat(wave_dir, &dir_stat) != 0 || !S_ISDIR(dir_stat.st_mode)) {
         fprintf(stderr, "ERROR: '%s' is not a valid directory\n", wave_dir);
+        xlog_term();
         return 1;
     }
 
@@ -719,7 +737,8 @@ int main(int argc, char *argv[]) {
 
     if (wav_count == 0) {
         fprintf(stderr, "WARNING: no .wav files found in '%s/silent' or '%s/normal'\n", wave_dir, wave_dir);
-        write_report(output_file, frame_size_ms, NULL, 0);
+        write_report(output_file, frame_size_ms, verbose, NULL, 0);
+        xlog_term();
         return 0;
     }
 
@@ -729,6 +748,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "ERROR: out of memory\n");
         free(silent_results);
         free(normal_results);
+        xlog_term();
         return 1;
     }
     if (silent_count > 0) {
@@ -747,6 +767,7 @@ int main(int argc, char *argv[]) {
     if (frame_buf == NULL) {
         fprintf(stderr, "ERROR: out of memory\n");
         free(tmpl);
+        xlog_term();
         return 1;
     }
 
@@ -759,6 +780,7 @@ int main(int argc, char *argv[]) {
         fprintf(stderr, "ERROR: out of memory\n");
         free(frame_buf);
         free(tmpl);
+        xlog_term();
         return 1;
     }
 
@@ -816,6 +838,7 @@ int main(int argc, char *argv[]) {
             free(runs);
             free(frame_buf);
             free(tmpl);
+            xlog_term();
             return 1;
         }
         memcpy(results, tmpl, wav_count * sizeof(vad_file_result_t));
@@ -928,7 +951,7 @@ int main(int argc, char *argv[]) {
     free(tmpl);
 
     /* Write the report */
-    bool report_ok = write_report(output_file, frame_size_ms, runs, run_count);
+    bool report_ok = write_report(output_file, frame_size_ms, verbose, runs, run_count);
     if (report_ok) {
         fprintf(stdout, "\nReport written to: %s\n", output_file);
     }
@@ -936,5 +959,6 @@ int main(int argc, char *argv[]) {
     for (uint32_t i = 0; i < run_count; i++) { free(runs[i].results); }
     free(runs);
 
+    xlog_term();
     return report_ok ? 0 : 1;
 }
