@@ -245,9 +245,10 @@ typedef struct {
     xraudio_vad_stats_t stats;
 } vad_file_result_t;
 
-/* One complete analysis run — a single analysis_window_ms value applied to all files */
+/* One complete analysis run — a single (analysis_window_ms, silence_chunks) pair applied to all files */
 typedef struct {
     xraudio_input_vad_config_t config;
+    int32_t                    silence_chunks;  /* -1 if --silence-chunks was not used */
     vad_file_result_t         *results;
     uint32_t                   result_count;
 } vad_run_t;
@@ -302,6 +303,9 @@ static bool write_report(const char      *output_path,
 
         fprintf(fp, "    {\n");
         fprintf(fp, "      \"analysis_window_ms\": %u,\n", (unsigned)cfg->analysis_window_ms);
+        if (run->silence_chunks >= 0) {
+            fprintf(fp, "      \"silence_chunks\": %d,\n", (int)run->silence_chunks);
+        }
 
         /* Configuration */
         fprintf(fp, "      \"config\": {\n");
@@ -461,6 +465,28 @@ static bool parse_analysis_window(const char *str, uint16_t *min_ms, uint16_t *m
     return true;
 }
 
+/*
+ * Parse --silence-chunks argument: "N" sets min = max = N; "N-M" sets [N..M].
+ * Both values must be non-negative integers with N <= M.
+ */
+static bool parse_silence_chunks_range(const char *str, int32_t *min_chunks, int32_t *max_chunks)
+{
+    const char *dash = strchr(str + 1, '-');
+    int lo, hi;
+    if (dash != NULL) {
+        lo = atoi(str);
+        hi = atoi(dash + 1);
+    } else {
+        lo = hi = atoi(str);
+    }
+    if (lo < 0 || hi < 0 || lo > hi) {
+        return false;
+    }
+    *min_chunks = (int32_t)lo;
+    *max_chunks = (int32_t)hi;
+    return true;
+}
+
 /* -------------------------------------------------------------------------
  * File collection
  * ------------------------------------------------------------------------- */
@@ -587,9 +613,10 @@ static void print_usage(const char *prog) {
         "Options:\n"
         "  --sensitivity <0.0-1.0>   VAD sensitivity as a fraction of voice frames\n"
         "                             in the analysis window    (default: %.1f)\n"
-        "  --silence-chunks <N>      Sensitivity expressed as the number of 10 ms\n"
-        "                             silence chunks allowed in the analysis window.\n"
-        "                             Overrides --sensitivity; recomputed per window size.\n"
+        "  --silence-chunks <N|N-M>  Sensitivity expressed as the number of 10 ms silence\n"
+        "                             chunks allowed in the analysis window. Accepts a single\n"
+        "                             value or a range (e.g. 0-5) stepped by 1. Overrides\n"
+        "                             --sensitivity; recomputed per window size.\n"
         "  --analysis-window <ms|min-max>  Analysis window in ms, or a range (e.g. 100-300)\n"
         "                                  stepped in 10 ms increments. Values must be\n"
         "                                  positive multiples of 10  (default: %u)\n"
@@ -620,7 +647,8 @@ int main(int argc, char *argv[]) {
     uint32_t frame_size_ms = 10;
     uint16_t aw_min = XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS;
     uint16_t aw_max = XRAUDIO_VAD_DEFAULT_ANALYSIS_WINDOW_MS;
-    int32_t  silence_chunks = -1;  /* -1 = not set; >= 0 overrides --sensitivity per run */
+    int32_t  sc_min = -1;          /* silence-chunks range; -1 = not set */
+    int32_t  sc_max = -1;
 
     /* Parse optional arguments */
     int arg_idx = 1;
@@ -631,9 +659,9 @@ int main(int argc, char *argv[]) {
         } else if (strcmp(argv[arg_idx], "--sensitivity") == 0 && arg_idx + 1 < argc) {
             config.sensitivity = (float)atof(argv[++arg_idx]);
         } else if (strcmp(argv[arg_idx], "--silence-chunks") == 0 && arg_idx + 1 < argc) {
-            silence_chunks = atoi(argv[++arg_idx]);
-            if (silence_chunks < 0) {
-                fprintf(stderr, "ERROR: --silence-chunks must be >= 0\n");
+            if (!parse_silence_chunks_range(argv[++arg_idx], &sc_min, &sc_max)) {
+                fprintf(stderr, "ERROR: --silence-chunks value(s) must be non-negative integers"
+                                " (e.g. 5 or 0-10)\n");
                 return 1;
             }
         } else if (strcmp(argv[arg_idx], "--analysis-window") == 0 && arg_idx + 1 < argc) {
@@ -722,8 +750,10 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    /* Allocate one run slot per analysis-window step */
-    uint32_t run_count = (uint32_t)((aw_max - aw_min) / 10) + 1;
+    /* Allocate one run slot per (analysis-window, silence-chunks) combination */
+    uint32_t aw_steps  = (uint32_t)((aw_max - aw_min) / 10) + 1;
+    uint32_t sc_steps  = (sc_min >= 0) ? (uint32_t)(sc_max - sc_min + 1) : 1;
+    uint32_t run_count = aw_steps * sc_steps;
     vad_run_t *runs = (vad_run_t *)calloc(run_count, sizeof(vad_run_t));
     if (runs == NULL) {
         fprintf(stderr, "ERROR: out of memory\n");
@@ -734,10 +764,10 @@ int main(int argc, char *argv[]) {
 
     fprintf(stdout, "xraudio_vad_test: %u silent + %u normal file(s) from '%s'\n",
             silent_count, normal_count, wave_dir);
-    if (silence_chunks >= 0) {
-        fprintf(stdout, "  silence_chunks=%d  analysis_window=%u-%u ms (step 10)  rms_min=%.1f dB"
+    if (sc_min >= 0) {
+        fprintf(stdout, "  silence_chunks=%d-%d  analysis_window=%u-%u ms (step 10)  rms_min=%.1f dB"
                         "  intro_window=%u ms  frame=%u ms (%u samples)\n",
-                (int)silence_chunks,
+                (int)sc_min, (int)sc_max,
                 (unsigned)aw_min, (unsigned)aw_max,
                 (double)config.audio_rms_level_min,
                 (unsigned)config.intro_window_ms,
@@ -754,19 +784,29 @@ int main(int argc, char *argv[]) {
                 (unsigned)samples_per_frame);
     }
 
+    /* sc_iter_lo/hi: when --silence-chunks is not set, one pass with sc = -1 (no override) */
+    int32_t sc_iter_lo = (sc_min >= 0) ? sc_min : -1;
+    int32_t sc_iter_hi = (sc_min >= 0) ? sc_max : -1;
+
     uint32_t run_idx = 0;
-    for (uint16_t aw = aw_min; aw <= aw_max; aw = (uint16_t)(aw + 10), run_idx++) {
+    for (uint16_t aw = aw_min; aw <= aw_max; aw = (uint16_t)(aw + 10)) {
+    for (int32_t sc = sc_iter_lo; sc <= sc_iter_hi; sc++, run_idx++) {
         config.analysis_window_ms = aw;
 
         /* Recompute sensitivity from silence-chunk count when that mode is active */
-        if (silence_chunks >= 0) {
+        if (sc >= 0) {
             float chunks_in_window = (float)aw / 10.0f;
-            float s = 1.0f - (float)silence_chunks / chunks_in_window;
+            float s = 1.0f - (float)sc / chunks_in_window;
             config.sensitivity = (s < 0.0f) ? 0.0f : (s > 1.0f ? 1.0f : s);
         }
 
-        fprintf(stdout, "\n[analysis_window_ms=%u  sensitivity=%.4f]\n",
-                (unsigned)aw, (double)config.sensitivity);
+        if (sc >= 0) {
+            fprintf(stdout, "\n[analysis_window_ms=%u  silence_chunks=%d  sensitivity=%.4f]\n",
+                    (unsigned)aw, (int)sc, (double)config.sensitivity);
+        } else {
+            fprintf(stdout, "\n[analysis_window_ms=%u  sensitivity=%.4f]\n",
+                    (unsigned)aw, (double)config.sensitivity);
+        }
 
         /* Fresh results for this run, filenames/categories copied from template */
         vad_file_result_t *results = (vad_file_result_t *)calloc(wav_count, sizeof(vad_file_result_t));
@@ -877,10 +917,12 @@ int main(int argc, char *argv[]) {
         fprintf(stdout, "  FAR=%.2f%% (%u/%u silent accepted)  FRR=%.2f%% (%u/%u normal rejected)\n",
                 (double)far_pct, s_fa, s_proc, (double)frr_pct, n_fr, n_proc);
 
-        runs[run_idx].config       = config;
-        runs[run_idx].results      = results;
-        runs[run_idx].result_count = wav_count;
-    }
+        runs[run_idx].config         = config;
+        runs[run_idx].silence_chunks = sc;
+        runs[run_idx].results        = results;
+        runs[run_idx].result_count   = wav_count;
+    } /* end for (sc) */
+    } /* end for (aw) */
 
     free(frame_buf);
     free(tmpl);
