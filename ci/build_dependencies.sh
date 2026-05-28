@@ -43,7 +43,8 @@ apt install -y \
     libtool \
     make \
     python3 \
-    python3-pip
+    python3-pip \
+    libwebrtc-audio-processing-dev
 
 ###########################################
 # 2. Clone the required repositories
