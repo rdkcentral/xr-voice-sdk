@@ -76,8 +76,9 @@ cd "${GITHUB_WORKSPACE}"
 ############################
 # 4. Create stub headers for external dependencies
 echo "======================================================================================"
-echo "Searching for audio_processing.h after install:"
-find /usr/include -name audio_processing.h || true
+# CI workaround: symlink to match expected include path for audio_processing.h
+mkdir -p /usr/include/webrtc/modules/audio_processing/include/
+ln -sf /usr/include/webrtc_audio_processing/webrtc/modules/audio_processing/include/audio_processing.h /usr/include/webrtc/modules/audio_processing/include/audio_processing.h
 echo "======================================================================================"
 echo "Creating stub headers"
 
