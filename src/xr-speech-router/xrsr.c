@@ -513,8 +513,6 @@ void xrsr_config_apply(json_t *json_obj_in, json_t *json_obj_xraudio) {
          }
       }
    }
-
-   #endif
 }
 
 bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, json_t *json_obj_vsdk) {
