@@ -66,11 +66,12 @@ typedef enum {
 } xrsr_xraudio_state_t;
 
 typedef enum {
-   XRSR_EVENT_EOS                 = 0,
-   XRSR_EVENT_STREAM_TIME_MINIMUM = 1,
-   XRSR_EVENT_STREAM_KWD_INFO     = 2,
-   XRSR_EVENT_STREAM_ERROR        = 3,
-   XRSR_EVENT_INVALID             = 4
+   XRSR_EVENT_EOS                   = 0,
+   XRSR_EVENT_STREAM_TIME_MINIMUM   = 1,
+   XRSR_EVENT_STREAM_KWD_INFO       = 2,
+   XRSR_EVENT_STREAM_VOICE_ACTIVITY = 3,
+   XRSR_EVENT_STREAM_ERROR          = 4,
+   XRSR_EVENT_INVALID               = 5
 } xrsr_event_t;
 
 typedef enum {
@@ -255,6 +256,10 @@ typedef struct {
    xrsr_event_t event;
    union {
       uint32_t  byte_qty;
+      struct {
+         bool  voice_detected;
+         float confidence;
+      } vad_info;
    } data;
 } xrsr_speech_event_t;
 
@@ -334,7 +339,7 @@ void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *obj, xraudio_keyw
 void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object);
 void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_keyword_detected_t *msg, xrsr_src_t current_session_src, bool requested_more_audio, bool *audio_stream_start);
 void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_devices_input_t source);
-bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_id, xraudio_devices_input_t source, bool user_initiated, xraudio_input_format_t *format_decoded, xraudio_dst_pipe_t dsts[], uint16_t stream_time_min, uint32_t keyword_begin, uint32_t keyword_duration, uint32_t frame_duration, bool low_latency, bool low_cpu_util, bool subsequent);
+bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_id, xraudio_devices_input_t source, bool user_initiated, xraudio_input_format_t *format_decoded, xraudio_dst_pipe_t dsts[], uint16_t stream_time_min, xrsr_stream_voice_activity_mode_t vad_mode, uint32_t keyword_begin, uint32_t keyword_duration, uint32_t frame_duration, bool low_latency, bool low_cpu_util, bool subsequent);
 bool xrsr_xraudio_stream_end(xrsr_xraudio_object_t object, xraudio_devices_input_t source, uint32_t dst_index, bool more_streams, bool detect_resume, xrsr_audio_stats_t *audio_stats);
 void xrsr_xraudio_stream_event_handler(xraudio_devices_input_t source, audio_in_callback_event_t event, xrsr_speech_event_t *speech_event);
 bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, xraudio_input_format_t xraudio_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
@@ -354,5 +359,7 @@ xraudio_devices_input_t xrsr_xrsr_src_to_xraudio(xrsr_src_t src);
 void xrsr_session_begin(xrsr_src_t src, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
 void xrsr_keyword_detect_error(xrsr_src_t src);
 bool xrsr_mask_pii(void);
+
+xraudio_input_vad_config_t *xrsr_vad_config_get(void);
 
 #endif
