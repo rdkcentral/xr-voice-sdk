@@ -76,6 +76,9 @@ cd "${GITHUB_WORKSPACE}"
 ############################
 # 4. Create stub headers for external dependencies
 echo "======================================================================================"
+echo "Searching for audio_processing.h after install:"
+find /usr/include -name audio_processing.h || true
+echo "======================================================================================"
 echo "Creating stub headers"
 
 HEADERS_DIR="$GITHUB_WORKSPACE/ci/headers"
