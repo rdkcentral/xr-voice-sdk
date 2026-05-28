@@ -299,7 +299,6 @@ void xrsr_config_default(void) {
 
 void xrsr_config_apply(json_t *json_obj_in, json_t *json_obj_xraudio) {
    json_t *json_obj;
-   #endif
 
    #ifdef HTTP_ENABLED
    json_t *json_obj_http  = json_object_get(json_obj_in, JSON_OBJ_NAME_HTTP);
