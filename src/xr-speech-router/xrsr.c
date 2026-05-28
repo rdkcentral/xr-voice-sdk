@@ -3242,8 +3242,8 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                if(!stream_begin_failure) { // Read the audio file in chunks and write to the pipe
                   while(data_length) {
                      union {
-                        opus_int16 samples[2048]; // 4096 bytes; opus_int16-aligned for decoded PCM
-                        uint8_t    bytes[4096];   // raw byte view for PCM file reads and pipe writes
+                        int16_t samples[2048]; // 4096 bytes; int16 aligned for decoded PCM
+                        uint8_t bytes[4096];   // raw byte view for PCM file reads and pipe writes
                      } buffer;
                      size_t chunk_size = 0;
 
