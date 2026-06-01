@@ -32,7 +32,7 @@ target_include_directories(xrVadTest PRIVATE
 )
 
 add_dependencies(xrVadTest xr-voice-sdk)
-target_link_libraries(xrVadTest c xr-voice-sdk)
+target_link_libraries(xrVadTest xr-voice-sdk)
 
 target_compile_options(xrVadTest PRIVATE -fPIC -rdynamic -Wall -Werror)
 target_compile_definitions(xrVadTest PRIVATE _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE)

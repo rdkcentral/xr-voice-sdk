@@ -3,8 +3,8 @@ option(HTTP_ENABLED,            "speech router http protocol"                 OF
 option(WS_ENABLED,              "speech router websocket protocol"            OFF)
 option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
 option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
-option(USE_SAFEC                "Use safec"                                   OFF)
-option(VAD_TEST_ENABLED         "Build the VAD wave-file processing test"     OFF)
+option(USE_SAFEC,               "Use safec"                                   OFF)
+option(VAD_TEST_ENABLED,        "Build the VAD wave-file processing test"     OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
