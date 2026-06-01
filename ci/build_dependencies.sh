@@ -59,8 +59,8 @@ RDKVERSION_DIR="$GITHUB_WORKSPACE/rdkversion"
 SAFEC_WRAPPER_DIR="$GITHUB_WORKSPACE/meta-rdk-oss-reference/recipes-common/safec-common-wrapper/files"
 
 ###########################################
-# 3. Build nopoll from source
-# libnopoll-dev is not available in the CI image.
+# 3. Clone and build nopoll from source
+# (libnopoll-dev is not available in the CI docker image)
 
 git clone --depth 1 https://github.com/ASPLes/nopoll.git
 
@@ -83,7 +83,7 @@ mkdir -p "${HEADERS_DIR}"
 
 cd "${HEADERS_DIR}"
 
-# Use the upstream rdkversion.h.
+# rdkversion.h — real header from upstream
 cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 [ -f rdkversion.h ]
 
