@@ -4,6 +4,7 @@ option(INSTALL_INTERNAL_HEADERS "Install internal sub-component headers"      OF
 option(WS_ENABLED              "speech router websocket protocol"            OFF)
 option(WS_NOPOLL_PATCHES       "speech router websocket nopoll patches"      OFF)
 option(SDT_ENABLED             "speech router secure data transfer protocol" OFF)
+option(VAD_ENABLED             "Enable VAD feature"                          ON)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -57,7 +58,6 @@ target_sources(xr-voice-sdk PUBLIC
                xr-audio/xraudio_input.c
                xr-audio/xraudio_output.c
                xr-audio/xraudio_thread.c
-               xr-audio/xraudio_vad.cpp
                xr-audio/xraudio_utils.c
                xr-audio/xraudio_atomic.c)
 
@@ -119,8 +119,14 @@ if(CURTAIL_LIBRARY)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
 endif()
 
-target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/webrtc_audio_processing/)
-target_link_libraries(xr-voice-sdk webrtc_audio_processing)
+if(VAD_ENABLED)
+   target_sources(xr-voice-sdk PUBLIC xr-audio/xraudio_vad.cpp)
+   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_VAD_ENABLED)
+   target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/webrtc_audio_processing/)
+   target_link_libraries(xr-voice-sdk webrtc_audio_processing)
+else()
+   target_sources(xr-voice-sdk PUBLIC xr-audio/xraudio_vad_stub.c)
+endif()
 
 
 # CONFIG FILES

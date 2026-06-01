@@ -2105,7 +2105,14 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                uuid_copy(http->uuid, begin->uuid);
             }
             http->stream_time_min_rxd   = (dst->stream_time_min > 0) ? false : true;
+            #ifdef XRAUDIO_VAD_ENABLED
             http->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
+            #else
+            if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
+               XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time; treating stream as non-enforced");
+            }
+            http->stream_vad_detect_rxd = true;
+            #endif
 
             char uuid_str[37] = {'\0'};
             uuid_unparse_lower(http->uuid, uuid_str);
@@ -2175,7 +2182,14 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                      uuid_copy(ws->uuid, begin->uuid);
                   }
                   ws->stream_time_min_rxd   = (dst->stream_time_min > 0) ? false : true;
+                  #ifdef XRAUDIO_VAD_ENABLED
                   ws->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
+                  #else
+                  if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
+                     XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time; treating stream as non-enforced");
+                  }
+                  ws->stream_vad_detect_rxd = true;
+                  #endif
                }
                char uuid_str[37] = {'\0'};
                uuid_unparse_lower(ws->uuid, uuid_str);
@@ -2248,7 +2262,14 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                   uuid_copy(sdt->uuid, begin->uuid);
                }
                sdt->stream_time_min_rxd   = (dst->stream_time_min > 0) ? false : true;
+               #ifdef XRAUDIO_VAD_ENABLED
                sdt->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
+               #else
+               if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
+                  XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time; treating stream as non-enforced");
+               }
+               sdt->stream_vad_detect_rxd = true;
+               #endif
                
                char uuid_str[37] = {'\0'};
                uuid_unparse_lower(sdt->uuid, uuid_str);
@@ -3317,7 +3338,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      } else {
                         chunk_size = (data_length >= sizeof(buffer.bytes)) ? sizeof(buffer.bytes) : data_length;
                         errno = 0;
-                        ssize_t rc = read(fd, buffer.bytes, chunk_size);
+                        const ssize_t rc = read(fd, buffer.bytes, chunk_size);
                         if(rc != (ssize_t)chunk_size) {
                            int errsv = errno;
                            XLOGD_ERROR("failed to read wave data <%s> exp <%zu> rxd <%zd> <%s>", audio_file_in, chunk_size, rc, strerror(errsv));
@@ -3335,7 +3356,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            continue;
                         }
                         errno = 0;
-                        ssize_t rc = write(dsts[index].pipe, buffer.bytes, chunk_size);
+                        const ssize_t rc = write(dsts[index].pipe, buffer.bytes, chunk_size);
                         if(rc != (ssize_t)chunk_size) {
                            int errsv = errno;
                            XLOGD_ERROR("failed to write wave data - exp <%zu> rxd <%zd> <%s>", chunk_size, rc, strerror(errsv));
