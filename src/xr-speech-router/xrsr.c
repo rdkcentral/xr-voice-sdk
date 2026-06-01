@@ -3317,8 +3317,8 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      } else {
                         chunk_size = (data_length >= sizeof(buffer.bytes)) ? sizeof(buffer.bytes) : data_length;
                         errno = 0;
-                        int rc = read(fd, buffer.bytes, chunk_size);
-                        if(rc != chunk_size) {
+                        ssize_t rc = read(fd, buffer.bytes, chunk_size);
+                        if(rc != (ssize_t)chunk_size) {
                            int errsv = errno;
                            XLOGD_ERROR("failed to read wave data <%s> exp <%zu> rxd <%d> <%s>", audio_file_in, chunk_size, rc, strerror(errsv));
                            stream_begin_failure = true;
@@ -3335,8 +3335,8 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            continue;
                         }
                         errno = 0;
-                        int rc = write(dsts[index].pipe, buffer.bytes, chunk_size);
-                        if(rc != chunk_size) {
+                        ssize_t rc = write(dsts[index].pipe, buffer.bytes, chunk_size);
+                        if(rc != (ssize_t)chunk_size) {
                            int errsv = errno;
                            XLOGD_ERROR("failed to write wave data - exp <%zu> rxd <%d> <%s>", chunk_size, rc, strerror(errsv));
                            stream_begin_failure = true;
