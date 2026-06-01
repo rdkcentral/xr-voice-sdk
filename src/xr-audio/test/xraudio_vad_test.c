@@ -39,11 +39,11 @@
  *   "false_reject_rate" - % of normal files incorrectly rejected by the VAD
  *
  * Options:
- *   --sensitivity <0.0-1.0>       VAD sensitivity (default: 0.9)
- *   --analysis-window <ms>        Analysis window in ms  (default: 100)
- *   --rms-level-min <dB>          Minimum RMS level dB   (default: -60)
- *   --intro-window <ms>           Intro window in ms     (default: 100)
- *   --frame-size-ms <ms>          Frame size in ms       (default: 10)
+ *   --sensitivity <0.0-1.0>       VAD sensitivity
+ *   --analysis-window <ms>        Analysis window in ms
+ *   --rms-level-min <dB>          Minimum RMS level dB
+ *   --intro-window <ms>           Intro window in ms
+ *   --frame-size-ms <ms>          Frame size in ms
  *   --help                        Print this help message
  *
  * The output file contains a top-level JSON object with the keys:
@@ -242,7 +242,7 @@ typedef struct {
     char                filename[512];   /* relative path: "silent/foo.wav" or "normal/foo.wav" */
     vad_file_category_t category;
     bool                processed;
-    bool                vad_accepted;    /* true if VAD detected voice activity (frames_voice > 0) */
+    bool                vad_accepted;    /* true if VAD's peak confidence reached the configured sensitivity threshold */
     uint32_t            duration_ms;
     xraudio_vad_stats_t stats;
 } vad_file_result_t;
