@@ -2126,7 +2126,9 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             if(transcription_in == NULL) {
                http->transcription_ptr = NULL;
             } else {
-               strlcpy(http->transcription_in, transcription_in, sizeof(http->transcription_in));
+               safec_rc = strncpy_s(http->audio_file_in, sizeof(http->audio_file_in), audio_file_in, sizeof(http->audio_file_in) - 1);
+               ERR_CHK(safec_rc);
+               http->audio_file_in[sizeof(http->audio_file_in) - 1] = '\0';
                http->transcription_ptr = &http->transcription_in[0];
             }
 
@@ -2188,7 +2190,9 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                ws->low_cpu_util   = begin->low_cpu_util;
 
                if(ws->is_session_by_file) {
-                  strlcpy(ws->audio_file_in, audio_file_in, sizeof(ws->audio_file_in));
+                  safec_rc = strncpy_s(ws->audio_file_in, sizeof(ws->audio_file_in), audio_file_in, sizeof(ws->audio_file_in) - 1);
+                  ERR_CHK(safec_rc);
+                  ws->audio_file_in[sizeof(ws->audio_file_in) - 1] = '\0';
                }
 
                if(!begin->retry && ws->handlers.session_begin != NULL) { // Call session begin handler
