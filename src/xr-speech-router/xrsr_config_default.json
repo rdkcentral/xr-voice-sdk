@@ -25,7 +25,7 @@
       "vad" : {
          "sensitivity"         :   1.0,
          "analysis_window_ms"  :   150,
-         "audio_rms_level_min" : -75.0,
+         "audio_rms_level_min" : -78.0,
          "intro_window_ms"     :   100
       }
    }
