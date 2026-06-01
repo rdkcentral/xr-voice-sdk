@@ -2129,6 +2129,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             } else {
                errno_t safec_rc = -1;
                safec_rc = strncpy_s(http->transcription_in, sizeof(http->transcription_in), transcription_in, sizeof(http->transcription_in) - 1);
+               ERR_CHK(safec_rc);
                http->transcription_in[sizeof(http->transcription_in) - 1] = '\0';
                http->transcription_ptr = &http->transcription_in[0];
             }
