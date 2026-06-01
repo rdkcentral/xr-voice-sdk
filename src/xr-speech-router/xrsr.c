@@ -2069,6 +2069,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
    const char *transcription_in = (begin->transcription_in[0] == '\0') ? NULL : begin->transcription_in;
    const char *audio_file_in    = (begin->audio_file_in[0]    == '\0') ? NULL : begin->audio_file_in;
    #endif
+
    #if defined(WS_ENABLED) || defined(SDT_ENABLED)
    bool create_stream = true;
    #endif
