@@ -2032,7 +2032,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
    }
    session->src                  = begin->src;
 
-#if defined(HTTP_ENABLED) || defined(WS_ENABLED)
+   #if defined(HTTP_ENABLED) || defined(WS_ENABLED)
    xrsr_keyword_detector_result_t *detector_result_ptr = NULL;
    xrsr_keyword_detector_result_t  detector_result;
    if(begin->has_result) {
@@ -2063,15 +2063,15 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
          }
       }
    }
-#endif
+   #endif
 
-#if defined(HTTP_ENABLED) || defined(WS_ENABLED) || defined(SDT_ENABLED)
+   #if defined(HTTP_ENABLED) || defined(WS_ENABLED) || defined(SDT_ENABLED)
    const char *transcription_in = (begin->transcription_in[0] == '\0') ? NULL : begin->transcription_in;
    const char *audio_file_in    = (begin->audio_file_in[0]    == '\0') ? NULL : begin->audio_file_in;
-#endif
-#if defined(WS_ENABLED) || defined(SDT_ENABLED)
+   #endif
+   #if defined(WS_ENABLED) || defined(SDT_ENABLED)
    bool create_stream = true;
-#endif
+   #endif
    for(uint32_t dst_index = 0; dst_index < XRSR_DST_QTY_MAX; dst_index++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[session->src].dsts[dst_index];
 
@@ -2402,9 +2402,9 @@ void xrsr_msg_session_config_in(const xrsr_thread_params_t *params, xrsr_thread_
    xrsr_session_t *session = &g_xrsr.sessions[xrsr_source_to_group(config_in->src)];
 
    bool found_session = false;
-#if defined(HTTP_ENABLED) || defined(WS_ENABLED)
+   #if defined(HTTP_ENABLED) || defined(WS_ENABLED)
    bool create_stream = true;
-#endif
+   #endif
    for(uint32_t dst_index = 0; dst_index < XRSR_DST_QTY_MAX; dst_index++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[session->src].dsts[dst_index];
 
@@ -2774,9 +2774,9 @@ void xrsr_msg_session_audio_stream_start(const xrsr_thread_params_t *params, xrs
    }
 
    uint32_t index_src = src;
-#ifdef WS_ENABLED
+   #ifdef WS_ENABLED
    bool create_stream = true;
-#endif
+   #endif
    for(uint32_t index_dst = 0; index_dst < XRSR_DST_QTY_MAX; index_dst++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[index_src].dsts[index_dst];
 
@@ -3196,11 +3196,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
             uint32_t data_length = 0;
             bool encoding_opus = (output_format.encoding.type == XRAUDIO_ENCODING_OPUS);
 
-#ifdef XRAUDIO_DECODE_OPUS
+            #ifdef XRAUDIO_DECODE_OPUS
             OpusDecoder *obj_opus = NULL;
-#endif
+            #endif
             if(encoding_opus) {
-#ifdef XRAUDIO_DECODE_OPUS
+               #ifdef XRAUDIO_DECODE_OPUS
                int opus_error = 0;
                obj_opus = opus_decoder_create(16000, 1, &opus_error);
                if(obj_opus == NULL || opus_error != OPUS_OK) {
@@ -3217,10 +3217,10 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      data_length = statbuf.st_size; // the full length of the file
                   }
                }
-#else
+               #else
                XLOGD_ERROR("opus input is not supported in this build");
                stream_begin_failure = true;
-#endif
+               #endif
             } else {
                xraudio_output_format_t format;
                int32_t offset =  xraudio_container_header_parse_wave(fd, NULL, 0, &format, &data_length);
@@ -3261,7 +3261,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      size_t chunk_size = 0;
 
                      if(encoding_opus) { // Process one packet at a time
-#ifdef XRAUDIO_DECODE_OPUS
+                        #ifdef XRAUDIO_DECODE_OPUS
                         uint8_t length_bytes[2] = { '\0' };
                         errno = 0;
                         int rc = read(fd, &length_bytes[0], 1); // Read opus self-delimiting header first byte
@@ -3306,11 +3306,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            break;
                         }
                         chunk_size = samples * sizeof(buffer.samples[0]);
-#else
+                        #else
                         XLOGD_ERROR("opus input is not supported in this build");
                         stream_begin_failure = true;
                         break;
-#endif
+                        #endif
 
                      } else {
                         chunk_size = (data_length >= sizeof(buffer.bytes)) ? sizeof(buffer.bytes) : data_length;
@@ -3357,11 +3357,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                }
             }
             close(fd);
-#ifdef XRAUDIO_DECODE_OPUS
+            #ifdef XRAUDIO_DECODE_OPUS
             if(obj_opus != NULL) {
                opus_decoder_destroy(obj_opus);
             }
-#endif
+            #endif
          }
       }
 
