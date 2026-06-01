@@ -301,6 +301,8 @@ void xrsr_config_apply(json_t *json_obj_in, json_t *json_obj_xraudio) {
    json_t *json_obj;
 
    #ifdef HTTP_ENABLED
+   memset(&g_xrsr.http_json_config, 0, sizeof(xrsr_http_json_config_t));
+
    json_t *json_obj_http  = json_object_get(json_obj_in, JSON_OBJ_NAME_HTTP);
    if(NULL == json_obj_http || !json_is_object(json_obj_http)) {
       XLOGD_INFO("http json object not found, using defaults");
@@ -314,6 +316,9 @@ void xrsr_config_apply(json_t *json_obj_in, json_t *json_obj_xraudio) {
    #endif
 
    #ifdef WS_ENABLED
+   memset(&g_xrsr.ws_json_config_fpm, 0, sizeof(xrsr_ws_json_config_t));
+   memset(&g_xrsr.ws_json_config_lpm, 0, sizeof(xrsr_ws_json_config_t));
+
    json_t *json_obj_ws     = json_object_get(json_obj_in, JSON_OBJ_NAME_WS);
    if(NULL == json_obj_ws || !json_is_object(json_obj_ws)) {
       XLOGD_INFO("ws json object not found, using defaults");
@@ -627,21 +632,21 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    switch(power_mode) {
       case XRSR_POWER_MODE_FULL:
          xraudio_power_mode = XRAUDIO_POWER_MODE_FULL;
-#ifdef WS_ENABLED
+         #ifdef WS_ENABLED
          g_xrsr.ws_json_config = &g_xrsr.ws_json_config_fpm;
-#endif
+         #endif
          break;
       case XRSR_POWER_MODE_LOW:
          xraudio_power_mode = XRAUDIO_POWER_MODE_LOW;
-#ifdef WS_ENABLED
+         #ifdef WS_ENABLED
          g_xrsr.ws_json_config = &g_xrsr.ws_json_config_lpm;
-#endif
+         #endif
          break;
       case XRSR_POWER_MODE_SLEEP:
          xraudio_power_mode = XRAUDIO_POWER_MODE_SLEEP;
-#ifdef WS_ENABLED
+         #ifdef WS_ENABLED
          g_xrsr.ws_json_config = &g_xrsr.ws_json_config_lpm;
-#endif
+         #endif
          break;
       default:
          XLOGD_ERROR("Invalid power mode");
