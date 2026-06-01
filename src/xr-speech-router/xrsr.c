@@ -2126,14 +2126,17 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             if(transcription_in == NULL) {
                http->transcription_ptr = NULL;
             } else {
-               safec_rc = strncpy_s(http->audio_file_in, sizeof(http->audio_file_in), audio_file_in, sizeof(http->audio_file_in) - 1);
-               ERR_CHK(safec_rc);
-               http->audio_file_in[sizeof(http->audio_file_in) - 1] = '\0';
+               errno_t safec_rc = -1;
+               safec_rc = strncpy_s(http->transcription_in, sizeof(http->transcription_in), transcription_in, sizeof(http->transcription_in) - 1);
+               http->transcription_in[sizeof(http->transcription_in) - 1] = '\0';
                http->transcription_ptr = &http->transcription_in[0];
             }
 
             if(http->is_session_by_file) {
-               strlcpy(http->audio_file_in, audio_file_in, sizeof(http->audio_file_in));
+               errno_t safec_rc = -1;
+               safec_rc = strncpy_s(http->audio_file_in, sizeof(http->audio_file_in), audio_file_in, sizeof(http->audio_file_in) - 1);
+               ERR_CHK(safec_rc);
+               http->audio_file_in[sizeof(http->audio_file_in) - 1] = '\0';
             }
 
             // Call session begin handler
