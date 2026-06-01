@@ -2190,6 +2190,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                ws->low_cpu_util   = begin->low_cpu_util;
 
                if(ws->is_session_by_file) {
+                  errno_t safec_rc = -1;
                   safec_rc = strncpy_s(ws->audio_file_in, sizeof(ws->audio_file_in), audio_file_in, sizeof(ws->audio_file_in) - 1);
                   ERR_CHK(safec_rc);
                   ws->audio_file_in[sizeof(ws->audio_file_in) - 1] = '\0';
