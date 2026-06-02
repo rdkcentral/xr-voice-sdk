@@ -3269,9 +3269,13 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      continue;
                   }
                   if(session->pipe_size[index] <= 0) {
-                     XLOGD_ERROR("invalid pipe capacity <%d>", session->pipe_size[index]);
-                     stream_begin_failure = true;
-                     break;
+                     int pipe_sz = fcntl(dsts[index].pipe, F_GETPIPE_SZ);
+                     if(pipe_sz <= 0) {
+                        XLOGD_ERROR("unable to determine pipe capacity <%d>", pipe_sz);
+                        stream_begin_failure = true;
+                        break;
+                     }
+                     session->pipe_size[index] = pipe_sz;
                   }
                   if(data_length > session->pipe_size[index]) {
                      XLOGD_ERROR("audio file data larger than pipe capacity <%d> <%d>", data_length, session->pipe_size[index]);
