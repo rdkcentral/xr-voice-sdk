@@ -40,6 +40,7 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DVSDK_VENDOR_XLOG=OFF \
     -DWS_ENABLED=ON \
     -DWS_NOPOLL_PATCHES=OFF \
+    -DVAD_ENABLED=OFF \
     -DCMAKE_C_FLAGS=" \
     -I ${HEADERS_DIR} \
     -DSAFEC_DUMMY_API \
