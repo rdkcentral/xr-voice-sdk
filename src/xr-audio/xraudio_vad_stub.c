@@ -38,10 +38,7 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
       return(NULL);
    }
 
-   if(sample_rate != XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE) {
-      XLOGD_ERROR("unsupported sample rate <%u>", sample_rate);
-      return(NULL);
-   }
+   (void)sample_rate; // VAD is disabled; stub ignores sample rate
 
    xraudio_vad_stub_obj_t *obj = (xraudio_vad_stub_obj_t *)calloc(1, sizeof(xraudio_vad_stub_obj_t));
    if(obj == NULL) {
