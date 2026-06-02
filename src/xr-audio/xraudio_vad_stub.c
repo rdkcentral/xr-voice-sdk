@@ -54,8 +54,8 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
    obj->stats.rms_level_peak    = -100.0f;
    obj->stats.rms_level_average = -100.0f;
 
-   static bool warned = false;
-   if(!warned) { XLOGD_WARN("VAD is disabled at build time, using stub implementation"); warned = true; }
+   static volatile int warned = 0;
+   if(__sync_bool_compare_and_swap(&warned, 0, 1)) { XLOGD_WARN("VAD is disabled at build time, using stub implementation"); }
    return((xraudio_vad_object_t)obj);
 }
 
