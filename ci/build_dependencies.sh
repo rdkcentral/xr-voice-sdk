@@ -88,9 +88,13 @@ cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 
 # Use the Yocto safec_lib.h sysroot header for CI builds without libsafec.
 # Add include guards because the upstream header does not provide them.
-cp "$SAFEC_WRAPPER_DIR/safec_lib.h" safec_lib.h
-sed -i '1s/^/#ifndef XR_VOICE_SDK_CI_SAFEC_LIB_H\n#define XR_VOICE_SDK_CI_SAFEC_LIB_H\n/' safec_lib.h
-printf '\n#endif /* XR_VOICE_SDK_CI_SAFEC_LIB_H */\n' >> safec_lib.h
+{
+  echo '#ifndef XR_VOICE_SDK_CI_SAFEC_LIB_H'
+  echo '#define XR_VOICE_SDK_CI_SAFEC_LIB_H'
+  cat "$SAFEC_WRAPPER_DIR/safec_lib.h"
+  echo
+  echo '#endif /* XR_VOICE_SDK_CI_SAFEC_LIB_H */'
+} > safec_lib.h
 
 echo "Stub headers created successfully"
 
