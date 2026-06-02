@@ -3269,9 +3269,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      continue;
                   }
                   if(session->pipe_size[index] <= 0) {
+                     errno = 0;
                      int pipe_sz = fcntl(dsts[index].pipe, F_GETPIPE_SZ);
                      if(pipe_sz <= 0) {
-                        XLOGD_ERROR("unable to determine pipe capacity <%d>", pipe_sz);
+                        int errsv = errno;
+                        XLOGD_ERROR("unable to determine pipe capacity <%d> <%s>", pipe_sz, strerror(errsv));
                         stream_begin_failure = true;
                         break;
                      }
