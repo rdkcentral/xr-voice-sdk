@@ -124,6 +124,7 @@ xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object) {
    obj->stats.rms_level_peak    = -100.0f;
    obj->stats.rms_level_average = -100.0f;
    return(XRAUDIO_RESULT_OK);
+}
 
 xraudio_result_t xraudio_vad_get_stats(xraudio_vad_object_t object, xraudio_vad_stats_t *stats, bool finalize) {
    (void)finalize;
