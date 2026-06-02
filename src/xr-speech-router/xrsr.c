@@ -3314,7 +3314,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            rc = read(fd, opus_packet_buf, opus_packet_size);
                            if(rc != opus_packet_size) {
                               int errsv = errno;
-                              XLOGD_ERROR("failed to read opus data <%s> exp <%d> rxd <%d> <%s>", audio_file_in, opus_packet_size, rc, strerror(errsv));
+                              XLOGD_ERROR("failed to read opus data <%s> exp <%d> rxd <%zd> <%s>", audio_file_in, opus_packet_size, rc, strerror(errsv));
                               stream_begin_failure = true;
                               break;
                            }
