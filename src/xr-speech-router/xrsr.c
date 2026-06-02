@@ -3322,7 +3322,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                         }
                         // Decode opus to pcm
                         const int pcm_capacity = (int)(sizeof(buffer.samples) / sizeof(buffer.samples[0]));
-                        int samples = opus_decode(obj_opus, opus_packet_buf, opus_packet_size, buffer.samples, pcm_capacity, 0);
+                        const int samples = opus_decode(obj_opus, opus_packet_buf, opus_packet_size, buffer.samples, pcm_capacity, 0);
                         if(samples < 0) {
                            XLOGD_ERROR("failed to decode opus frame <%d>", samples);
                            stream_begin_failure = true;
