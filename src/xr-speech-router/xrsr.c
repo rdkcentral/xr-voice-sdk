@@ -3268,6 +3268,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                   if(dst->handler == NULL) {
                      continue;
                   }
+                  if(session->pipe_size[index] <= 0) {
+                     XLOGD_ERROR("invalid pipe capacity <%d>", session->pipe_size[index]);
+                     stream_begin_failure = true;
+                     break;
+                  }
                   if(data_length > session->pipe_size[index]) {
                      XLOGD_ERROR("audio file data larger than pipe capacity <%d> <%d>", data_length, session->pipe_size[index]);
                      stream_begin_failure = true;
@@ -3276,6 +3281,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                }
 
                if(!stream_begin_failure) { // Read the audio file in chunks and write to the pipe
+                  size_t pipe_bytes_written[XRSR_DST_QTY_MAX] = {0};
                   while(data_length) {
                      union {
                         int16_t samples[2048]; // 4096 bytes; int16 aligned for decoded PCM
@@ -3355,6 +3361,15 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                         if(dst->handler == NULL) {
                            continue;
                         }
+
+                        const size_t pipe_capacity = (size_t)session->pipe_size[index];
+                        if(chunk_size > pipe_capacity || pipe_bytes_written[index] > (pipe_capacity - chunk_size)) {
+                           XLOGD_ERROR("audio payload larger than pipe capacity - written <%zu> next <%zu> capacity <%zu>", pipe_bytes_written[index], chunk_size, pipe_capacity);
+                           stream_begin_failure = true;
+                           data_length = 0; // to exit the while loop
+                           break;
+                        }
+
                         errno = 0;
                         const ssize_t rc = write(dsts[index].pipe, buffer.bytes, chunk_size);
                         if(rc != (ssize_t)chunk_size) {
@@ -3364,6 +3379,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            data_length = 0; // to exit the while loop
                            break;
                         }
+                        pipe_bytes_written[index] += chunk_size;
                      }
                   }
                }
