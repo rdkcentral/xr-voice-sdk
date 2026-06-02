@@ -51,9 +51,11 @@ xraudio_vad_object_t xraudio_vad_create(const xraudio_input_vad_config_t *config
 
    obj->identifier = XRAUDIO_VAD_STUB_IDENTIFIER;
    obj->config = *config;
-   obj->stats.rms_level_peak = -100.0f;
+   obj->stats.rms_level_peak    = -100.0f;
+   obj->stats.rms_level_average = -100.0f;
 
-   XLOGD_WARN("VAD is disabled at build time, using stub implementation");
+   static bool warned = false;
+   if(!warned) { XLOGD_WARN("VAD is disabled at build time, using stub implementation"); warned = true; }
    return((xraudio_vad_object_t)obj);
 }
 
@@ -87,7 +89,7 @@ xraudio_result_t xraudio_vad_process_frame(xraudio_vad_object_t object, const xr
 
    vad_data->state = XRAUDIO_VAD_STATE_SILENCE;
    vad_data->confidence = 0.0f;
-   vad_data->rms_level = 0.0f;
+   vad_data->rms_level = obj->stats.rms_level_peak;
    vad_data->overall_score = 0.0f;
    vad_data->is_final = false;
 
@@ -119,9 +121,9 @@ xraudio_result_t xraudio_vad_reset(xraudio_vad_object_t object) {
    }
 
    memset(&obj->stats, 0, sizeof(obj->stats));
-   obj->stats.rms_level_peak = -100.0f;
+   obj->stats.rms_level_peak    = -100.0f;
+   obj->stats.rms_level_average = -100.0f;
    return(XRAUDIO_RESULT_OK);
-}
 
 xraudio_result_t xraudio_vad_get_stats(xraudio_vad_object_t object, xraudio_vad_stats_t *stats, bool finalize) {
    (void)finalize;
