@@ -207,7 +207,7 @@ bool xrsr_sdt_connect(xrsr_state_sdt_t *sdt, xrsr_url_parts_t *url_parts, xrsr_s
       xrsr_sdt_event(sdt, SM_EVENT_SESSION_BEGIN, false);
       return(true);
    }
-   xrsr_sdt_event(sdt, SM_EVENT_SESSION_BEGIN_STM, false);
+   xrsr_sdt_event(sdt, SM_EVENT_SESSION_BEGIN_STREAM_CHK, false);
    return(true);
 }
 
@@ -351,7 +351,23 @@ void xrsr_sdt_handle_speech_event(xrsr_state_sdt_t *sdt, xrsr_speech_event_t *ev
       }
       case XRSR_EVENT_STREAM_TIME_MINIMUM: {
          sdt->stream_time_min_rxd = true;
-         xrsr_sdt_event(sdt, SM_EVENT_STM, false);
+         if(sdt->stream_vad_detect_rxd) {
+            xrsr_sdt_event(sdt, SM_EVENT_STREAM_VALID, false);
+         }
+         break;
+      }
+      case XRSR_EVENT_STREAM_VOICE_ACTIVITY: {
+         if(sdt->stream_vad_detect_rxd) {
+            XLOGD_INFO("src <%s> voice activity detection event ignored", xrsr_src_str(sdt->audio_src));
+         } else {
+            XLOGD_INFO("voice activity detected <%s> confidence <%.2f>", event->data.vad_info.voice_detected ? "YES" : "NO", event->data.vad_info.confidence);
+            if(event->data.vad_info.voice_detected) {
+               sdt->stream_vad_detect_rxd = true;
+               if(sdt->stream_time_min_rxd) {
+                  xrsr_sdt_event(sdt, SM_EVENT_STREAM_VALID, false);
+               }
+            }
+         }
          break;
       }
       default: {
@@ -497,7 +513,7 @@ void St_Sdt_Buffering(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardRes
          switch(pEvent->mID) {
             case SM_EVENT_EOS: {
                sdt->stream_end_reason  = XRSR_STREAM_END_REASON_AUDIO_EOF;
-               sdt->session_end_reason = XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
+               sdt->session_end_reason = (sdt->stream_time_min_rxd) ? XRSR_SESSION_END_REASON_ERROR_AUDIO_SILENT : XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
                xrsr_sdt_speech_stream_end(sdt, sdt->stream_end_reason, sdt->detect_resume);
                break;
             }

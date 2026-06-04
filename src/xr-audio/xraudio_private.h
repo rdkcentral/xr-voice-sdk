@@ -238,6 +238,8 @@ typedef struct {
    audio_in_data_callback_t        data_callback;
    int                             fifo_sound_intensity;
    uint16_t                        stream_time_minimum;
+   bool                            vad_enabled;
+   xraudio_input_vad_config_t      vad_config;
    uint32_t                        stream_keyword_begin;
    uint32_t                        stream_keyword_duration;
    int16_t                         kwd_peak_power_dBFS;

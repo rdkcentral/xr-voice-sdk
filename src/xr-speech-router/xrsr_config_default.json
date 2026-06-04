@@ -22,5 +22,11 @@
       }
    },
    "xraudio" : {
+      "vad" : {
+         "sensitivity"         :   0.9,
+         "analysis_window_ms"  :   100,
+         "audio_rms_level_min" : -60.0,
+         "intro_window_ms"     :   100
+      }
    }
 }

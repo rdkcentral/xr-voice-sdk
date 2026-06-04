@@ -125,19 +125,20 @@ const char *xrsr_protocol_str(xrsr_protocol_t type) {
 
 const char *xrsr_session_end_reason_str(xrsr_session_end_reason_t type) {
    switch(type) {
-      case XRSR_SESSION_END_REASON_EOS:                     return("EOS");
-      case XRSR_SESSION_END_REASON_EOT:                     return("EOT");
-      case XRSR_SESSION_END_REASON_DISCONNECT_REMOTE:       return("DISCONNECT_REMOTE");
-      case XRSR_SESSION_END_REASON_TERMINATE:               return("TERMINATE");
-      case XRSR_SESSION_END_REASON_ERROR_INTERNAL:          return("ERROR_INTERNAL");
-      case XRSR_SESSION_END_REASON_ERROR_WS_SEND:           return("ERROR_WS_SEND");
-      case XRSR_SESSION_END_REASON_ERROR_AUDIO_BEGIN:       return("ERROR_AUDIO_BEGIN");
-      case XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION:    return("ERROR_AUDIO_DURATION");
-      case XRSR_SESSION_END_REASON_ERROR_CONNECT_FAILURE:   return("ERROR_CONNECT_FAILURE");
-      case XRSR_SESSION_END_REASON_ERROR_CONNECT_TIMEOUT:   return("ERROR_CONNECT_TIMEOUT");
-      case XRSR_SESSION_END_REASON_ERROR_SESSION_TIMEOUT:   return("ERROR_SESSION_TIMEOUT");
-      case XRSR_SESSION_END_REASON_ERROR_DISCONNECT_REMOTE: return("ERROR_DISCONNECT_REMOTE");
-      case XRSR_SESSION_END_REASON_INVALID:                 return("INVALID");
+      case XRSR_SESSION_END_REASON_EOS:                          return("EOS");
+      case XRSR_SESSION_END_REASON_EOT:                          return("EOT");
+      case XRSR_SESSION_END_REASON_DISCONNECT_REMOTE:            return("DISCONNECT_REMOTE");
+      case XRSR_SESSION_END_REASON_TERMINATE:                    return("TERMINATE");
+      case XRSR_SESSION_END_REASON_ERROR_INTERNAL:               return("ERROR_INTERNAL");
+      case XRSR_SESSION_END_REASON_ERROR_WS_SEND:                return("ERROR_WS_SEND");
+      case XRSR_SESSION_END_REASON_ERROR_AUDIO_BEGIN:            return("ERROR_AUDIO_BEGIN");
+      case XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION:         return("ERROR_AUDIO_DURATION");
+      case XRSR_SESSION_END_REASON_ERROR_CONNECT_FAILURE:        return("ERROR_CONNECT_FAILURE");
+      case XRSR_SESSION_END_REASON_ERROR_CONNECT_TIMEOUT:        return("ERROR_CONNECT_TIMEOUT");
+      case XRSR_SESSION_END_REASON_ERROR_SESSION_TIMEOUT:        return("ERROR_SESSION_TIMEOUT");
+      case XRSR_SESSION_END_REASON_ERROR_DISCONNECT_REMOTE:      return("ERROR_DISCONNECT_REMOTE");
+      case XRSR_SESSION_END_REASON_ERROR_AUDIO_SILENT:           return("ERROR_AUDIO_SILENT");
+      case XRSR_SESSION_END_REASON_INVALID:                      return("INVALID");
    }
    return(xrsr_invalid_return(type));
 }
@@ -243,11 +244,12 @@ const char *xrsr_address_family_str(xrsr_address_family_t family) {
 
 const char *xrsr_event_str(xrsr_event_t event) {
    switch(event) {
-      case XRSR_EVENT_EOS:                 return("EOS");
-      case XRSR_EVENT_STREAM_TIME_MINIMUM: return("STREAM_TIME_MINIMUM");
-      case XRSR_EVENT_STREAM_KWD_INFO:     return("STREAM_KWD_INFO");
-      case XRSR_EVENT_STREAM_ERROR:        return("STREAM_ERROR");
-      case XRSR_EVENT_INVALID:             return("INVALID");
+      case XRSR_EVENT_EOS:                   return("EOS");
+      case XRSR_EVENT_STREAM_TIME_MINIMUM:   return("STREAM_TIME_MINIMUM");
+      case XRSR_EVENT_STREAM_KWD_INFO:       return("STREAM_KWD_INFO");
+      case XRSR_EVENT_STREAM_VOICE_ACTIVITY: return("STREAM_VOICE_ACTIVITY");
+      case XRSR_EVENT_STREAM_ERROR:          return("STREAM_ERROR");
+      case XRSR_EVENT_INVALID:               return("INVALID");
    }
    return(xrsr_invalid_return(event));
 }
@@ -282,6 +284,16 @@ const char *xrsr_cert_type_str(xrsr_cert_type_t type) {
       case XRSR_CERT_TYPE_INVALID: return("INVALID");
    }
    return(xrsr_invalid_return(type));
+}
+
+const char *xrsr_stream_voice_activity_mode_str(xrsr_stream_voice_activity_mode_t mode) {
+   switch(mode) {
+      case XRSR_STREAM_VOICE_ACTIVITY_MODE_DISABLED: return("DISABLED");
+      case XRSR_STREAM_VOICE_ACTIVITY_MODE_ENABLED:  return("ENABLED");
+      case XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED: return("ENFORCED");
+      case XRSR_STREAM_VOICE_ACTIVITY_MODE_INVALID:  return("INVALID");
+   }
+   return(xrsr_invalid_return(mode));
 }
 
 bool xrsr_url_parse(const char *url, xrsr_url_parts_t *url_parts) {
