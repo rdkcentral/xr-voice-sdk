@@ -179,6 +179,7 @@ tStateInfo St_Ws_Established_Info =
 // St_Ws_Streaming State Description ----------------------------------------------------------------
 tStateGuard St_Ws_Streaming_NextStates[] = 
 {
+    { SM_EVENT_APP_CLOSE,            &St_Ws_Disconnecting_Info },
     { SM_EVENT_MSG_RECV,             &St_Ws_Streaming_Info },
     { SM_EVENT_EOS,                  &St_Ws_Streaming_Info },
     { SM_EVENT_EOS_PIPE,             &St_Ws_Established_Info },
