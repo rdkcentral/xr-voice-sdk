@@ -1591,7 +1591,7 @@ void xrsr_msg_route_update(const xrsr_thread_params_t *params, xrsr_thread_state
    }
 }
 
-bool xrsr_session_request(xrsr_src_t src, xrsr_audio_format_t output_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
+bool xrsr_session_request(xrsr_src_t src,  uint8_t dst_index, xrsr_audio_format_t output_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
    if(input_format.type >= XRSR_SESSION_REQUEST_TYPE_INVALID) {
       XLOGD_INFO("unsupported input format <%s>", xrsr_session_request_type_str(input_format.type));
       return(false);
@@ -1612,7 +1612,7 @@ bool xrsr_session_request(xrsr_src_t src, xrsr_audio_format_t output_format, xrs
       }
    }
 
-   return(xrsr_xraudio_session_request(g_xrsr.xrsr_xraudio_object, src, xraudio_format, input_format, uuid, low_latency, low_cpu_util));
+   return(xrsr_xraudio_session_request(g_xrsr.xrsr_xraudio_object, src, dst_index, xraudio_format, input_format, uuid, low_latency, low_cpu_util));
 }
 
 bool xrsr_session_audio_fd_set(xrsr_src_t src, int fd, xrsr_audio_format_t audio_format, xrsr_input_data_read_cb_t callback, void *user_data) {
@@ -2057,7 +2057,17 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
    const char *audio_file_in    = (begin->audio_file_in[0]    == '\0') ? NULL : begin->audio_file_in;
 
    bool create_stream = true;
-   for(uint32_t dst_index = 0; dst_index < XRSR_DST_QTY_MAX; dst_index++) {
+
+   // Default to all destinations
+   uint8_t dst_index_begin = 0;
+   uint8_t dst_index_end   = XRSR_DST_QTY_MAX;
+   
+   if(begin->dst_index < XRSR_DST_QTY_MAX) { // A specific destination index is requested
+      dst_index_begin = begin->dst_index;
+      dst_index_end   = begin->dst_index + 1;
+   }
+
+   for(uint8_t dst_index = dst_index_begin; dst_index < dst_index_end; dst_index++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[session->src].dsts[dst_index];
 
       if((uint32_t)session->src >= XRSR_SRC_INVALID) { // Source can be released by index 0
@@ -2949,22 +2959,21 @@ void xrsr_send_stream_data(xrsr_src_t src, uint8_t *buffer, uint32_t size)
    }
 }
 
-void xrsr_session_begin(xrsr_src_t src, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
+void xrsr_session_begin(xrsr_src_t src, uint8_t dst_index, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
    if((uint32_t)src >= (uint32_t)XRSR_SRC_INVALID) {
       XLOGD_ERROR("invalid source <%s>", xrsr_src_str(src));
       return;
    }
-
-   // TODO Only the handler for dst index 0 is called.  Really this needs to be changed so that each protocol doesn't need to get called here.
-   for(uint32_t dst_index = 0; dst_index < 1; dst_index++) {
-      xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[dst_index];
-
-      if(dst->handler == NULL) {
-         XLOGD_ERROR("no handler for source <%s> dst index <%u>", xrsr_src_str(src), dst_index);
-         return;
-      }
-      (*dst->handler)(src, false, user_initiated, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
+   if(dst_index >= XRSR_DST_QTY_MAX || g_xrsr.routes[src].dsts[dst_index].handler == NULL) {
+      XLOGD_ERROR("source <%s> invalid dst index <%u>", xrsr_src_str(src), dst_index);
+      return;
    }
+
+   // TODO Only the handler for the specified dst index is called.  May need to support simultaneous and/or chained destinations in the future.
+   
+   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[dst_index];
+
+   (*dst->handler)(src, dst_index, false, user_initiated, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
 }
 
 void xrsr_keyword_detect_error(xrsr_src_t src) {
@@ -3034,19 +3043,28 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
       session->requested_more_audio = false;
       session->stream_id++;
 
-      // create pipe for each destination
+      // Default to all destinations
+      uint32_t dst_index_begin = 0;
+      uint32_t dst_index_end   = XRSR_DST_QTY_MAX;
+   
+      if(dst_index < XRSR_DST_QTY_MAX) { // A specific destination index is requested
+         dst_index_begin = dst_index;
+         dst_index_end   = dst_index + 1;
+      }
+      
+      // initialize the destination parameters
       for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
-         xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
+         session->pipe_size[index]   = -1;
+         session->pipe_fds_rd[index] = -1;
+         dsts[index].pipe            = -1;
+         dsts[index].from            = XRAUDIO_INPUT_RECORD_FROM_INVALID;
+         dsts[index].offset          = 0;
+         dsts[index].until           = XRAUDIO_INPUT_RECORD_UNTIL_INVALID;
+      }
 
-         if(dst->handler == NULL) {
-            session->pipe_size[index]   = -1;
-            session->pipe_fds_rd[index] = -1;
-            dsts[index].pipe            = -1;
-            dsts[index].from            = XRAUDIO_INPUT_RECORD_FROM_INVALID;
-            dsts[index].offset          = 0;
-            dsts[index].until           = XRAUDIO_INPUT_RECORD_UNTIL_INVALID;
-            break;
-         }
+      // create pipe for each destination
+      for(uint32_t index = dst_index_begin; index < dst_index_end; index++) {
+         xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
          int pipe_fds[2];
 
@@ -3216,7 +3234,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                // Ensure that the pipes are large enough to hold the entire audio data
                for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
-                  if(dst->handler == NULL) {
+                  if(dst->handler == NULL || dsts[index].pipe < 0) {
                      continue;
                   }
                   if(data_length > session->pipe_size[index]) {
@@ -3293,7 +3311,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                         xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
-                        if(dst->handler == NULL) {
+                        if(dst->handler == NULL || dsts[index].pipe < 0) {
                            continue;
                         }
                         errno = 0;
@@ -3313,7 +3331,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
-                  if(dst->handler == NULL) {
+                  if(dst->handler == NULL || dsts[index].pipe < 0) {
                      continue;
                   }
                   close(dsts[index].pipe);

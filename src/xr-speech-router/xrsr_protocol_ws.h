@@ -108,7 +108,7 @@ typedef struct {
    xrsr_session_config_update_t *session_config_update;
 } xrsr_state_ws_t;
 
-void xrsr_protocol_handler_ws(xrsr_src_t src, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
+void xrsr_protocol_handler_ws(xrsr_src_t src, uint8_t dst_index, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
 bool xrsr_ws_init(xrsr_state_ws_t *ws, xrsr_ws_params_t *params);
 void xrsr_ws_term(xrsr_state_ws_t *ws);
 bool xrsr_ws_update_dst_params(xrsr_state_ws_t *ws, xrsr_dst_param_ptrs_t *params);
