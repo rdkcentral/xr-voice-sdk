@@ -3257,7 +3257,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      stream_begin_failure = true;
                   } else {
                      data_length = statbuf.st_size; // the full length of the file
-                     pipe_required_bytes = data_length;
+                     pipe_required_bytes = 0;
 
                      // For opus input, estimate decoded PCM bytes before writing to the pipes.
                      size_t encoded_remaining = data_length;
