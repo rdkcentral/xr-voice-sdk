@@ -24,9 +24,9 @@
 // State Events
 //-------------------------------------------------------------------------------
 #define SM_EVENT_SESSION_BEGIN            (0)
-#define SM_EVENT_SESSION_BEGIN_STM        (1)
+#define SM_EVENT_SESSION_BEGIN_STREAM_CHK (1)
 #define SM_EVENT_DISCONNECTED             (2)
-#define SM_EVENT_STM                      (3)
+#define SM_EVENT_STREAM_VALID             (3)
 #define SM_EVENT_SOS                      (4)
 #define SM_EVENT_EOS                      (5)
 #define SM_EVENT_TERMINATE                (6)
@@ -62,9 +62,9 @@ STATE_DECLARE( St_Ws_TextOnlySession );
 // St_Ws_Disconnected State Description ----------------------------------------------------------------
 tStateGuard St_Ws_Disconnected_NextStates[] = 
 {
-    { SM_EVENT_TERMINATE,         &St_Ws_Disconnected_Info },
-    { SM_EVENT_SESSION_BEGIN,     &St_Ws_Connecting_Info },
-    { SM_EVENT_SESSION_BEGIN_STM, &St_Ws_Buffering_Info }
+    { SM_EVENT_TERMINATE,                &St_Ws_Disconnected_Info },
+    { SM_EVENT_SESSION_BEGIN,            &St_Ws_Connecting_Info },
+    { SM_EVENT_SESSION_BEGIN_STREAM_CHK, &St_Ws_Buffering_Info }
 };
 
 tStateInfo St_Ws_Disconnected_Info = 
@@ -97,9 +97,9 @@ tStateInfo St_Ws_Disconnecting_Info =
 // St_Ws_Buffering State Description ----------------------------------------------------------------
 tStateGuard St_Ws_Buffering_NextStates[] = 
 {
-    { SM_EVENT_EOS,       &St_Ws_Disconnected_Info },
-    { SM_EVENT_TERMINATE, &St_Ws_Disconnected_Info },
-    { SM_EVENT_STM,       &St_Ws_Connecting_Info }
+    { SM_EVENT_EOS,          &St_Ws_Disconnected_Info },
+    { SM_EVENT_TERMINATE,    &St_Ws_Disconnected_Info },
+    { SM_EVENT_STREAM_VALID, &St_Ws_Connecting_Info }
 };
 
 tStateInfo St_Ws_Buffering_Info = 
@@ -179,6 +179,7 @@ tStateInfo St_Ws_Established_Info =
 // St_Ws_Streaming State Description ----------------------------------------------------------------
 tStateGuard St_Ws_Streaming_NextStates[] = 
 {
+    { SM_EVENT_APP_CLOSE,            &St_Ws_Disconnecting_Info },
     { SM_EVENT_MSG_RECV,             &St_Ws_Streaming_Info },
     { SM_EVENT_EOS,                  &St_Ws_Streaming_Info },
     { SM_EVENT_EOS_PIPE,             &St_Ws_Established_Info },
@@ -187,7 +188,7 @@ tStateGuard St_Ws_Streaming_NextStates[] =
     { SM_EVENT_WS_CLOSE,             &St_Ws_Disconnected_Info },
     { SM_EVENT_AUDIO_ERROR,          &St_Ws_Established_Info },
     { SM_EVENT_TEXT_SESSION_SUCCESS, &St_Ws_TextOnlySession_Info },
-    { SM_EVENT_STM,                  &St_Ws_Streaming_Info }
+    { SM_EVENT_STREAM_VALID,         &St_Ws_Streaming_Info }
 };
 
 tStateInfo St_Ws_Streaming_Info = 

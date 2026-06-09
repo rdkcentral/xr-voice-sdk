@@ -35,10 +35,11 @@ static bool xrsr_sdt_queue_msg_out(xrsr_state_sdt_t *sdt, const char *msg, uint3
 static void xrsr_sdt_clear_msg_out(xrsr_state_sdt_t *sdt);
 
 // This function kicks off the session
-void xrsr_protocol_handler_sdt(xrsr_src_t src, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
+void xrsr_protocol_handler_sdt(xrsr_src_t src, uint8_t dst_index, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
    xrsr_queue_msg_session_begin_t msg;
    msg.header.type     = XRSR_QUEUE_MSG_TYPE_SESSION_BEGIN;
    msg.src             = src;
+   msg.dst_index       = dst_index;
    msg.retry           = retry;
    msg.user_initiated  = user_initiated;
    msg.input_format    = input_format;
@@ -206,7 +207,7 @@ bool xrsr_sdt_connect(xrsr_state_sdt_t *sdt, xrsr_url_parts_t *url_parts, xrsr_s
       xrsr_sdt_event(sdt, SM_EVENT_SESSION_BEGIN, false);
       return(true);
    }
-   xrsr_sdt_event(sdt, SM_EVENT_SESSION_BEGIN_STM, false);
+   xrsr_sdt_event(sdt, SM_EVENT_SESSION_BEGIN_STREAM_CHK, false);
    return(true);
 }
 
@@ -350,7 +351,23 @@ void xrsr_sdt_handle_speech_event(xrsr_state_sdt_t *sdt, xrsr_speech_event_t *ev
       }
       case XRSR_EVENT_STREAM_TIME_MINIMUM: {
          sdt->stream_time_min_rxd = true;
-         xrsr_sdt_event(sdt, SM_EVENT_STM, false);
+         if(sdt->stream_vad_detect_rxd) {
+            xrsr_sdt_event(sdt, SM_EVENT_STREAM_VALID, false);
+         }
+         break;
+      }
+      case XRSR_EVENT_STREAM_VOICE_ACTIVITY: {
+         if(sdt->stream_vad_detect_rxd) {
+            XLOGD_INFO("src <%s> voice activity detection event ignored", xrsr_src_str(sdt->audio_src));
+         } else {
+            XLOGD_INFO("voice activity detected <%s> confidence <%.2f>", event->data.vad_info.voice_detected ? "YES" : "NO", event->data.vad_info.confidence);
+            if(event->data.vad_info.voice_detected) {
+               sdt->stream_vad_detect_rxd = true;
+               if(sdt->stream_time_min_rxd) {
+                  xrsr_sdt_event(sdt, SM_EVENT_STREAM_VALID, false);
+               }
+            }
+         }
          break;
       }
       default: {
@@ -496,7 +513,7 @@ void St_Sdt_Buffering(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardRes
          switch(pEvent->mID) {
             case SM_EVENT_EOS: {
                sdt->stream_end_reason  = XRSR_STREAM_END_REASON_AUDIO_EOF;
-               sdt->session_end_reason = XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
+               sdt->session_end_reason = (sdt->stream_time_min_rxd) ? XRSR_SESSION_END_REASON_ERROR_AUDIO_SILENT : XRSR_SESSION_END_REASON_ERROR_AUDIO_DURATION;
                xrsr_sdt_speech_stream_end(sdt, sdt->stream_end_reason, sdt->detect_resume);
                break;
             }

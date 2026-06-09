@@ -28,6 +28,7 @@
 #include <xr_mq.h>
 #include <xr_timestamp.h>
 #include <xr_timer.h>
+#include <xrsr.h>
 #include <jansson.h>
 #include "xraudio_hal.h"
 #include "xraudio_config.h"
@@ -50,7 +51,7 @@
 #define XRAUDIO_FIFO_NAME_LENGTH_MAX      (64)
 #define XRAUDIO_FIFO_NAME_LENGTH_MIN      (2)
 
-#define XRAUDIO_FIFO_QTY_MAX              (1)
+#define XRAUDIO_FIFO_QTY_MAX              (XRSR_DST_QTY_MAX) // The quantity of FIFOs needed is based on the maximum quantity of destinations for a source in xrsr
 
 #define BLOCK_INTERFERER_DURING_VREX       (1)
 
@@ -237,6 +238,8 @@ typedef struct {
    audio_in_data_callback_t        data_callback;
    int                             fifo_sound_intensity;
    uint16_t                        stream_time_minimum;
+   bool                            vad_enabled;
+   xraudio_input_vad_config_t      vad_config;
    uint32_t                        stream_keyword_begin;
    uint32_t                        stream_keyword_duration;
    int16_t                         kwd_peak_power_dBFS;

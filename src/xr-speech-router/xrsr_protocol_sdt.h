@@ -54,6 +54,7 @@ typedef struct {
    rdkx_timestamp_t              retry_timestamp_end;
    int32_t                       connect_wait_time;
    bool                          stream_time_min_rxd;
+   bool                          stream_vad_detect_rxd;
    xrsr_url_parts_t *            url_parts;
    char                          url[XRSR_WS_URL_SIZE_MAX];
    const char *                  sat_token;
@@ -97,7 +98,7 @@ typedef struct {
    xrsr_session_config_update_t *session_config_update;
 } xrsr_state_sdt_t;
 
-void xrsr_protocol_handler_sdt(xrsr_src_t src, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
+void xrsr_protocol_handler_sdt(xrsr_src_t src, uint8_t dst_index, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
 bool xrsr_sdt_init(xrsr_state_sdt_t *sdt, xrsr_sdt_params_t *params);
 void xrsr_sdt_term(xrsr_state_sdt_t *sdt);
 void xrsr_sdt_host_name_set(xrsr_state_sdt_t *sdt, const char *host_name);

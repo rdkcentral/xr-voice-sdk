@@ -48,6 +48,8 @@ typedef struct {
    uuid_t                        uuid;
    xrsr_session_config_out_t     session_config_out;
    xrsr_session_config_in_t      session_config_in;
+   bool                          stream_time_min_rxd;
+   bool                          stream_vad_detect_rxd;
    const char *                  sat_token;
    const char *                  user_agent;
    char                          transcription_in[XRSR_SESSION_BY_TEXT_MAX_LENGTH];
@@ -75,7 +77,7 @@ typedef struct {
    xrsr_session_config_update_t *session_config_update;
 } xrsr_state_http_t;
 
-void xrsr_protocol_handler_http(xrsr_src_t src, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
+void xrsr_protocol_handler_http(xrsr_src_t src, uint8_t dst_index, bool retry, bool user_initiated, xraudio_input_format_t xraudio_format, xraudio_keyword_detector_result_t *detector_result, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
 bool xrsr_http_init(xrsr_state_http_t *http, bool debug);
 void xrsr_http_term(xrsr_state_http_t *http, bool closing);
 void xrsr_http_terminate(xrsr_state_http_t *http);
