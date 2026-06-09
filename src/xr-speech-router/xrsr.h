@@ -51,6 +51,7 @@
 #define XRSR_SESSION_IP_LEN_MAX            (48)    ///< Maximum length of the NULL-terminated IP address string.
 
 #define XRSR_DST_QTY_MAX                   (1)     ///< Maximum quantity of destinations for a source
+#define XRSR_DST_INDEX_ALL                 (XRSR_DST_QTY_MAX) ///< This value indicates all destinations
 
 #define XRSR_SESSION_BY_TEXT_MAX_LENGTH    (128)   ///< Maximum text string length for text-only sessions
 #define XRSR_SESSION_AUDIO_FILE_MAX_LENGTH (256)   ///< Maximum string length for audio file name
@@ -212,9 +213,11 @@ typedef enum {
 
 typedef enum {
    XRSR_RECV_EVENT_EOS_SERVER        = 0,
-   XRSR_RECV_EVENT_DISCONNECT_REMOTE = 1,
-   XRSR_RECV_EVENT_NONE              = 2,
-   XRSR_RECV_EVENT_INVALID           = 3,
+   XRSR_RECV_EVENT_TIMEOUT_SERVER    = 1,
+   XRSR_RECV_EVENT_USER_QUIT         = 2,
+   XRSR_RECV_EVENT_DISCONNECT_REMOTE = 3,
+   XRSR_RECV_EVENT_NONE              = 4,
+   XRSR_RECV_EVENT_INVALID           = 5,
 } xrsr_recv_event_t;
 
 typedef enum {
@@ -712,13 +715,14 @@ bool xrsr_route(const xrsr_route_t routes[]);
 /// @brief Requests a speech router session
 /// @details Requests to start a session manually by user pressing a button on the device or other means.
 /// @param[in] src Source type for the session
+/// @param[in] dst_index Destination index for the session. Valid destination-specific values are 0..(XRSR_DST_QTY_MAX - 1). XRSR_DST_INDEX_ALL is also accepted and requests the session for all destinations associated with the source.
 /// @param[in] output_format Audio output format for the session
 /// @param[in] input_format Input format for the session
 /// @param[in] uuid UUID for the session (optional)
 /// @param[in] low_latency Enables low latency mode if true, otherwise disables.
 /// @param[in] low_cpu_util Enables low cpu utilization mode if true, otherwise disables.
 /// @return The function returns true if successful or false otherwise.
-bool xrsr_session_request(xrsr_src_t src, xrsr_audio_format_t output_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
+bool xrsr_session_request(xrsr_src_t src, uint8_t dst_index, xrsr_audio_format_t output_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
 
 /// @brief Updates the file descriptor for a speech router session
 /// @details Requests to update the file descriptor for a session that has been granted, but does not have the source file descriptor yet.

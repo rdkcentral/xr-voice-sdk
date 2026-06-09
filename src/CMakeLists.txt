@@ -1,10 +1,12 @@
-option(RDK_VERSION_ENABLED     "Build with RDK versioning support"           OFF)
-option(HTTP_ENABLED            "speech router http protocol"                 OFF)
+option(RDK_VERSION_ENABLED,     "Build with RDK versioning support"           OFF)
+option(HTTP_ENABLED,            "speech router http protocol"                 OFF)
+option(WS_ENABLED,              "speech router websocket protocol"            OFF)
+option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
+option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
+option(USE_SAFEC,               "Use safec"                                   OFF)
+option(VAD_ENABLED              "Enable VAD feature"                          ON)
+option(VAD_TEST_ENABLED,        "Build the VAD wave-file processing test"     OFF)
 option(INSTALL_INTERNAL_HEADERS "Install internal sub-component headers"      OFF)
-option(WS_ENABLED              "speech router websocket protocol"            OFF)
-option(WS_NOPOLL_PATCHES       "speech router websocket nopoll patches"      OFF)
-option(SDT_ENABLED             "speech router secure data transfer protocol" OFF)
-option(VAD_ENABLED             "Enable VAD feature"                          ON)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -30,15 +32,20 @@ target_include_directories(xr-voice-sdk PUBLIC
                            ${CMAKE_SYSROOT}/usr/include/libsafec/
                           )
 
-target_sources(xr-voice-sdk PUBLIC
+target_sources(xr-voice-sdk PRIVATE
                vsdk_version.h
                xrsr_config.h
                xraudio_config.h
                rdkx_logger.h
-               vsdk.c
                rdkx_logger_modules.c
                rdkx_logger_level.c
                rdkx_logger_modules_lookup.c
+               xrsv_ws_nextgen_msgtype.c
+               xrsv_ws_nextgen_tv_control.c
+               )
+
+target_sources(xr-voice-sdk PUBLIC
+               vsdk.c
                xr-logger/rdkx_logger.c
                xr-timer/xr_timer.c
                xr-timestamp/xr_timestamp.c
@@ -52,8 +59,6 @@ target_sources(xr-voice-sdk PUBLIC
                xr-speech-vrex/xrsv_utils.c
                xr-speech-vrex/xrsv_http/xrsv_http.c
                xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.c
-               xrsv_ws_nextgen_msgtype.c
-               xrsv_ws_nextgen_tv_control.c
                xr-audio/xraudio.c
                xr-audio/xraudio_input.c
                xr-audio/xraudio_output.c
@@ -75,7 +80,8 @@ if(RDK_VERSION_ENABLED)
 endif()
 
 if(HTTP_ENABLED)
-   target_sources(xr-voice-sdk PUBLIC xr-speech-router/xrsr_protocol_http.c xrsr_protocol_http_log_filter.c)
+   target_sources(xr-voice-sdk PUBLIC xr-speech-router/xrsr_protocol_http.c)
+   target_sources(xr-voice-sdk PRIVATE xrsr_protocol_http_log_filter.c)
    target_compile_definitions(xr-voice-sdk PUBLIC HTTP_ENABLED)
    target_link_libraries(xr-voice-sdk curl)
 
@@ -93,7 +99,7 @@ if(WS_ENABLED)
       target_compile_definitions(xr-voice-sdk PUBLIC WS_NOPOLL_PATCHES)
    endif()
    target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/nopoll/)
-   target_link_libraries(xr-voice-sdk nopoll)
+   target_link_libraries(xr-voice-sdk ssl crypto nopoll)
 endif()
 
 if(SDT_ENABLED)
@@ -119,6 +125,16 @@ if(CURTAIL_LIBRARY)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
 endif()
 
+if(USE_SAFEC)
+   find_package(PkgConfig)
+   pkg_check_modules(SAFEC REQUIRED libsafec)
+   if(SAFEC_FOUND)
+      target_link_libraries(xr-voice-sdk ${SAFEC_LIBRARIES})
+   endif()
+else()
+   add_compile_definitions(SAFEC_DUMMY_API)
+endif()
+
 if(VAD_ENABLED)
    target_sources(xr-voice-sdk PUBLIC xr-audio/xraudio_vad.cpp)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_VAD_ENABLED)
@@ -128,6 +144,13 @@ else()
    target_sources(xr-voice-sdk PUBLIC xr-audio/xraudio_vad_stub.c)
 endif()
 
+target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/webrtc_audio_processing/)
+target_link_libraries(xr-voice-sdk webrtc_audio_processing)
+
+# VAD component test (optional)
+if(VAD_TEST_ENABLED)
+   add_subdirectory(xr-audio/test)
+endif()
 
 # CONFIG FILES
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_INSTALL_SYSCONFDIR} COMPONENT config )
