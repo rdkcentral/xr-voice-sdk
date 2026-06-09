@@ -144,9 +144,6 @@ else()
    target_sources(xr-voice-sdk PUBLIC xr-audio/xraudio_vad_stub.c)
 endif()
 
-target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/webrtc_audio_processing/)
-target_link_libraries(xr-voice-sdk webrtc_audio_processing)
-
 # VAD component test (optional)
 if(VAD_TEST_ENABLED)
    add_subdirectory(xr-audio/test)
