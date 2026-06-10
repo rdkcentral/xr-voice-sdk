@@ -2167,7 +2167,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             // Defer until the application sets the session config via the callback.  This must be done asynchronously to avoid deadlock situations.
 
             if(begin->retry) { // connect again for retries
-               bool deferred = (!http->stream_time_min_rxd || !http->stream_vad_detect_rxd) && !http->is_session_by_text && !http->is_session_by_file;
+               bool deferred = ((dst->stream_time_min > 0 || dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) && !http->is_session_by_text && !http->is_session_by_file) ? true : false;
 
                if(!xrsr_http_connect(http, &dst->url_parts, session->src, http->xraudio_format, state->timer_obj, deferred, http->session_config_in.http.query_strs, transcription_in)) {
                   XLOGD_ERROR("http connect failed");
