@@ -3283,7 +3283,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                // Ensure that the pipes are large enough to hold the entire audio data
                for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
-                  if(dst->handler == NULL) {
+                  if(dst->handler == NULL || dsts[index].pipe < 0) {
                      continue;
                   }
                   if(data_length > session->pipe_size[index]) {
@@ -3342,8 +3342,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            data_length -= opus_packet_size;
                         }
                         // Decode opus to pcm
-                        const int pcm_capacity = (int)(sizeof(buffer) / sizeof(int16_t));
-                        const int samples = opus_decode(obj_opus, opus_packet_buf, opus_packet_size, (int16_t *)buffer, pcm_capacity, 0);
+                        int samples = opus_decode(obj_opus, opus_packet_buf, opus_packet_size, (opus_int16 *)buffer, sizeof(buffer), 0);
                         if(samples < 0) {
                            XLOGD_ERROR("failed to decode opus frame <%d>", samples);
                            stream_begin_failure = true;
@@ -3373,7 +3372,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                         xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
-                        if(dst->handler == NULL) {
+                        if(dst->handler == NULL || dsts[index].pipe < 0) {
                            continue;
                         }
                         errno = 0;
@@ -3393,7 +3392,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
-                  if(dst->handler == NULL) {
+                  if(dst->handler == NULL || dsts[index].pipe < 0) {
                      continue;
                   }
                   close(dsts[index].pipe);
