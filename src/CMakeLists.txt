@@ -140,8 +140,6 @@ if(VAD_ENABLED)
    target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_VAD_ENABLED)
    target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/webrtc_audio_processing/)
    target_link_libraries(xr-voice-sdk webrtc_audio_processing)
-else()
-   target_sources(xr-voice-sdk PUBLIC xr-audio/xraudio_vad_stub.c)
 endif()
 
 # VAD component test (optional)
