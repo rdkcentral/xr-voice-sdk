@@ -5083,7 +5083,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   
                   // Add VAD statistics if VAD is enabled and active
                   if(instance->vad_enabled && instance->vad_obj != NULL) {
-#ifdef XRAUDIO_VAD_ENABLED
+                     #ifdef XRAUDIO_VAD_ENABLED
                      xraudio_vad_stats_t vad_stats;
                      if(xraudio_vad_get_stats(instance->vad_obj, &vad_stats, true) == XRAUDIO_RESULT_OK) {
                         stats.vad_voice_detected     = instance->vad_last_event.state == XRAUDIO_VAD_STATE_VOICE;
@@ -5108,7 +5108,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                            vad_stats.cpu_utilization
                         );
                      }
-#endif
+                     #endif
                   }
                   
                   (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, &stats, instance->param);
@@ -5121,7 +5121,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   
                   // Add VAD statistics if VAD is enabled and active
                   if(instance->vad_enabled && instance->vad_obj != NULL) {
-#ifdef XRAUDIO_VAD_ENABLED
+                     #ifdef XRAUDIO_VAD_ENABLED
                      xraudio_vad_stats_t vad_stats;
                      if(xraudio_vad_get_stats(instance->vad_obj, &vad_stats, true) == XRAUDIO_RESULT_OK) {
                         stats.vad_voice_detected     = instance->vad_last_event.state == XRAUDIO_VAD_STATE_VOICE;
@@ -5146,7 +5146,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                            vad_stats.cpu_utilization
                         );
                      }
-#endif
+                     #endif
                      (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, &stats, instance->param);
                   } else {
                      (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, NULL, instance->param);
@@ -5185,7 +5185,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
 
    // VAD Processing - integrate after format conversion
    if(instance->vad_enabled && instance->vad_obj != NULL) {
-#ifdef XRAUDIO_VAD_ENABLED
+      #ifdef XRAUDIO_VAD_ENABLED
       // Process VAD on the PCM output
       uint8_t *inbuf = &session->external_frame_buffer[session->external_frame_group_index * session->external_frame_size_out];
 
@@ -5215,7 +5215,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
       } else {
          XLOGD_ERROR("VAD processing failed: %s", xraudio_result_str(vad_result));
       }
-#endif
+      #endif
    }
 
    session->external_data_len += bytes_read;
