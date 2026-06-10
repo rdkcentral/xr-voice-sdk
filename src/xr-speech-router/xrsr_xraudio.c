@@ -667,11 +667,7 @@ bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_
          XLOGD_WARN("unable to configure VAD <%s>", xraudio_result_str(result));
       }
       #else
-      if(vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
-         XLOGD_WARN("VAD enforced mode requested for source <%s>, but VAD is disabled at build time; treating as non-enforced", xraudio_devices_input_str(source));
-      } else {
-         XLOGD_WARN("VAD enabled mode requested for source <%s>, but VAD is disabled at build time; ignoring", xraudio_devices_input_str(source));
-      }
+      XLOGD_WARN("VAD mode <%s> requested for source <%s>, but VAD is disabled at build time; ignoring", xrsr_stream_voice_activity_mode_str(vad_mode), xraudio_devices_input_str(source));
       #endif
    }
 
