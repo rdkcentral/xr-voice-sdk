@@ -2196,7 +2196,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                   ws->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
                   #else
                   if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
-                     XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time; treating stream as non-enforced");
+                     XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time");
                   }
                   ws->stream_vad_detect_rxd = true;
                   #endif
@@ -2276,7 +2276,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                sdt->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
                #else
                if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
-                  XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time; treating stream as non-enforced");
+                  XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time");
                }
                sdt->stream_vad_detect_rxd = true;
                #endif
@@ -2509,7 +2509,7 @@ void xrsr_msg_session_config_in(const xrsr_thread_params_t *params, xrsr_thread_
                   (*http->handlers.session_config)(http->handlers.data, http->uuid, &http->session_config_in);
                }
 
-               bool deferred = (!http->stream_time_min_rxd || !http->stream_vad_detect_rxd) && !http->is_session_by_text && !http->is_session_by_file;
+               bool deferred = ((dst->stream_time_min > 0 || dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) && !http->is_session_by_text && !http->is_session_by_file) ? true : false;
 
                int pipe_fd_read = -1;
                const char *audio_file_in = (http->is_session_by_file) ? http->audio_file_in : NULL;
