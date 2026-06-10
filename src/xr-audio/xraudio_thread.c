@@ -5749,7 +5749,7 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
 }
 
 #ifdef XRAUDIO_VAD_ENABLED
-void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, xraudio_input_vad_config_t vad_config, uint32_t sample_rate) {
+static void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, xraudio_input_vad_config_t vad_config, uint32_t sample_rate) {
    if (instance == NULL) {
       XLOGD_ERROR("invalid params");
       return;
