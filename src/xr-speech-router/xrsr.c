@@ -2119,7 +2119,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             http->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
             #else
             if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
-               XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time; treating stream as non-enforced");
+               XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time");
             }
             http->stream_vad_detect_rxd = true;
             #endif

@@ -1231,17 +1231,17 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
          decoding = true;
 
          instance->vad_enabled = record->vad_enabled;
-#ifdef XRAUDIO_VAD_ENABLED
+         #ifdef XRAUDIO_VAD_ENABLED
          if(instance->vad_enabled) { // Initialize VAD if enabled in session
             instance->vad_config = record->vad_config;
             xraudio_vad_session_create(instance, instance->vad_config, state->record.external_format.sample_rate);
          }
-#else
+         #else
          if(instance->vad_enabled) {
             XLOGD_WARN("VAD requested but disabled at build time");
          }
          instance->vad_enabled = false;
-#endif
+         #endif
       } else if(encoding_in == XRAUDIO_ENCODING_ADPCM_FRAME && encoding_out == XRAUDIO_ENCODING_ADPCM) {
          state->record.external_frame_size_in = adpcm_frame->size_packet;
          xraudio_encoding_parameters_get(&instance->format_out, frame_duration, &state->record.external_frame_size_out, record->stream_time_minimum, &instance->stream_time_min_value);
