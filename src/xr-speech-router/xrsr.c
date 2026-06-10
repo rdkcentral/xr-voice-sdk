@@ -3302,10 +3302,10 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                         #ifdef XRAUDIO_DECODE_OPUS
                         uint8_t length_bytes[2] = { '\0' };
                         errno = 0;
-                        ssize_t rc = read(fd, &length_bytes[0], 1); // Read opus self-delimiting header first byte
+                        int rc = read(fd, &length_bytes[0], 1); // Read opus self-delimiting header first byte
                         if(rc != 1) {
                            int errsv = errno;
-                           XLOGD_ERROR("failed to read opus header1 <%s> rxd <%zd> <%s>", audio_file_in, rc, strerror(errsv));
+                           XLOGD_ERROR("failed to read opus header1 <%s> rxd <%d> <%s>", audio_file_in, rc, strerror(errsv));
                            stream_begin_failure = true;
                            break;
                         }
@@ -3317,7 +3317,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            rc = read(fd, &length_bytes[1], 1); // Read opus self-delimiting header second byte
                            if(rc != 1) {
                               int errsv = errno;
-                              XLOGD_ERROR("failed to read opus header2 <%s> rxd <%zd> <%s>", audio_file_in, rc, strerror(errsv));
+                              XLOGD_ERROR("failed to read opus header2 <%s> rxd <%d> <%s>", audio_file_in, rc, strerror(errsv));
                               stream_begin_failure = true;
                               break;
                            }
@@ -3335,7 +3335,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            rc = read(fd, opus_packet_buf, opus_packet_size);
                            if(rc != opus_packet_size) {
                               int errsv = errno;
-                              XLOGD_ERROR("failed to read opus data <%s> exp <%hu> rxd <%zd> <%s>", audio_file_in, opus_packet_size, rc, strerror(errsv));
+                              XLOGD_ERROR("failed to read opus data <%s> exp <%d> rxd <%d> <%s>", audio_file_in, opus_packet_size, rc, strerror(errsv));
                               stream_begin_failure = true;
                               break;
                            }
