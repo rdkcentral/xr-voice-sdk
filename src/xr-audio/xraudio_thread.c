@@ -5797,7 +5797,7 @@ void xraudio_vad_session_destroy(xraudio_session_record_inst_t *instance) {
    }
 }
 #else
-void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, xraudio_input_vad_config_t vad_config, uint32_t sample_rate) {
+static void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, xraudio_input_vad_config_t vad_config, uint32_t sample_rate) {
    (void)vad_config;
    (void)sample_rate;
 
@@ -5810,7 +5810,7 @@ void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, xraudio
    instance->vad_obj     = NULL;
 }
 
-void xraudio_vad_session_destroy(xraudio_session_record_inst_t *instance) {
+static void xraudio_vad_session_destroy(xraudio_session_record_inst_t *instance) {
    if(instance == NULL) {
       XLOGD_ERROR("invalid params");
       return;
