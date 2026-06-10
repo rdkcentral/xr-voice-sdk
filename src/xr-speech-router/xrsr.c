@@ -3235,7 +3235,6 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
          } else {
             // verify the audio format
             uint32_t data_length = 0;
-            size_t pipe_required_bytes = 0;
             bool encoding_opus = (output_format.encoding.type == XRAUDIO_ENCODING_OPUS);
 
             #ifdef XRAUDIO_DECODE_OPUS
@@ -3257,74 +3256,6 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      stream_begin_failure = true;
                   } else {
                      data_length = statbuf.st_size; // the full length of the file
-                     pipe_required_bytes = 0;
-
-                     // For opus input, estimate decoded PCM bytes before writing to the pipes.
-                     size_t encoded_remaining = data_length;
-                     while(encoded_remaining > 0) {
-                        uint8_t length_bytes[2] = { '\0' };
-
-                        ssize_t rc = read(fd, &length_bytes[0], 1); // Read opus self-delimiting header first byte
-                        if(rc != 1) {
-                           int errsv = errno;
-                           XLOGD_ERROR("failed to read opus header1 <%s> rxd <%zd> <%s>", audio_file_in, rc, strerror(errsv));
-                           stream_begin_failure = true;
-                           break;
-                        }
-                        encoded_remaining--;
-
-                        uint16_t opus_packet_size = length_bytes[0];
-                        if(opus_packet_size >= 252) { // Read second header byte
-                           rc = read(fd, &length_bytes[1], 1);
-                           if(rc != 1) {
-                              int errsv = errno;
-                              XLOGD_ERROR("failed to read opus header2 <%s> rxd <%zd> <%s>", audio_file_in, rc, strerror(errsv));
-                              stream_begin_failure = true;
-                              break;
-                           }
-                           opus_packet_size += (length_bytes[1] * 4);
-                           encoded_remaining--;
-                        }
-
-                        if(opus_packet_size > 1275) {
-                           XLOGD_ERROR("invalid opus packet size <%hu>", opus_packet_size);
-                           stream_begin_failure = true;
-                           break;
-                        }
-
-                        if((size_t)opus_packet_size > encoded_remaining) {
-                           XLOGD_ERROR("invalid opus packet size <%hu> remaining <%zu>", opus_packet_size, encoded_remaining);
-                           stream_begin_failure = true;
-                           break;
-                        }
-
-                        uint8_t opus_packet_buf[1275];
-                        if(opus_packet_size > 0) {
-                           rc = read(fd, opus_packet_buf, opus_packet_size);
-                           if(rc != opus_packet_size) {
-                              int errsv = errno;
-                              XLOGD_ERROR("failed to read opus data <%s> exp <%hu> rxd <%zd> <%s>", audio_file_in, opus_packet_size, rc, strerror(errsv));
-                              stream_begin_failure = true;
-                              break;
-                           }
-                           encoded_remaining -= opus_packet_size;
-                        }
-
-                        int samples = opus_packet_get_nb_samples(opus_packet_buf, opus_packet_size, 16000);
-                        if(samples < 0) {
-                           XLOGD_ERROR("failed to get opus sample count <%d>", samples);
-                           stream_begin_failure = true;
-                           break;
-                        }
-                        pipe_required_bytes += ((size_t)samples * sizeof(int16_t));
-                     }
-
-                     if(!stream_begin_failure) {
-                        if(lseek(fd, 0, SEEK_SET) != 0) {
-                           XLOGD_ERROR("unable to seek opus file <%s> to beginning", audio_file_in);
-                           stream_begin_failure = true;
-                        }
-                     }
                   }
                }
                #else
