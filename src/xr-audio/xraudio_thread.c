@@ -5786,7 +5786,7 @@ static void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, 
    XLOGD_INFO("VAD session initialized successfully");
 }
 
-void xraudio_vad_session_destroy(xraudio_session_record_inst_t *instance) {
+static void xraudio_vad_session_destroy(xraudio_session_record_inst_t *instance) {
    if(instance == NULL) {
       XLOGD_ERROR("invalid params");
       return;

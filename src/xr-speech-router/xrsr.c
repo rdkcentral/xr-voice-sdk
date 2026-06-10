@@ -3277,37 +3277,23 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                } else if(lseek(fd, offset, SEEK_SET) != offset) {
                   XLOGD_ERROR("unable to seek wave file <%s> offset <%d>", audio_file_in, offset);
                   stream_begin_failure = true;
-               } else {
-                  pipe_required_bytes = data_length;
                }
             }
             if(!stream_begin_failure) {
                // Ensure that the pipes are large enough to hold the entire audio data
                for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
-                  if(dst->handler == NULL || dsts[index].pipe < 0) {
+                  if(dst->handler == NULL) {
                      continue;
                   }
-                  if(session->pipe_size[index] <= 0) {
-                     errno = 0;
-                     int pipe_sz = fcntl(dsts[index].pipe, F_GETPIPE_SZ);
-                     if(pipe_sz <= 0) {
-                        int errsv = errno;
-                        XLOGD_ERROR("unable to determine pipe capacity <%d> <%s>", pipe_sz, strerror(errsv));
-                        stream_begin_failure = true;
-                        break;
-                     }
-                     session->pipe_size[index] = pipe_sz;
-                  }
-                  if(pipe_required_bytes > (size_t)session->pipe_size[index]) {
-                     XLOGD_ERROR("audio payload larger than pipe capacity - required <%zu> capacity <%d>", pipe_required_bytes, session->pipe_size[index]);
+                  if(data_length > session->pipe_size[index]) {
+                     XLOGD_ERROR("audio file data larger than pipe capacity <%d> <%d>", data_length, session->pipe_size[index]);
                      stream_begin_failure = true;
                      break;
                   }
                }
 
                if(!stream_begin_failure) { // Read the audio file in chunks and write to the pipe
-                  size_t pipe_bytes_written[XRSR_DST_QTY_MAX] = {0};
                   while(data_length) {
                      uint8_t buffer[4096];
                      size_t chunk_size = 0;
@@ -3373,10 +3359,10 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      } else {
                         chunk_size = (data_length >= sizeof(buffer)) ? sizeof(buffer) : data_length;
                         errno = 0;
-                        const ssize_t rc = read(fd, buffer, chunk_size);
-                        if(rc != (ssize_t)chunk_size) {
+                        int rc = read(fd, buffer, chunk_size);
+                        if(rc != chunk_size) {
                            int errsv = errno;
-                           XLOGD_ERROR("failed to read wave data <%s> exp <%zu> rxd <%zd> <%s>", audio_file_in, chunk_size, rc, strerror(errsv));
+                           XLOGD_ERROR("failed to read wave data <%s> exp <%u> rxd <%d> <%s>", audio_file_in, chunk_size, rc, strerror(errsv));
                            stream_begin_failure = true;
                            break;
                         }
@@ -3387,28 +3373,18 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                         xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
-                        if(dst->handler == NULL || dsts[index].pipe < 0) {
+                        if(dst->handler == NULL) {
                            continue;
                         }
-
-                        const size_t pipe_capacity = (size_t)session->pipe_size[index];
-                        if(chunk_size > pipe_capacity || pipe_bytes_written[index] > (pipe_capacity - chunk_size)) {
-                           XLOGD_ERROR("audio payload larger than pipe capacity - written <%zu> next <%zu> capacity <%zu>", pipe_bytes_written[index], chunk_size, pipe_capacity);
-                           stream_begin_failure = true;
-                           data_length = 0; // to exit the while loop
-                           break;
-                        }
-
                         errno = 0;
                         int rc = write(dsts[index].pipe, buffer, chunk_size);
                         if(rc != chunk_size) {
                            int errsv = errno;
-                           XLOGD_ERROR("failed to write wave data - exp <%zu> rxd <%d> <%s>", chunk_size, rc, strerror(errsv));
+                           XLOGD_ERROR("failed to write wave data - exp <%u> rxd <%d> <%s>", chunk_size, rc, strerror(errsv));
                            stream_begin_failure = true;
                            data_length = 0; // to exit the while loop
                            break;
                         }
-                        pipe_bytes_written[index] += chunk_size;
                      }
                   }
                }
@@ -3417,7 +3393,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
                   xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index];
 
-                  if(dst->handler == NULL || dsts[index].pipe < 0) {
+                  if(dst->handler == NULL) {
                      continue;
                   }
                   close(dsts[index].pipe);
