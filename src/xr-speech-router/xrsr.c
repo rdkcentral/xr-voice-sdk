@@ -3310,7 +3310,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            break;
                         }
                         data_length--;
-                        uint8_t  opus_packet_buf[OPUS_PACKET_SIZE_MAX];
+                        uint8_t  opus_packet_buf[1275];
                         uint16_t opus_packet_size = length_bytes[0];
 
                         if(opus_packet_size >= 252) { // Read second header byte
@@ -3325,7 +3325,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            data_length--;
                         }
 
-                        if(opus_packet_size > OPUS_PACKET_SIZE_MAX) {
+                        if(opus_packet_size > sizeof(opus_packet_buf)) {
                            XLOGD_ERROR("invalid opus packet size <%hu>", opus_packet_size);
                            stream_begin_failure = true;
                            break;
