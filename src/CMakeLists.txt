@@ -142,8 +142,11 @@ if(VAD_ENABLED)
    target_link_libraries(xr-voice-sdk webrtc_audio_processing)
 endif()
 
-# VAD component test (optional)
+# VAD component test (optional, requires VAD_ENABLED)
 if(VAD_TEST_ENABLED)
+   if(NOT VAD_ENABLED)
+      message(FATAL_ERROR "VAD_TEST_ENABLED requires VAD_ENABLED to be ON (xraudio_vad.cpp is not built without VAD_ENABLED, causing missing-symbol link failures)")
+   endif()
    add_subdirectory(xr-audio/test)
 endif()
 
