@@ -913,6 +913,12 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
       } else {
          stream_vad_mode = dst->stream_vad_mode;
       }
+      #ifndef XRAUDIO_VAD_ENABLED
+      if(stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
+         XLOGD_WARN("VAD enforced mode requested but VAD is disabled at build time, normalizing to DISABLED");
+         stream_vad_mode = XRSR_STREAM_VOICE_ACTIVITY_MODE_DISABLED;
+      }
+      #endif
 
       if(dst->stream_from == XRSR_STREAM_FROM_LIVE) {
          stream_from = XRAUDIO_INPUT_RECORD_FROM_LIVE;
