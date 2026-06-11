@@ -914,8 +914,8 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
          stream_vad_mode = dst->stream_vad_mode;
       }
       #ifndef XRAUDIO_VAD_ENABLED
-      if(stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
-         XLOGD_WARN("VAD enforced mode requested but VAD is disabled at build time, normalizing to DISABLED");
+      if(stream_vad_mode != XRSR_STREAM_VOICE_ACTIVITY_MODE_DISABLED) {
+         XLOGD_WARN("VAD mode <%s> requested but VAD is disabled at build time, normalizing to DISABLED", xrsr_stream_voice_activity_mode_str(stream_vad_mode));
          stream_vad_mode = XRSR_STREAM_VOICE_ACTIVITY_MODE_DISABLED;
       }
       #endif
@@ -2124,9 +2124,6 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
             #ifdef XRAUDIO_VAD_ENABLED
             http->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
             #else
-            if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
-               XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time");
-            }
             http->stream_vad_detect_rxd = true;
             #endif
 
@@ -2201,9 +2198,6 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                   #ifdef XRAUDIO_VAD_ENABLED
                   ws->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
                   #else
-                  if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
-                     XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time");
-                  }
                   ws->stream_vad_detect_rxd = true;
                   #endif
                }
@@ -2281,9 +2275,6 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                #ifdef XRAUDIO_VAD_ENABLED
                sdt->stream_vad_detect_rxd = (dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) ? false : true;
                #else
-               if(dst->stream_vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
-                  XLOGD_WARN("VAD enforced mode requested, but VAD is disabled at build time");
-               }
                sdt->stream_vad_detect_rxd = true;
                #endif
                
