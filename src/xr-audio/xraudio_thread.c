@@ -5748,6 +5748,7 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
    }
 }
 
+#ifdef XRAUDIO_VAD_ENABLED
 static void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, xraudio_input_vad_config_t vad_config, uint32_t sample_rate) {
    if (instance == NULL) {
       XLOGD_ERROR("invalid params");
@@ -5784,13 +5785,8 @@ static void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, 
    instance->vad_last_event.state = XRAUDIO_VAD_STATE_UNKNOWN;
 
    XLOGD_INFO("VAD session initialized successfully");
-   #else
-   (void)vad_config;
-   (void)sample_rate;
-   instance->vad_enabled = false;
-   instance->vad_obj     = NULL;
-   #endif
 }
+#endif // XRAUDIO_VAD_ENABLED
 
 static void xraudio_vad_session_destroy(xraudio_session_record_inst_t *instance) {
    if(instance == NULL) {
