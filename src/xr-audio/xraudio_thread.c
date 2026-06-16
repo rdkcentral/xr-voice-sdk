@@ -492,7 +492,9 @@ static void xraudio_msg_capture_params_set(xraudio_thread_state_t *state, void *
 static void xraudio_msg_input_source_fd_set(xraudio_thread_state_t *state, void *msg);
 
 // VAD helper functions
+#ifdef XRAUDIO_VAD_ENABLED
 static void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, xraudio_input_vad_config_t vad_config, uint32_t sample_rate);
+#endif
 static void xraudio_vad_session_destroy(xraudio_session_record_inst_t *instance);
 
 static void xraudio_encoding_parameters_get(xraudio_input_format_t *format, uint32_t frame_duration, uint32_t *frame_size, uint16_t stream_time_min_ms, uint32_t *min_audio_data_len);
@@ -5755,7 +5757,6 @@ static void xraudio_vad_session_create(xraudio_session_record_inst_t *instance, 
       return;
    }
 
-   #ifdef XRAUDIO_VAD_ENABLED
    XLOGD_INFO("sensitivity <%f> analysis window <%u ms>", vad_config.sensitivity, vad_config.analysis_window_ms);
 
    if(instance->vad_obj == NULL) { // Create VAD object
