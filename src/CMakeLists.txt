@@ -1,10 +1,12 @@
-option(RDK_VERSION_ENABLED,     "Build with RDK versioning support"           OFF)
-option(HTTP_ENABLED,            "speech router http protocol"                 OFF)
-option(WS_ENABLED,              "speech router websocket protocol"            OFF)
-option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
-option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
-option(USE_SAFEC,               "Use safec"                                   OFF)
-option(VAD_TEST_ENABLED,        "Build the VAD wave-file processing test"     OFF)
+option(RDK_VERSION_ENABLED,      "Build with RDK versioning support"           OFF)
+option(HTTP_ENABLED,             "speech router http protocol"                 OFF)
+option(WS_ENABLED,               "speech router websocket protocol"            OFF)
+option(WS_NOPOLL_PATCHES,        "speech router websocket nopoll patches"      OFF)
+option(SDT_ENABLED,              "speech router secure data transfer protocol" OFF)
+option(USE_SAFEC,                "Use safec"                                   OFF)
+option(VAD_ENABLED,              "Enable VAD feature"                          ON)
+option(VAD_TEST_ENABLED,         "Build the VAD wave-file processing test"     OFF)
+option(INSTALL_INTERNAL_HEADERS, "Install internal sub-component headers"      OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -61,7 +63,6 @@ target_sources(xr-voice-sdk PUBLIC
                xr-audio/xraudio_input.c
                xr-audio/xraudio_output.c
                xr-audio/xraudio_thread.c
-               xr-audio/xraudio_vad.cpp
                xr-audio/xraudio_utils.c
                xr-audio/xraudio_atomic.c)
 
@@ -134,11 +135,18 @@ else()
    add_compile_definitions(SAFEC_DUMMY_API)
 endif()
 
-target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/webrtc_audio_processing/)
-target_link_libraries(xr-voice-sdk webrtc_audio_processing)
+if(VAD_ENABLED)
+   target_sources(xr-voice-sdk PUBLIC xr-audio/xraudio_vad.cpp)
+   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_VAD_ENABLED)
+   target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/webrtc_audio_processing/)
+   target_link_libraries(xr-voice-sdk webrtc_audio_processing)
+endif()
 
-# VAD component test (optional)
+# VAD component test (optional, requires VAD_ENABLED)
 if(VAD_TEST_ENABLED)
+   if(NOT VAD_ENABLED)
+      message(FATAL_ERROR "VAD_TEST_ENABLED requires VAD_ENABLED to be ON (xraudio_vad.cpp is not built without VAD_ENABLED, causing missing-symbol link failures)")
+   endif()
    add_subdirectory(xr-audio/test)
 endif()
 
@@ -148,11 +156,32 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_I
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
 
 # HEADER FILES
-install(FILES xr_voice_sdk.h TYPE INCLUDE)
-install(FILES xr-speech-router/xrsr.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE)
+install(FILES xr_voice_sdk.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-router/xrsr.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE COMPONENT headers)
+
+if(INSTALL_INTERNAL_HEADERS)
+   install(FILES xr-mq/xr_mq.h               TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-fdc/xr_fdc.h             TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-timer/xr_timer.h         TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-timestamp/xr_timestamp.h TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-sm-engine/xr_sm_engine.h TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio.h          TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_hal.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_eos.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_dga.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_kwd.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_sdf.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_ovc.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_ppr.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_common.h   TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_platform.h TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_version.h  TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.h         TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_modules.h TYPE INCLUDE COMPONENT internal-headers)
+endif()
 
 # LIBRARY FILES
 install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
@@ -172,7 +201,7 @@ add_custom_command(
    VERBATIM)
 
 add_custom_command(
-   OUTPUT rdkx_logger_modules.hash rdkx_logger_modules_lookup.c
+   OUTPUT rdkx_logger_modules.hash rdkx_logger_modules.h rdkx_logger_modules_lookup.c
    COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/rdkx_logger_modules_to_c.py" ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger_modules "mw"
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
