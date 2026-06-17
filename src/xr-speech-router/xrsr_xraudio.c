@@ -591,7 +591,7 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
    }
 }
 
-bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_id, xraudio_devices_input_t source, bool user_initiated, xraudio_input_format_t *format_decoded, xraudio_dst_pipe_t dsts[], uint16_t stream_time_min, xrsr_stream_voice_activity_mode_t vad_mode, uint32_t keyword_begin, uint32_t keyword_duration, uint32_t frame_duration, bool low_latency, bool low_cpu_util, bool subsequent) {
+bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_id, xraudio_devices_input_t source, bool user_initiated, xraudio_input_format_t *format_decoded, xraudio_dst_pipe_t dsts[], uint16_t stream_time_min, uint32_t keyword_begin, uint32_t keyword_duration, uint32_t frame_duration, bool low_latency, bool low_cpu_util, bool subsequent) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
 
    if(!xrsr_xraudio_object_is_valid(obj)) {
@@ -655,16 +655,6 @@ bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_
    result = xraudio_stream_time_minimum(obj->xraudio_obj, source, stream_time_min);
    if(result != XRAUDIO_RESULT_OK) {
       XLOGD_WARN("unable to set stream time min <%s>", xraudio_result_str(result));
-   }
-
-   // Configure VAD if enabled/enforced
-   if(vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENABLED || vad_mode == XRSR_STREAM_VOICE_ACTIVITY_MODE_ENFORCED) {
-      xraudio_input_vad_config_t *vad_config = xrsr_vad_config_get();
-
-      result = xraudio_stream_vad_config(obj->xraudio_obj, source, vad_config);
-      if(result != XRAUDIO_RESULT_OK) {
-         XLOGD_WARN("unable to configure VAD <%s>", xraudio_result_str(result));
-      }
    }
 
    if(keyword_duration != 0) { // Keyword is present
@@ -755,39 +745,15 @@ void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback
          msg.event.event = XRSR_EVENT_EOS;
          if(event_param) {
             xraudio_audio_stats_t *xraudio_audio_stats = (xraudio_audio_stats_t *)event_param;
-            stream->audio_stats.packets_processed      = xraudio_audio_stats->packets_processed;
-            stream->audio_stats.packets_lost           = xraudio_audio_stats->packets_lost;
-            stream->audio_stats.samples_processed      = xraudio_audio_stats->samples_processed;
-            stream->audio_stats.samples_lost           = xraudio_audio_stats->samples_lost;
-            stream->audio_stats.decoder_failures       = xraudio_audio_stats->decoder_failures;
-            stream->audio_stats.samples_buffered_max   = xraudio_audio_stats->samples_buffered_max;
-            // Copy VAD statistics
-            stream->audio_stats.vad_voice_detected     = xraudio_audio_stats->vad_voice_detected;
-            stream->audio_stats.vad_frames_processed   = xraudio_audio_stats->vad_frames_processed;
-            stream->audio_stats.vad_frames_voice       = xraudio_audio_stats->vad_frames_voice;
-            stream->audio_stats.vad_frames_silence     = xraudio_audio_stats->vad_frames_silence;
-            stream->audio_stats.vad_rms_level_average  = xraudio_audio_stats->vad_rms_level_average;
-            stream->audio_stats.vad_rms_level_peak     = xraudio_audio_stats->vad_rms_level_peak;
-            stream->audio_stats.vad_confidence_average = xraudio_audio_stats->vad_confidence_average;
-            stream->audio_stats.vad_confidence_peak    = xraudio_audio_stats->vad_confidence_peak;
-            stream->audio_stats.vad_cpu_utilization    = xraudio_audio_stats->vad_cpu_utilization;
+            stream->audio_stats.packets_processed    = xraudio_audio_stats->packets_processed;
+            stream->audio_stats.packets_lost         = xraudio_audio_stats->packets_lost;
+            stream->audio_stats.samples_processed    = xraudio_audio_stats->samples_processed;
+            stream->audio_stats.samples_lost         = xraudio_audio_stats->samples_lost;
+            stream->audio_stats.decoder_failures     = xraudio_audio_stats->decoder_failures;
+            stream->audio_stats.samples_buffered_max = xraudio_audio_stats->samples_buffered_max;
             stream->audio_stats.valid                = true;
 
             XLOGD_DEBUG("xraudio stats - packets processed <%u> lost <%u> samples processed <%u> lost <%u> decoder failures <%u>", stream->audio_stats.packets_processed, stream->audio_stats.packets_lost, stream->audio_stats.samples_processed, stream->audio_stats.samples_lost, stream->audio_stats.decoder_failures);
-
-            if(stream->audio_stats.vad_frames_processed > 0) {
-               XLOGD_INFO("vad stats: voice detected <%s> frames processed <%u> voice <%u> silence <%u> rms level avg <%.1f> rms level peak <%.1f> confidence avg <%.2f> confidence peak <%.2f> cpu utilization <%.1f %%>",
-                           stream->audio_stats.vad_voice_detected ? "YES" : "NO",
-                           stream->audio_stats.vad_frames_processed,
-                           stream->audio_stats.vad_frames_voice,
-                           stream->audio_stats.vad_frames_silence,
-                           stream->audio_stats.vad_rms_level_average,
-                           stream->audio_stats.vad_rms_level_peak,
-                           stream->audio_stats.vad_confidence_average,
-                           stream->audio_stats.vad_confidence_peak,
-                           stream->audio_stats.vad_cpu_utilization
-                        );
-            }
          } else {
             XLOGD_DEBUG("xraudio did NOT provided stats with EOS event");
          }
@@ -806,18 +772,6 @@ void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback
 
          xraudio_stream_keyword_info_t *kwd_info = (xraudio_stream_keyword_info_t *)event_param;
          msg.event.data.byte_qty = kwd_info->byte_qty;
-         break;
-      }
-      case AUDIO_IN_CALLBACK_EVENT_STREAM_VOICE_ACTIVITY: {
-         msg.event.event = XRSR_EVENT_STREAM_VOICE_ACTIVITY;
-         if(event_param == NULL) {
-            XLOGD_ERROR("xraudio did NOT provide param with voice activity event");
-            return;
-         }
-
-         xraudio_stream_vad_info_t *vad_info = (xraudio_stream_vad_info_t *)event_param;
-         msg.event.data.vad_info.voice_detected = vad_info->voice_detected;
-         msg.event.data.vad_info.confidence     = vad_info->confidence;
          break;
       }
       case AUDIO_IN_CALLBACK_EVENT_ERROR: {
