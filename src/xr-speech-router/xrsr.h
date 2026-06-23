@@ -72,7 +72,8 @@ typedef enum {
    XRSR_SRC_RCU_FF          = 1, ///< A far field remote control
    XRSR_SRC_MICROPHONE      = 2, ///< A local microphone
    XRSR_SRC_MICROPHONE_TAP  = 3, ///< A local microphone tap
-   XRSR_SRC_INVALID         = 4  ///< An invalid source type
+   XRSR_SRC_RCU_MFV         = 4, ///< A mid field remote control
+   XRSR_SRC_INVALID         = 5  ///< An invalid source type
 } xrsr_src_t;
 
 /// @brief XRSR result types

@@ -273,6 +273,13 @@ const char *xraudio_devices_input_str(xraudio_devices_input_t type) {
          strlcat(str, "MIC_TAP", sizeof(str));
       }
    }
+   if(type & XRAUDIO_DEVICE_INPUT_MFV) {
+      if(str[0] != '\0') {
+         strlcat(str, ", MFV", sizeof(str));
+      } else {
+         strlcat(str, "MFV", sizeof(str));
+      }
+   }
 
    if(str[0] != '\0') {
       return(str);

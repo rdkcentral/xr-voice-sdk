@@ -27,6 +27,7 @@
 #include "xraudio_sdf.h"
 #include "xraudio_ovc.h"
 #include "xraudio_ppr.h"
+#include "xraudio_mfv.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -45,6 +46,7 @@ xraudio_dga_plugin_api_t *vsdk_dga_plugin_get(void);
 xraudio_sdf_plugin_api_t *vsdk_sdf_plugin_get(void);
 xraudio_ovc_plugin_api_t *vsdk_ovc_plugin_get(void);
 xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void);
+xraudio_mfv_plugin_api_t *vsdk_mfv_plugin_get(void);
 
 #ifdef __cplusplus
 }
