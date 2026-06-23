@@ -137,7 +137,7 @@ install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
 add_custom_command(
    OUTPUT vsdk_version.h
    COMMAND echo -n "#define VSDK_BRANCH    \"" > vsdk_version.h
-   COMMAND sh -c "git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" tag --points-at HEAD 2>/dev/null | head -1 | grep -q . && git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" tag --points-at HEAD | head -1 || (git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" branch --all --contains | sed -n -e 's/^[[:space:]]*//' -e '/^\\*/d' -e 's/^remotes\\/origin\\///' -e '/->/d' -e 'p;q')" | tr -d "\\n" >> vsdk_version.h
+   COMMAND sh -c "(git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" tag --points-at HEAD 2>/dev/null | head -1 | grep -q . && git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" tag --points-at HEAD | head -1 || (git -C \"${CMAKE_CURRENT_SOURCE_DIR}\" branch --all --contains | sed -n -e 's/^[[:space:]]*//' -e '/^\\*/d' -e 's/^remotes\\/origin\\///' -e '/->/d' -e 'p;q')) | tr -d \"\\n\" >> vsdk_version.h"
    COMMAND echo "\"" >> vsdk_version.h
    COMMAND echo -n "#define VSDK_COMMIT_ID " >> vsdk_version.h
    COMMAND git -C ${CMAKE_SOURCE_DIR} log --format=\"%H\" -n 1 >> vsdk_version.h
