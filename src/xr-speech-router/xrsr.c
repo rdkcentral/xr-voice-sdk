@@ -1531,7 +1531,7 @@ bool xrsr_session_request(xrsr_src_t src,  uint8_t dst_index, xrsr_audio_format_
 }
 
 bool xrsr_session_audio_fd_set(xrsr_src_t src, int fd, xrsr_audio_format_t audio_format, xrsr_input_data_read_cb_t callback, void *user_data) {
-   if(src != XRSR_SRC_RCU_PTT && src != XRSR_SRC_RCU_FF) {
+   if(src != XRSR_SRC_RCU_PTT && src != XRSR_SRC_RCU_FF && src != XRSR_SRC_RCU_MFV) {
       XLOGD_ERROR("unsupported source <%s>", xrsr_src_str(src));
       return(false);
    }
@@ -1548,7 +1548,7 @@ bool xrsr_session_audio_fd_set(xrsr_src_t src, int fd, xrsr_audio_format_t audio
 }
 
 bool xrsr_session_keyword_info_set(xrsr_src_t src, uint32_t keyword_begin, uint32_t keyword_duration) {
-   if(src != XRSR_SRC_RCU_FF) {
+   if(src != XRSR_SRC_RCU_FF && src != XRSR_SRC_RCU_MFV) {
       XLOGD_INFO("unsupported source <%s>", xrsr_src_str(src));
       return(false);
    }

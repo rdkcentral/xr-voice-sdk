@@ -86,6 +86,7 @@ typedef uint32_t xraudio_devices_input_t;
 
 #define XRAUDIO_DEVICE_INPUT_PTT               (0x0100)
 #define XRAUDIO_DEVICE_INPUT_FF                (0x0200)
+#define XRAUDIO_DEVICE_INPUT_MFV               (0x0400)
 #define XRAUDIO_DEVICE_INPUT_INVALID           (0xFFFF)
 
 #define XRAUDIO_DEVICE_INPUT_LOCAL_GET(x)      (x & 0x001F)
