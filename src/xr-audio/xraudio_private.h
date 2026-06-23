@@ -38,6 +38,7 @@
 #include "xraudio_sdf.h"
 #include "xraudio_ovc.h"
 #include "xraudio_ppr.h"
+#include "xraudio_mfv.h"
 #include "xraudio_output.h"
 #include "xraudio_input.h"
 
@@ -149,6 +150,7 @@ typedef struct {
    xraudio_hal_plugin_api_t *        hal_plugin;
    xraudio_kwd_plugin_api_t *        kwd_plugin;
    xraudio_dga_plugin_api_t *        dga_plugin;
+   xraudio_mfv_plugin_api_t *        mfv_plugin;
    xraudio_input_object_t            obj_input;
    xraudio_output_object_t           obj_output;
    json_t*                           json_obj_output;

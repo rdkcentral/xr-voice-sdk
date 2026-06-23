@@ -48,6 +48,7 @@ const char *xrsr_src_str(xrsr_src_t src) {
       case XRSR_SRC_RCU_FF:         return("RCU_FF");
       case XRSR_SRC_MICROPHONE:     return("MICROPHONE");
       case XRSR_SRC_MICROPHONE_TAP: return("MICROPHONE_TAP");
+      case XRSR_SRC_RCU_MFV:        return("RCU_MFV");
       case XRSR_SRC_INVALID:        return("INVALID");
    }
    return(xrsr_invalid_return(src));
