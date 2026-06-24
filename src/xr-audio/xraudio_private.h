@@ -242,6 +242,8 @@ typedef struct {
    uint16_t                        stream_time_minimum;
    uint32_t                        stream_keyword_begin;
    uint32_t                        stream_keyword_duration;
+   bool                            stream_keyword_detection_active;
+   float                           stream_keyword_confidence;
    int16_t                         kwd_peak_power_dBFS;
    float *                         dynamic_gain_update;
    char                            identifier[XRAUDIO_STREAM_ID_SIZE_MAX];
@@ -424,6 +426,9 @@ bool xraudio_thread_join(xraudio_thread_t *thread);
 
 const char *xraudio_main_queue_msg_type_str(xraudio_main_queue_msg_type_t type);
 const char *xraudio_input_session_group_str(xraudio_input_session_group_t group);
+const char *xraudio_mfv_event_error_str(xraudio_mfv_error_t mfv_error);
+const char *xraudio_mfv_eos_result_str(xraudio_mfv_eos_result_t result);
+const char *xraudio_mfv_result_str(xraudio_mfv_result_t result);
 
 void queue_msg_push(xr_mq_t xrmq, const char *msg, xr_mq_msg_size_t msg_len);
 

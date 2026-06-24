@@ -489,6 +489,8 @@ static void xraudio_encoding_parameters_get(xraudio_input_format_t *format, uint
 static bool xraudio_in_aop_adjust_apply(int32_t *buffer, uint32_t sample_qty_frame, int8_t input_aop_adjust_shift);
 static void xraudio_capture_file_size_max_verify(uint32_t *file_size_max);
 
+static bool xraudio_mfv_msg_callback(void *msg);
+
 static const xraudio_msg_handler_t g_xraudio_msg_handlers[XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID] = {
    xraudio_msg_record_idle_start,
    xraudio_msg_record_idle_stop,
@@ -1285,12 +1287,29 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
          mfv_info.detect_end_of_speech = true;
 
          int mfv_output_fd = -1;
-         xraudio_mfv_result_t mfv_result = state->params.mfv_plugin->session_open(state->record.obj_mfv, &mfv_info, &mfv_output_fd, NULL);
+         xraudio_mfv_result_t mfv_result = state->params.mfv_plugin->session_open(state->record.obj_mfv, &mfv_info, &mfv_output_fd, xraudio_mfv_msg_callback);
          if(mfv_result != XRAUDIO_MFV_RESULT_SUCCESS) {
-            XLOGD_ERROR("MFV session open failed <%d>", mfv_result);
+            XLOGD_ERROR("MFV session open failed <%s>", xraudio_mfv_result_str(mfv_result));
          } else {
             state->record.mfv_session_active = true;
             XLOGD_INFO("MFV session opened successfully");
+
+            // Provide keyword detection info to MFV plugin before audio processing begins
+            if(record->stream_keyword_duration != 0 && state->params.mfv_plugin->session_info != NULL) {
+               xraudio_mfv_keyword_info_t mfv_kwd_info;
+               mfv_kwd_info.detection     = record->stream_keyword_detection_active ? XRAUDIO_MFV_DETECTION_ACTIVE : XRAUDIO_MFV_DETECTION_ASLEEP;
+               mfv_kwd_info.keyword_start = (int32_t)record->stream_keyword_begin;
+               mfv_kwd_info.keyword_end   = (int32_t)(record->stream_keyword_begin + record->stream_keyword_duration);
+               mfv_kwd_info.confidence    = record->stream_keyword_confidence;
+               xraudio_mfv_result_t info_result = state->params.mfv_plugin->session_info(state->record.obj_mfv, &mfv_kwd_info);
+               if(info_result != XRAUDIO_MFV_RESULT_SUCCESS) {
+                  XLOGD_WARN("MFV session_info failed <%s>", xraudio_mfv_result_str(info_result));
+               } else {
+                  XLOGD_INFO("MFV session_info set - detection <%s> start <%d> end <%d> confidence <%.2f>",
+                             record->stream_keyword_detection_active ? "ACTIVE" : "ASLEEP",
+                             mfv_kwd_info.keyword_start, mfv_kwd_info.keyword_end, mfv_kwd_info.confidence);
+               }
+            }
          }
       }
    } else {
@@ -4893,13 +4912,14 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                      xraudio_mfv_process_result_t mfv_result;
                      xraudio_mfv_result_t rc = params->mfv_plugin->session_process_audio(session->obj_mfv, (const int16_t *)inbuf, sample_qty, &mfv_result);
                      if(rc != XRAUDIO_MFV_RESULT_SUCCESS) {
-                        XLOGD_ERROR("MFV process audio failed <%d>", rc);
+                        XLOGD_ERROR("MFV process audio failed <%s>", xraudio_mfv_result_str(rc));
                      } else {
                         if(mfv_result.is_keyword_invalid) {
                            XLOGD_WARN("MFV declared keyword invalid");
                         }
                         if(mfv_result.is_end_of_speech) {
                            XLOGD_INFO("MFV detected end of speech");
+                           // TODO: Fix this - let frame write complete then trigger EOS
                            bytes_read = 0; // Signal EOS to trigger session close
                         }
                      }
@@ -5072,10 +5092,13 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
          xraudio_mfv_session_stats_t mfv_stats;
          params->mfv_plugin->session_close(session->obj_mfv, &mfv_stats);
          session->mfv_session_active = false;
-         XLOGD_INFO("MFV session closed - samples <%u> kwd validated <%s> eos <%d>",
+         XLOGD_INFO("MFV session closed - samples <%u> kwd <%s,%.2f> eos <%s> gain <%s,%.2f>",
                     mfv_stats.total_audio_samples,
                     mfv_stats.keyword_validated ? "true" : "false",
-                    mfv_stats.end_of_speech_result);
+                    mfv_stats.keyword_confidence,
+                    xraudio_mfv_eos_result_str(mfv_stats.end_of_speech_result),
+                    mfv_stats.gain_applied ? "true" : "false",
+                    mfv_stats.gain_value);
       }
 
       if(instance->stream_until[0] == XRAUDIO_INPUT_RECORD_UNTIL_END_OF_STREAM) { // Session ended, notify
@@ -5689,4 +5712,30 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
          ref_chan++;
       }
    }
+}
+
+bool xraudio_mfv_msg_callback(void *msg) {
+   xraudio_mfv_msg_header_t *header = (xraudio_mfv_msg_header_t *)msg;
+   bool ret = true;
+
+   switch (header->type) {
+      case XRAUDIO_MFV_MSG_TYPE_KEYWORD_DETECTED:
+          {
+             xraudio_mfv_msg_keyword_detected_t *kwd_msg = (xraudio_mfv_msg_keyword_detected_t *)msg;
+             XLOGD_INFO("MFV KWD confidence <%.2f>", kwd_msg->confidence);
+             // TODO: send a message to the main queue to tell stop processing audio and update state
+          }
+          break;
+      case XRAUDIO_MFV_MSG_TYPE_ERROR:
+          {
+             xraudio_mfv_msg_error_t *err_msg = (xraudio_mfv_msg_error_t *)msg;
+             XLOGD_ERROR("MFV ERR message <%d, %s>", err_msg->error, xraudio_mfv_event_error_str(err_msg->error));
+          }
+          break;
+      default:
+          ret = false;
+          break;
+   }
+
+   return ret;
 }

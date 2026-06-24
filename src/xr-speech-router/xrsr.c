@@ -68,6 +68,8 @@ typedef struct {
    uint32_t                     keyword_duration;
    xrsr_conn_state_t            conn_state;
    xrsr_dst_param_ptrs_t        dst_param_ptrs[XRSR_POWER_MODE_INVALID];
+   bool                         keyword_detection_active;
+   float                        keyword_confidence;
 } xrsr_dst_int_t;
 
 typedef struct {
@@ -932,6 +934,8 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
       dst_int->stream_until     = stream_until;
       dst_int->keyword_begin    = 0;
       dst_int->keyword_duration = 0;
+      dst_int->keyword_detection_active = true;
+      dst_int->keyword_confidence       = -1.0f;
 
       index++;
    }
@@ -1548,6 +1552,10 @@ bool xrsr_session_audio_fd_set(xrsr_src_t src, int fd, xrsr_audio_format_t audio
 }
 
 bool xrsr_session_keyword_info_set(xrsr_src_t src, uint32_t keyword_begin, uint32_t keyword_duration) {
+   return xrsr_session_keyword_info_set_ext(src, keyword_begin, keyword_duration, true, -1.0f);
+}
+
+bool xrsr_session_keyword_info_set_ext(xrsr_src_t src, uint32_t keyword_begin, uint32_t keyword_duration, bool detection_active, float confidence) {
    if(src != XRSR_SRC_RCU_FF && src != XRSR_SRC_RCU_MFV) {
       XLOGD_INFO("unsupported source <%s>", xrsr_src_str(src));
       return(false);
@@ -1555,6 +1563,10 @@ bool xrsr_session_keyword_info_set(xrsr_src_t src, uint32_t keyword_begin, uint3
    for(uint32_t index = 0; index < XRSR_DST_QTY_MAX; index++) {
       g_xrsr.routes[src].dsts[index].keyword_begin    = keyword_begin;
       g_xrsr.routes[src].dsts[index].keyword_duration = keyword_duration;
+      if(src == XRSR_SRC_RCU_MFV) {
+         g_xrsr.routes[src].dsts[index].keyword_detection_active = detection_active;
+         g_xrsr.routes[src].dsts[index].keyword_confidence       = confidence;
+      }
    }
    return(true);
 }
@@ -3066,9 +3078,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
 
          uint32_t keyword_begin    = (user_initiated || subsequent) ? 0 : dst->keyword_begin;
          uint32_t keyword_duration = (user_initiated || subsequent) ? 0 : dst->keyword_duration;
+         bool     keyword_detection_active = dst->keyword_detection_active;
+         float    keyword_confidence       = dst->keyword_confidence;
 
          // Make a single call to start streaming to all destinations
-         if(!xrsr_xraudio_stream_begin(g_xrsr.xrsr_xraudio_object, stream_id, session->xraudio_device_input, user_initiated, &xraudio_format, dsts, dst->stream_time_min, keyword_begin, keyword_duration, frame_duration, low_latency, low_cpu_util, subsequent)) {
+         if(!xrsr_xraudio_stream_begin(g_xrsr.xrsr_xraudio_object, stream_id, session->xraudio_device_input, user_initiated, &xraudio_format, dsts, dst->stream_time_min, keyword_begin, keyword_duration, keyword_detection_active, keyword_confidence, frame_duration, low_latency, low_cpu_util, subsequent)) {
             XLOGD_ERROR("xrsr_xraudio_stream_begin failed");
             stream_begin_failure = true;
          }
