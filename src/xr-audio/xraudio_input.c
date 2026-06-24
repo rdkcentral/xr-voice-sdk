@@ -86,6 +86,8 @@ typedef struct {
    uint16_t                       stream_time_minimum;
    uint32_t                       stream_keyword_begin;
    uint32_t                       stream_keyword_duration;
+   bool                           stream_keyword_detection_active;
+   float                          stream_keyword_confidence;
    xraudio_stream_latency_mode_t  latency_mode;
    xraudio_stream_cpu_util_mode_t cpu_util_mode;
    xraudio_input_record_from_t    from[XRAUDIO_FIFO_QTY_MAX];
@@ -199,6 +201,8 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       session->stream_time_minimum      = 0;
       session->stream_keyword_begin     = 0;
       session->stream_keyword_duration  = 0;
+      session->stream_keyword_detection_active = true;
+      session->stream_keyword_confidence       = -1.0f;
       session->fifo_audio_data[0]       = -1;
       session->fd                       = -1;
       session->data_callback            = NULL;
@@ -672,7 +676,7 @@ xraudio_result_t xraudio_input_stream_time_minimum(xraudio_object_t object, xrau
    return(XRAUDIO_RESULT_OK);
 }
 
-xraudio_result_t xraudio_input_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration) {
+xraudio_result_t xraudio_input_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration, bool detection_active, float confidence) {
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
    if(!xraudio_input_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");
@@ -681,9 +685,11 @@ xraudio_result_t xraudio_input_stream_keyword_info(xraudio_object_t object, xrau
 
    xraudio_input_session_t *session = xraudio_input_source_to_session(obj, source);
 
-   XLOGD_INFO("keyword begin <%u> duration <%u>", keyword_begin, keyword_duration);
-   session->stream_keyword_begin    = keyword_begin;
-   session->stream_keyword_duration = keyword_duration;
+   XLOGD_INFO("keyword begin <%u> duration <%u> detection_active <%s> confidence <%.2f>", keyword_begin, keyword_duration, detection_active ? "true" : "false", confidence);
+   session->stream_keyword_begin              = keyword_begin;
+   session->stream_keyword_duration           = keyword_duration;
+   session->stream_keyword_detection_active   = detection_active;
+   session->stream_keyword_confidence         = confidence;
 
    return(XRAUDIO_RESULT_OK);
 }
@@ -1493,6 +1499,8 @@ xraudio_result_t xraudio_input_stop_locked(xraudio_input_obj_t *obj, xraudio_dev
       session->stream_time_minimum     = 0;
       session->stream_keyword_begin    = 0;
       session->stream_keyword_duration = 0;
+      session->stream_keyword_detection_active = true;
+      session->stream_keyword_confidence       = -1.0f;
 
       for(uint32_t i = 0; i < XRAUDIO_FIFO_QTY_MAX; i++) {
          session->from[i]   = XRAUDIO_INPUT_RECORD_FROM_INVALID;
@@ -1647,6 +1655,8 @@ xraudio_result_t xraudio_input_dispatch_record(xraudio_input_obj_t *obj, xraudio
    msg.stream_time_minimum     = session->stream_time_minimum;
    msg.stream_keyword_begin    = session->stream_keyword_begin;
    msg.stream_keyword_duration = session->stream_keyword_duration;
+   msg.stream_keyword_detection_active = session->stream_keyword_detection_active;
+   msg.stream_keyword_confidence       = session->stream_keyword_confidence;
    msg.format_decoded          = (format_decoded != NULL) ? *format_decoded : (xraudio_input_format_t){ .container = XRAUDIO_CONTAINER_INVALID, .encoding.type = XRAUDIO_ENCODING_INVALID, .sample_rate = 0, .sample_size = 0, .channel_qty = 0 };
    snprintf(msg.identifier, sizeof(msg.identifier), "%s", session->stream_identifer);
    msg.subsequent              = subsequent;

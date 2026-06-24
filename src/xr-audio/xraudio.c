@@ -78,7 +78,6 @@ typedef struct {
    json_t*                           json_obj_input;
    xraudio_input_object_t            obj_input;
    json_t*                           json_obj_hal;
-   json_t*                           json_obj_mfv;
    #ifdef XRAUDIO_RESOURCE_MGMT
    xraudio_shared_mem_t *            shared_mem;
    int                               shared_mem_fd;
@@ -180,7 +179,6 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->obj_input             = NULL;
    obj->json_obj_input        = NULL;
    obj->json_obj_hal          = NULL;
-   obj->json_obj_mfv          = NULL;
    #ifdef XRAUDIO_RESOURCE_MGMT
    obj->shared_mem            = NULL;
    obj->shared_mem_fd         = -1;
@@ -272,10 +270,6 @@ void xraudio_object_destroy(xraudio_object_t object) {
       if(obj->json_obj_hal != NULL) {
          json_decref(obj->json_obj_hal);
          obj->json_obj_hal = NULL;
-      }
-      if(obj->json_obj_mfv != NULL) {
-         json_decref(obj->json_obj_mfv);
-         obj->json_obj_mfv = NULL;
       }
 
       if(sem_destroy(&obj->mutex_api) < 0) {
@@ -1611,7 +1605,7 @@ xraudio_result_t xraudio_stream_time_minimum(xraudio_object_t object, xraudio_de
    return(result);
 }
 
-xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration) {
+xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration, bool detection_active, float confidence) {
    xraudio_obj_t *  obj    = (xraudio_obj_t *)object;
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
    if(!xraudio_object_is_valid(obj)) {
@@ -1630,7 +1624,7 @@ xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_de
       XLOGD_ERROR("input object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      result = xraudio_input_stream_keyword_info(obj->obj_input, source, keyword_begin, keyword_duration);
+      result = xraudio_input_stream_keyword_info(obj->obj_input, source, keyword_begin, keyword_duration, detection_active, confidence);
    }
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);

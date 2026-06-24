@@ -599,7 +599,7 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
    }
 }
 
-bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_id, xraudio_devices_input_t source, bool user_initiated, xraudio_input_format_t *format_decoded, xraudio_dst_pipe_t dsts[], uint16_t stream_time_min, uint32_t keyword_begin, uint32_t keyword_duration, uint32_t frame_duration, bool low_latency, bool low_cpu_util, bool subsequent) {
+bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_id, xraudio_devices_input_t source, bool user_initiated, xraudio_input_format_t *format_decoded, xraudio_dst_pipe_t dsts[], uint16_t stream_time_min, uint32_t keyword_begin, uint32_t keyword_duration, bool keyword_detection_active, float keyword_confidence, uint32_t frame_duration, bool low_latency, bool low_cpu_util, bool subsequent) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
 
    if(!xrsr_xraudio_object_is_valid(obj)) {
@@ -666,7 +666,7 @@ bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_
    }
 
    if(keyword_duration != 0) { // Keyword is present
-      result = xraudio_stream_keyword_info(obj->xraudio_obj, source, keyword_begin, keyword_duration);
+      result = xraudio_stream_keyword_info(obj->xraudio_obj, source, keyword_begin, keyword_duration, keyword_detection_active, keyword_confidence);
       if(result != XRAUDIO_RESULT_OK) {
          XLOGD_WARN("unable to set stream keyword info <%s>", xraudio_result_str(result));
       }
