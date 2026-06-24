@@ -51,6 +51,7 @@
 #include <xraudio_kwd.h>
 #include <xraudio_eos.h>
 #include <xraudio_ppr.h>
+#include <xraudio_mfv.h>
 
 #define XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE      (16000)                             ///< Default input sample rate (in Hertz)
 #define XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE      (2)                                 ///< Default input sample size (in bytes)
@@ -407,7 +408,7 @@ xraudio_result_t xraudio_record_stop(xraudio_object_t object, xraudio_devices_in
 xraudio_result_t xraudio_stream_time_minimum(xraudio_object_t object, xraudio_devices_input_t source, uint16_t ms);
 /// @brief Indicates information about the keyword present in the stream
 /// @details This function sets the keyword information.
-xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration);
+xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration, bool detection_active, float confidence);
 /// @brief Obtains information about the keyword to be inserted into the stream - for example device DSP detected keyword and initiates a session
 //  @details This function queries the HAL for keyword information
 xraudio_result_t xraudio_stream_keyword_info_get(xraudio_object_t object, xraudio_devices_input_t source, xraudio_keyword_detector_result_t *keyword_result);

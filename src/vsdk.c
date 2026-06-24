@@ -189,12 +189,12 @@ void vsdk_term(void) {
       g_vsdk.ffv_plugins.handle_ffv_ppr = NULL;
    }
    if(g_vsdk.mfv_handle != NULL) {
-       XLOGD_INFO("Unloading MFV plugin.");
-       if(dlclose(g_vsdk.mfv_handle) != 0) {
-          const char *err = dlerror();
-          XLOGD_ERROR("dlclose failed for MFV <%s>", (err != NULL) ? err : "unknown error");
-       }
-       g_vsdk.mfv_handle = NULL;
+      XLOGD_INFO("Unloading MFV plugin.");
+      if(dlclose(g_vsdk.mfv_handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for MFV <%s>", (err != NULL) ? err : "unknown error");
+      }
+      g_vsdk.mfv_handle = NULL;
    }
 
    g_vsdk.initialized = false;
@@ -892,7 +892,6 @@ bool vsdk_load_plugin_mfv(void) {
       XLOGD_ERROR("Failed to load MFV plugin <%s>", dlerror());
       return false;
    }
-   g_vsdk.mfv_handle = handle;
 
    dlerror();  // Clear any existing error
 
@@ -959,10 +958,11 @@ bool vsdk_load_plugin_mfv(void) {
 
    XLOGD_INFO("Loaded MFV plugin (API version %u, capabilities 0x%04X).", mfv_plugin->api_version, mfv_plugin->capabilities);
 
+   g_vsdk.mfv_handle = handle;
    g_vsdk.mfv_plugin = mfv_plugin;
    ret = true;
 
-   XLOGD_INFO("MFV plugin is <%s>", ret ? "enabled" : "disabled");
+   XLOGD_INFO("MFV plugin loaded");
 
    return(ret);
 }
