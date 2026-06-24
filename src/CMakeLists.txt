@@ -137,7 +137,7 @@ install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
 add_custom_command(
    OUTPUT vsdk_version.h
    COMMAND echo -n "#define VSDK_BRANCH    \"" > vsdk_version.h
-   COMMAND sh -c "src=\"${CMAKE_CURRENT_SOURCE_DIR}\"; ref=$(git -C \"$src\" describe --tags --exact-match 2>/dev/null || git -C \"$src\" branch --format='%(refname:short)' --contains HEAD | head -n 1); echo -n \"$ref\" >> vsdk_version.h"
+   COMMAND sh -c "src=\"${CMAKE_CURRENT_SOURCE_DIR}\"; ref=$(git -C \"$src\" describe --tags --exact-match 2>/dev/null || git -C \"$src\" branch -a --format='%(refname:short)' --contains HEAD 2>/dev/null | head -n 1); echo -n \"$ref\" >> vsdk_version.h"
    COMMAND echo "\"" >> vsdk_version.h
    COMMAND echo -n "#define VSDK_COMMIT_ID " >> vsdk_version.h
    COMMAND git -C ${CMAKE_SOURCE_DIR} log --format=\"%H\" -n 1 >> vsdk_version.h
