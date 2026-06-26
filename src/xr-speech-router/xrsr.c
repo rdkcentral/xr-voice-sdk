@@ -3009,6 +3009,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
          case XRSR_SRC_RCU_FF:         { session->xraudio_device_input = XRAUDIO_DEVICE_INPUT_FF;      break; }
          case XRSR_SRC_MICROPHONE:     { session->xraudio_device_input = (output_format.encoding.type == XRAUDIO_ENCODING_PCM_RAW || output_format.channel_qty > 1) ? XRAUDIO_DEVICE_INPUT_TRI : XRAUDIO_DEVICE_INPUT_SINGLE; break; }
          case XRSR_SRC_MICROPHONE_TAP: { session->xraudio_device_input = XRAUDIO_DEVICE_INPUT_MIC_TAP; break; }
+         case XRSR_SRC_RCU_MFV:        { session->xraudio_device_input = XRAUDIO_DEVICE_INPUT_MFV;     break; }
          default: {
             XLOGD_ERROR("invalid src <%s>", xrsr_src_str(src));
             session->xraudio_device_input = XRAUDIO_DEVICE_INPUT_NONE;

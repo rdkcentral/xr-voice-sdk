@@ -4919,7 +4919,6 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                         }
                         if(mfv_result.is_end_of_speech) {
                            XLOGD_INFO("MFV detected end of speech");
-                           // TODO: Fix this - let frame write complete then trigger EOS
                            bytes_read = 0; // Signal EOS to trigger session close
                         }
                      }
@@ -5723,7 +5722,6 @@ bool xraudio_mfv_msg_callback(void *msg) {
           {
              xraudio_mfv_msg_keyword_detected_t *kwd_msg = (xraudio_mfv_msg_keyword_detected_t *)msg;
              XLOGD_INFO("MFV KWD confidence <%.2f>", kwd_msg->confidence);
-             // TODO: send a message to the main queue to tell stop processing audio and update state
           }
           break;
       case XRAUDIO_MFV_MSG_TYPE_ERROR:

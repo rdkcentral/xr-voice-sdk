@@ -818,14 +818,6 @@ bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, 
       }
    }
 
-   if(src == XRSR_SRC_RCU_MFV) {
-       // MFV session is opened by xraudio_msg_record_start when it processes
-       // the record start message for an MFV source device. The mfv_plugin
-       // session_open/session_process_audio/session_close lifecycle is managed
-       // entirely within xraudio_thread.c.
-       XLOGD_INFO("MFV source session requested - MFV plugin session will open on record start");
-   }
-
    if(input_format.type == XRSR_SESSION_REQUEST_TYPE_AUDIO_FD) { // Set the audio input format and file descriptor (even if not available yet)
       if(!xrsr_xraudio_input_source_fd_set(object, src, input_format.value.audio_fd.audio_fd, input_format.value.audio_fd.audio_format, input_format.value.audio_fd.callback, input_format.value.audio_fd.user_data)) {
          return(false);
