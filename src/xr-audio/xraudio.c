@@ -1605,7 +1605,7 @@ xraudio_result_t xraudio_stream_time_minimum(xraudio_object_t object, xraudio_de
    return(result);
 }
 
-xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration, bool detection_active, float confidence) {
+xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration) {
    xraudio_obj_t *  obj    = (xraudio_obj_t *)object;
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
    if(!xraudio_object_is_valid(obj)) {
@@ -1624,7 +1624,7 @@ xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_de
       XLOGD_ERROR("input object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      result = xraudio_input_stream_keyword_info(obj->obj_input, source, keyword_begin, keyword_duration, detection_active, confidence);
+      result = xraudio_input_stream_keyword_info(obj->obj_input, source, keyword_begin, keyword_duration);
    }
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
