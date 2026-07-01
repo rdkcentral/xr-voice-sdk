@@ -718,17 +718,6 @@ bool xrsr_session_audio_fd_set(xrsr_src_t src, int audio_file_fd, xrsr_audio_for
 /// @return The function returns true if successful or false otherwise.
 bool xrsr_session_keyword_info_set(xrsr_src_t src, uint32_t keyword_begin, uint32_t keyword_duration);
 
-/// @brief Sets keyword info for a speech router session with detection and confidence
-/// @details Provides the keyword begin point, duration, detection state, and confidence.
-/// For MFV sources, the detection and confidence values are propagated to the MFV plugin.
-/// @param[in] src              Source for the keyword info
-/// @param[in] keyword_begin    Point where keyword begins in stream (in samples)
-/// @param[in] keyword_duration Duration of keyword (in samples)
-/// @param[in] detection_active true if keyword was detected while microphone is active, false if asleep
-/// @param[in] confidence       Keyword detection confidence (0.0 to 1.0, or negative if not applicable)
-/// @return The function returns true if successful or false otherwise.
-bool xrsr_session_keyword_info_set_ext(xrsr_src_t src, uint32_t keyword_begin, uint32_t keyword_duration, bool detection_active, float confidence);
-
 /// @brief Starts the speech router capture session
 /// @details Starts capturing audio streams for local sources.
 /// @param[in] container      Indicates the container for capturing audio streams.

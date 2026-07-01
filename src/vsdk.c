@@ -919,16 +919,6 @@ bool vsdk_load_plugin_mfv(void) {
       return false;
    }
 
-   // Validate API version
-   if(mfv_plugin->api_version != XRAUDIO_MFV_API_VERSION) {
-      XLOGD_ERROR("MFV plugin API version mismatch: expected %u, got %u", XRAUDIO_MFV_API_VERSION, mfv_plugin->api_version);
-      if(dlclose(handle) != 0) {
-         const char *err = dlerror();
-         XLOGD_ERROR("dlclose failed for MFV <%s>", (err != NULL) ? err : "unknown error");
-      }
-      return false;
-   }
-
    // Validate required function pointers
    if(mfv_plugin->object_create         == NULL ||
       mfv_plugin->object_destroy        == NULL ||
