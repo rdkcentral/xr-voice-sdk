@@ -242,8 +242,6 @@ typedef struct {
    uint16_t                        stream_time_minimum;
    uint32_t                        stream_keyword_begin;
    uint32_t                        stream_keyword_duration;
-   bool                            stream_keyword_detection_active;
-   float                           stream_keyword_confidence;
    int16_t                         kwd_peak_power_dBFS;
    float *                         dynamic_gain_update;
    char                            identifier[XRAUDIO_STREAM_ID_SIZE_MAX];
