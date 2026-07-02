@@ -1282,9 +1282,9 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       if(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source) == XRAUDIO_DEVICE_INPUT_MFV &&
          state->params.mfv_plugin != NULL && state->record.obj_mfv != NULL) {
          xraudio_mfv_session_info_t mfv_info;
-         mfv_info.apply_gain           = false;
-         mfv_info.validate_keyword     = true;
-         mfv_info.detect_end_of_speech = true;
+         mfv_info.apply_gain           = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_AUDIO_GAIN)     ? true : false;
+         mfv_info.validate_keyword     = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_KWD_VALIDATION) ? true : false;
+         mfv_info.detect_end_of_speech = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_EOS_DETECTION)  ? true : false;
 
          int mfv_output_fd = -1;
          xraudio_mfv_result_t mfv_result = state->params.mfv_plugin->session_open(state->record.obj_mfv, &mfv_info, &mfv_output_fd, xraudio_mfv_msg_callback);
@@ -1297,17 +1297,15 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
             // Provide keyword detection info to MFV plugin before audio processing begins
             if(record->stream_keyword_duration != 0 && state->params.mfv_plugin->session_info != NULL) {
                xraudio_mfv_keyword_info_t mfv_kwd_info;
-               mfv_kwd_info.detection     = record->stream_keyword_detection_active ? XRAUDIO_MFV_DETECTION_ACTIVE : XRAUDIO_MFV_DETECTION_ASLEEP;
+               memset(&mfv_kwd_info, 0, sizeof(mfv_kwd_info));
                mfv_kwd_info.keyword_start = (int32_t)record->stream_keyword_begin;
                mfv_kwd_info.keyword_end   = (int32_t)(record->stream_keyword_begin + record->stream_keyword_duration);
-               mfv_kwd_info.confidence    = record->stream_keyword_confidence;
                xraudio_mfv_result_t info_result = state->params.mfv_plugin->session_info(state->record.obj_mfv, &mfv_kwd_info);
                if(info_result != XRAUDIO_MFV_RESULT_SUCCESS) {
                   XLOGD_WARN("MFV session_info failed <%s>", xraudio_mfv_result_str(info_result));
                } else {
-                  XLOGD_INFO("MFV session_info set - detection <%s> start <%d> end <%d> confidence <%.2f>",
-                             record->stream_keyword_detection_active ? "ACTIVE" : "ASLEEP",
-                             mfv_kwd_info.keyword_start, mfv_kwd_info.keyword_end, mfv_kwd_info.confidence);
+                  XLOGD_INFO("MFV session_info set - start <%d> end <%d>",
+                             mfv_kwd_info.keyword_start, mfv_kwd_info.keyword_end);
                }
             }
          }
