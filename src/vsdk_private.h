@@ -39,6 +39,8 @@ bool vsdk_xraudio_allow_input_failure(void);
 bool vsdk_hal_in_enabled(void);
 bool vsdk_hal_out_enabled(void);
 
+bool vsdk_hal_mfv_enabled(void);
+
 xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void);
 xraudio_kwd_plugin_api_t *vsdk_kwd_plugin_get(void);
 xraudio_eos_plugin_api_t *vsdk_eos_plugin_get(void);
