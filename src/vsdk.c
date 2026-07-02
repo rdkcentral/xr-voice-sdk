@@ -45,8 +45,10 @@ typedef struct {
    bool                      curtail_xraudio;
    bool                    xraudio_allow_input_failure;
    vsdk_ffv_plugin_handles_t ffv_plugins;
+   void                     *mfv_handle;
    bool                      hal_in_enabled;
    bool                      hal_out_enabled;
+   bool                      mfv_enabled;
    xraudio_hal_plugin_api_t *hal_plugin;
    xraudio_kwd_plugin_api_t *kwd_plugin;
    xraudio_eos_plugin_api_t *eos_plugin;
@@ -54,6 +56,7 @@ typedef struct {
    xraudio_sdf_plugin_api_t *sdf_plugin;
    xraudio_ovc_plugin_api_t *ovc_plugin;
    xraudio_ppr_plugin_api_t *ppr_plugin;
+   xraudio_mfv_plugin_api_t *mfv_plugin;
    vsdk_thread_poll_func_t   func;
    void *                    data;
 } vsdk_global_t;
@@ -64,6 +67,7 @@ static void  vsdk_thread_response(void);
 static bool  vsdk_file_exists(const char *filename);
 static void  vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio_allow_input_failure);
 static bool  vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles);
+static bool  vsdk_load_plugin_mfv(void);
 static void *vsdk_load_plugin_ffv_hal(bool *out_enabled);
 static void *vsdk_load_plugin_ffv_kwd(void);
 static void *vsdk_load_plugin_ffv_alg(void **handle_ppr);
@@ -103,6 +107,7 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
    g_vsdk.xraudio_allow_input_failure = allow_input_failure;
    g_vsdk.hal_out_enabled             = false;
    g_vsdk.hal_in_enabled              = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
+   g_vsdk.mfv_enabled                 = vsdk_load_plugin_mfv();
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -128,6 +133,7 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
    g_vsdk.xraudio_allow_input_failure = allow_input_failure;
    g_vsdk.hal_out_enabled             = false;
    g_vsdk.hal_in_enabled              = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
+   g_vsdk.mfv_enabled                 = vsdk_load_plugin_mfv();
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -183,6 +189,14 @@ void vsdk_term(void) {
       }
       g_vsdk.ffv_plugins.handle_ffv_ppr = NULL;
    }
+   if(g_vsdk.mfv_handle != NULL) {
+      XLOGD_INFO("Unloading MFV plugin.");
+      if(dlclose(g_vsdk.mfv_handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for MFV <%s>", (err != NULL) ? err : "unknown error");
+      }
+      g_vsdk.mfv_handle = NULL;
+   }
 
    g_vsdk.initialized = false;
 }
@@ -236,6 +250,10 @@ bool vsdk_hal_out_enabled(void) {
    return(g_vsdk.hal_out_enabled);
 }
 
+bool vsdk_hal_mfv_enabled(void) {
+   return(g_vsdk.mfv_enabled);
+}
+
 xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void) {
    return(g_vsdk.hal_plugin);
 }
@@ -262,6 +280,10 @@ xraudio_ovc_plugin_api_t *vsdk_ovc_plugin_get(void) {
 
 xraudio_ppr_plugin_api_t *vsdk_ppr_plugin_get(void) {
    return(g_vsdk.ppr_plugin);
+}
+
+xraudio_mfv_plugin_api_t *vsdk_mfv_plugin_get(void) {
+   return(g_vsdk.mfv_plugin);
 }
 
 bool vsdk_xraudio_allow_input_failure(void) {
@@ -853,4 +875,89 @@ void *vsdk_load_plugin_ffv_ovc(void) {
    }
    
    return(handle);
+}
+
+bool vsdk_load_plugin_mfv(void) {
+   bool ret = false;
+
+   void *handle = NULL;
+   const char *so_path_vd = "/vendor/lib/libxraudio-mfv.so";
+   const char *so_path_mw = "/usr/lib/libxraudio-mfv.so";
+
+   if(vsdk_file_exists(so_path_vd)) {
+      handle = dlopen(so_path_vd, RTLD_NOW);
+   } else if(vsdk_file_exists(so_path_mw)) {
+      handle = dlopen(so_path_mw, RTLD_NOW);
+   } else {
+      XLOGD_INFO("MFV plugin is not present.");
+      return false;
+   }
+
+   if(handle == NULL) {
+      XLOGD_ERROR("Failed to load MFV plugin <%s>", dlerror());
+      return false;
+   }
+
+   dlerror();  // Clear any existing error
+
+   xraudio_mfv_plugin_api_get_t plugin_api_get = (xraudio_mfv_plugin_api_get_t)dlsym(handle, "xraudio_mfv_plugin_api_get");
+   char *error = dlerror();
+
+   if(error != NULL) {
+      XLOGD_ERROR("MFV plugin entry point not found, error <%s>", error);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for MFV <%s>", (err != NULL) ? err : "unknown error");
+      }
+      return false;
+   }
+
+   XLOGD_INFO("Loading MFV plugin.");
+   xraudio_mfv_plugin_api_t *mfv_plugin = plugin_api_get();
+
+   if(mfv_plugin == NULL) {
+      XLOGD_ERROR("MFV plugin API get failed");
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for MFV <%s>", (err != NULL) ? err : "unknown error");
+      }
+      return false;
+   }
+
+   // Validate required function pointers
+   if(mfv_plugin->object_create         == NULL ||
+      mfv_plugin->object_destroy        == NULL ||
+      mfv_plugin->session_open          == NULL ||
+      mfv_plugin->session_close         == NULL ||
+      mfv_plugin->session_info          == NULL ||
+      mfv_plugin->session_process_audio == NULL) {
+      XLOGD_ERROR("MFV plugin API incomplete");
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for MFV <%s>", (err != NULL) ? err : "unknown error");
+      }
+      return false;
+   }
+
+   // Validate optional function pointers against advertised capabilities
+   if((mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_REFERENCE_AUDIO) &&
+      (mfv_plugin->reference_audio_open == NULL ||
+       mfv_plugin->reference_audio_close == NULL)) {
+      XLOGD_ERROR("MFV plugin advertises REFERENCE_AUDIO capability but missing function pointers");
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for MFV <%s>", (err != NULL) ? err : "unknown error");
+      }
+      return false;
+   }
+
+   XLOGD_INFO("Loaded MFV plugin (API version %u, capabilities 0x%04X).", mfv_plugin->api_version, mfv_plugin->capabilities);
+
+   g_vsdk.mfv_handle = handle;
+   g_vsdk.mfv_plugin = mfv_plugin;
+   ret = true;
+
+   XLOGD_INFO("MFV plugin loaded");
+
+   return(ret);
 }

@@ -260,6 +260,10 @@ void xrsr_xraudio_device_update(xrsr_xraudio_object_t object, xrsr_src_t srcs[])
             obj->device_input |= XRAUDIO_DEVICE_INPUT_FF;
             break;
          }
+         case XRSR_SRC_RCU_MFV: {
+            obj->device_input |= XRAUDIO_DEVICE_INPUT_MFV;
+            break;
+         }
          default: {
             break;
          }
@@ -499,6 +503,8 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
       user_initiated = true;
    } else if(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(msg->source) == XRAUDIO_DEVICE_INPUT_FF) {
       src = XRSR_SRC_RCU_FF;
+   } else if(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(msg->source) == XRAUDIO_DEVICE_INPUT_MFV) {
+      src = XRSR_SRC_RCU_MFV;
    } else {
       XLOGD_ERROR("invalid source <0x%08X>", msg->source);
       return;
@@ -563,6 +569,8 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
       src = XRSR_SRC_RCU_PTT;
    } else if(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(source) == XRAUDIO_DEVICE_INPUT_FF) {
       src = XRSR_SRC_RCU_FF;
+   } else if(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(source) == XRAUDIO_DEVICE_INPUT_MFV) {
+      src = XRSR_SRC_RCU_MFV;
    } else {
       XLOGD_ERROR("invalid source <0x%08X>", source);
       return;
@@ -860,6 +868,7 @@ xrsr_src_t xrsr_xraudio_src_to_xrsr(xraudio_devices_input_t src) {
       case XRAUDIO_DEVICE_INPUT_PTT:     return(XRSR_SRC_RCU_PTT);
       case XRAUDIO_DEVICE_INPUT_FF:      return(XRSR_SRC_RCU_FF);
       case XRAUDIO_DEVICE_INPUT_MIC_TAP: return(XRSR_SRC_MICROPHONE_TAP);
+      case XRAUDIO_DEVICE_INPUT_MFV:     return(XRSR_SRC_RCU_MFV);
       default:                           return(XRSR_SRC_MICROPHONE);
    }
    return(XRSR_SRC_INVALID);
@@ -870,6 +879,7 @@ xraudio_devices_input_t xrsr_xrsr_src_to_xraudio(xrsr_src_t src) {
       case XRSR_SRC_RCU_PTT:        return(XRAUDIO_DEVICE_INPUT_PTT);
       case XRSR_SRC_RCU_FF:         return(XRAUDIO_DEVICE_INPUT_FF);
       case XRSR_SRC_MICROPHONE_TAP: return(XRAUDIO_DEVICE_INPUT_MIC_TAP);
+      case XRSR_SRC_RCU_MFV:        return(XRAUDIO_DEVICE_INPUT_MFV);
       default:                      return(XRAUDIO_DEVICE_INPUT_SINGLE);
    }
    return(XRAUDIO_DEVICE_INPUT_INVALID);

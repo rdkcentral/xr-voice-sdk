@@ -38,6 +38,7 @@
 #include "xraudio_sdf.h"
 #include "xraudio_ovc.h"
 #include "xraudio_ppr.h"
+#include "xraudio_mfv.h"
 #include "xraudio_output.h"
 #include "xraudio_input.h"
 
@@ -149,6 +150,7 @@ typedef struct {
    xraudio_hal_plugin_api_t *        hal_plugin;
    xraudio_kwd_plugin_api_t *        kwd_plugin;
    xraudio_dga_plugin_api_t *        dga_plugin;
+   xraudio_mfv_plugin_api_t *        mfv_plugin;
    xraudio_input_object_t            obj_input;
    xraudio_output_object_t           obj_output;
    json_t*                           json_obj_output;
@@ -422,6 +424,9 @@ bool xraudio_thread_join(xraudio_thread_t *thread);
 
 const char *xraudio_main_queue_msg_type_str(xraudio_main_queue_msg_type_t type);
 const char *xraudio_input_session_group_str(xraudio_input_session_group_t group);
+const char *xraudio_mfv_event_error_str(xraudio_mfv_error_t mfv_error);
+const char *xraudio_mfv_eos_result_str(xraudio_mfv_eos_result_t result);
+const char *xraudio_mfv_result_str(xraudio_mfv_result_t result);
 
 void queue_msg_push(xr_mq_t xrmq, const char *msg, xr_mq_msg_size_t msg_len);
 

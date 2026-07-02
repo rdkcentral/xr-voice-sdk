@@ -277,6 +277,8 @@ struct xraudio_session_record_t {
    xraudio_stream_latency_mode_t  latency_mode;
    xraudio_stream_cpu_util_mode_t cpu_util_mode;
    xraudio_dga_object_t           obj_dga;
+   xraudio_mfv_object_t           obj_mfv;
+   bool                           mfv_session_active;
    bool                           dynamic_gain_enabled;
    xraudio_keyword_detector_t     keyword_detector;
    xraudio_eos_detector_t         eos_detector;
@@ -487,6 +489,8 @@ static void xraudio_encoding_parameters_get(xraudio_input_format_t *format, uint
 static bool xraudio_in_aop_adjust_apply(int32_t *buffer, uint32_t sample_qty_frame, int8_t input_aop_adjust_shift);
 static void xraudio_capture_file_size_max_verify(uint32_t *file_size_max);
 
+static bool xraudio_mfv_msg_callback(void *msg);
+
 static const xraudio_msg_handler_t g_xraudio_msg_handlers[XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID] = {
    xraudio_msg_record_idle_start,
    xraudio_msg_record_idle_stop,
@@ -540,6 +544,7 @@ void *xraudio_main_thread(void *param) {
    memset(state, 0, sizeof(*state));
    json_t *jkwd_config = NULL;
    json_t *jdga_config = NULL;
+   json_t *jmfv_config = NULL;
 
    state->params = *((xraudio_main_thread_params_t *)param);
 
@@ -689,6 +694,33 @@ void *xraudio_main_thread(void *param) {
       }
       state->record.obj_dga                  = state->params.dga_plugin->object_create(jdga_config);
       state->record.dynamic_gain_enabled     = true;
+   }
+
+   if(state->params.mfv_plugin != NULL) {
+      if(NULL == state->params.json_obj_input) {
+         XLOGD_INFO("parameter json_obj_input is null, using defaults");
+      } else {
+         jmfv_config = json_object_get(state->params.json_obj_input, JSON_OBJ_NAME_INPUT_MFV);
+         if(NULL == jmfv_config) {
+            XLOGD_INFO("MFV config not found, using defaults");
+         } else {
+            if(!json_is_object(jmfv_config)) {
+               XLOGD_INFO("jmfv_config is not object, using defaults");
+               jmfv_config = NULL;
+            }
+         }
+      }
+      char *jmfv_config_str = (jmfv_config != NULL) ? json_dumps(jmfv_config, 0) : NULL;
+      xraudio_mfv_object_t obj_mfv = state->params.mfv_plugin->object_create(jmfv_config_str);
+      if(obj_mfv == NULL) {
+         XLOGD_ERROR("MFV object create failed");
+      } else {
+         state->record.obj_mfv = obj_mfv;
+      }
+      if(jmfv_config_str != NULL) {
+         free(jmfv_config_str);
+      }
+      state->record.mfv_session_active = false;
    }
 
    state->record.devices_input                = XRAUDIO_DEVICE_INPUT_NONE;
@@ -1244,6 +1276,39 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       } else {
          instance->keyword_triggered   = false;
          instance->keyword_end_samples = 0;
+      }
+
+      // Open MFV session for MFV source devices
+      if(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source) == XRAUDIO_DEVICE_INPUT_MFV &&
+         state->params.mfv_plugin != NULL && state->record.obj_mfv != NULL) {
+         xraudio_mfv_session_info_t mfv_info;
+         mfv_info.apply_gain           = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_AUDIO_GAIN)     ? true : false;
+         mfv_info.validate_keyword     = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_KWD_VALIDATION) ? true : false;
+         mfv_info.detect_end_of_speech = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_EOS_DETECTION)  ? true : false;
+
+         int mfv_output_fd = -1;
+         xraudio_mfv_result_t mfv_result = state->params.mfv_plugin->session_open(state->record.obj_mfv, &mfv_info, &mfv_output_fd, xraudio_mfv_msg_callback);
+         if(mfv_result != XRAUDIO_MFV_RESULT_SUCCESS) {
+            XLOGD_ERROR("MFV session open failed <%s>", xraudio_mfv_result_str(mfv_result));
+         } else {
+            state->record.mfv_session_active = true;
+            XLOGD_INFO("MFV session opened successfully");
+
+            // Provide keyword detection info to MFV plugin before audio processing begins
+            if(record->stream_keyword_duration != 0 && state->params.mfv_plugin->session_info != NULL) {
+               xraudio_mfv_keyword_info_t mfv_kwd_info;
+               memset(&mfv_kwd_info, 0, sizeof(mfv_kwd_info));
+               mfv_kwd_info.keyword_start = (int32_t)record->stream_keyword_begin;
+               mfv_kwd_info.keyword_end   = (int32_t)(record->stream_keyword_begin + record->stream_keyword_duration);
+               xraudio_mfv_result_t info_result = state->params.mfv_plugin->session_info(state->record.obj_mfv, &mfv_kwd_info);
+               if(info_result != XRAUDIO_MFV_RESULT_SUCCESS) {
+                  XLOGD_WARN("MFV session_info failed <%s>", xraudio_mfv_result_str(info_result));
+               } else {
+                  XLOGD_INFO("MFV session_info set - start <%d> end <%d>",
+                             mfv_kwd_info.keyword_start, mfv_kwd_info.keyword_end);
+               }
+            }
+         }
       }
    } else {
       // Reset local mic stats
@@ -4838,6 +4903,24 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   XLOGD_ERROR("failed to decode adpcm");
                } else {
                   bytes_read *= sizeof(pcm_t);
+
+                  // Process decoded PCM through MFV plugin if session is active
+                  if(session->mfv_session_active && params->mfv_plugin != NULL && session->obj_mfv != NULL) {
+                     uint32_t sample_qty = bytes_read / sizeof(int16_t);
+                     xraudio_mfv_process_result_t mfv_result;
+                     xraudio_mfv_result_t rc = params->mfv_plugin->session_process_audio(session->obj_mfv, (const int16_t *)inbuf, sample_qty, &mfv_result);
+                     if(rc != XRAUDIO_MFV_RESULT_SUCCESS) {
+                        XLOGD_ERROR("MFV process audio failed <%s>", xraudio_mfv_result_str(rc));
+                     } else {
+                        if(mfv_result.is_keyword_invalid) {
+                           XLOGD_WARN("MFV declared keyword invalid");
+                        }
+                        if(mfv_result.is_end_of_speech) {
+                           XLOGD_INFO("MFV detected end of speech");
+                           bytes_read = 0; // Signal EOS to trigger session close
+                        }
+                     }
+                  }
                }
             }
          } else if(enc_output == XRAUDIO_ENCODING_ADPCM_FRAME) {
@@ -5001,6 +5084,20 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
    }
 
    if(bytes_read <= 0) {
+      // Close MFV session if active
+      if(session->mfv_session_active && params->mfv_plugin != NULL && session->obj_mfv != NULL) {
+         xraudio_mfv_session_stats_t mfv_stats;
+         params->mfv_plugin->session_close(session->obj_mfv, &mfv_stats);
+         session->mfv_session_active = false;
+         XLOGD_INFO("MFV session closed - samples <%u> kwd <%s,%.2f> eos <%s> gain <%s,%.2f>",
+                    mfv_stats.total_audio_samples,
+                    mfv_stats.keyword_validated ? "true" : "false",
+                    mfv_stats.keyword_confidence,
+                    xraudio_mfv_eos_result_str(mfv_stats.end_of_speech_result),
+                    mfv_stats.gain_applied ? "true" : "false",
+                    mfv_stats.gain_value);
+      }
+
       if(instance->stream_until[0] == XRAUDIO_INPUT_RECORD_UNTIL_END_OF_STREAM) { // Session ended, notify
 
          if(instance->capture_internal.active && session->external_frame_bytes_read > 0) {
@@ -5612,4 +5709,29 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
          ref_chan++;
       }
    }
+}
+
+bool xraudio_mfv_msg_callback(void *msg) {
+   xraudio_mfv_msg_header_t *header = (xraudio_mfv_msg_header_t *)msg;
+   bool ret = true;
+
+   switch (header->type) {
+      case XRAUDIO_MFV_MSG_TYPE_KEYWORD_DETECTED:
+          {
+             xraudio_mfv_msg_keyword_detected_t *kwd_msg = (xraudio_mfv_msg_keyword_detected_t *)msg;
+             XLOGD_INFO("MFV KWD confidence <%.2f>", kwd_msg->confidence);
+          }
+          break;
+      case XRAUDIO_MFV_MSG_TYPE_ERROR:
+          {
+             xraudio_mfv_msg_error_t *err_msg = (xraudio_mfv_msg_error_t *)msg;
+             XLOGD_ERROR("MFV ERR message <%d, %s>", err_msg->error, xraudio_mfv_event_error_str(err_msg->error));
+          }
+          break;
+      default:
+          ret = false;
+          break;
+   }
+
+   return ret;
 }
