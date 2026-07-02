@@ -682,8 +682,8 @@ xraudio_result_t xraudio_input_stream_keyword_info(xraudio_object_t object, xrau
    xraudio_input_session_t *session = xraudio_input_source_to_session(obj, source);
 
    XLOGD_INFO("keyword begin <%u> duration <%u>", keyword_begin, keyword_duration);
-   session->stream_keyword_begin              = keyword_begin;
-   session->stream_keyword_duration           = keyword_duration;
+   session->stream_keyword_begin    = keyword_begin;
+   session->stream_keyword_duration = keyword_duration;
 
    return(XRAUDIO_RESULT_OK);
 }
