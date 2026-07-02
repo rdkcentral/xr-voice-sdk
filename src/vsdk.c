@@ -133,6 +133,7 @@ int vsdk_init_user_print(xlog_print_t print, xlog_print_t print_safe, bool ansi_
    g_vsdk.xraudio_allow_input_failure = allow_input_failure;
    g_vsdk.hal_out_enabled             = false;
    g_vsdk.hal_in_enabled              = vsdk_load_plugin_ffv(&g_vsdk.ffv_plugins);
+   g_vsdk.mfv_enabled                 = vsdk_load_plugin_mfv();
 
    if(rc == 0) {
       g_vsdk.initialized = true;
@@ -247,6 +248,10 @@ bool vsdk_hal_in_enabled(void) {
 
 bool vsdk_hal_out_enabled(void) {
    return(g_vsdk.hal_out_enabled);
+}
+
+bool vsdk_hal_mfv_enabled(void) {
+   return(g_vsdk.mfv_enabled);
 }
 
 xraudio_hal_plugin_api_t *vsdk_hal_plugin_get(void) {

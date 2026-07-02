@@ -187,7 +187,7 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->hal_plugin                            = vsdk_hal_plugin_get();
    obj->dga_plugin                            = vsdk_dga_plugin_get();
    obj->kwd_plugin                            = vsdk_kwd_plugin_get();
-   obj->mfv_plugin                            = vsdk_mfv_plugin_get();
+   obj->mfv_plugin                            = vsdk_hal_mfv_enabled() ? vsdk_mfv_plugin_get() : NULL;
    obj->eos_enabled                           = (vsdk_eos_plugin_get() == NULL) ? false : true;
    obj->ppr_enabled                           = (vsdk_ppr_plugin_get() == NULL) ? false : true;
    obj->out_enabled                           = vsdk_hal_out_enabled();
