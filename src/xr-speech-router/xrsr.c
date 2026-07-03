@@ -579,6 +579,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
       json_obj_final = NULL;
    }
 
+   XLOGD_WARN("PJT capture_config dir_path <%p>", capture_config->dir_path);
    if(capture_config != NULL) {
       if(!xrsr_capture_config_apply(capture_config)) {
          XLOGD_ERROR("unable to apply capture config");
@@ -1943,21 +1944,24 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
       if(begin->detector_result.chan_selected >= XRAUDIO_INPUT_MAX_CHANNEL_QTY) {
          XLOGD_ERROR("invalid selected channel <%u>", begin->detector_result.chan_selected);
       } else {
+         #ifdef PJT_OLD_HAL //I think we do want to provide this data
          detector_result.score                = begin->detector_result.channels[begin->detector_result.chan_selected].score;
          detector_result.snr                  = begin->detector_result.channels[begin->detector_result.chan_selected].snr;
          detector_result.doa                  = begin->detector_result.channels[begin->detector_result.chan_selected].doa;
+         detector_result.dynamic_gain         = begin->detector_result.channels[begin->detector_result.chan_selected].dynamic_gain;
+         #endif
          detector_result.offset_buf_begin     = begin->detector_result.endpoints.pre;
          detector_result.offset_kwd_begin     = begin->detector_result.endpoints.begin;
          detector_result.offset_kwd_end       = begin->detector_result.endpoints.end;
          detector_result.kwd_gain             = begin->detector_result.endpoints.kwd_gain;
          detector_result.detector_name        = begin->detector_result.detector_name;
          detector_result.dsp_name             = begin->detector_result.dsp_name;
-         detector_result.dynamic_gain         = begin->detector_result.channels[begin->detector_result.chan_selected].dynamic_gain;
          detector_result.dynamic_gain_update  = begin->detector_result.dynamic_gain_update;
          detector_result.sensitivity          = begin->detector_result.sensitivity;
 
          detector_result_ptr   = &detector_result;
 
+         #ifdef PJT_OLD_HAL
          XLOGD_INFO("selected kwd channel <%u> gain <%f> buf begin <%d> kwd begin <%d> end <%d>", begin->detector_result.chan_selected, detector_result.kwd_gain, detector_result.offset_buf_begin, detector_result.offset_kwd_begin, detector_result.offset_kwd_end);
          for(uint32_t chan = 0; chan < XRAUDIO_INPUT_MAX_CHANNEL_QTY; chan++) {
             xraudio_kwd_chan_result_t *chan_result = &begin->detector_result.channels[chan];
@@ -1965,6 +1969,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                XLOGD_INFO("chan <%u> score <%0.6f> snr <%0.4f> doa <%u> dynamic_gain <%f>", chan, chan_result->score, chan_result->snr, chan_result->doa, chan_result->dynamic_gain);
             }
          }
+         #endif 
       }
    }
 

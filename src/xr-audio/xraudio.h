@@ -225,12 +225,15 @@ typedef int16_t         xraudio_sample_t;
 typedef struct {
    uint32_t                  chan_selected;
    xraudio_kwd_endpoints_t   endpoints;
+   #ifdef PJT_OLD_HAL
    xraudio_kwd_chan_result_t channels[XRAUDIO_INPUT_MAX_CHANNEL_QTY];
+   #endif
    const char *              detector_name;
    const char *              dsp_name;
    float                     sensitivity;
    float *                   dynamic_gain_update;
 } xraudio_keyword_detector_result_t;
+//PJT do we hand this to the HAL?
 
 typedef struct {
    uint32_t byte_qty; // Number of bytes from beginning of stream until end of the keyword

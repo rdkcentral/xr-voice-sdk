@@ -304,6 +304,9 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       }
    }
 
+   obj->devices_input |= *inputs;
+   XLOGD_INFO("PJT obtained additional input devices from HAL plugin: <%s>", xraudio_devices_input_str(obj->devices_input));
+
    return(XRAUDIO_RESULT_OK);
 }
 
@@ -487,6 +490,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
    if(obj->hal_plugin != NULL) {
       #ifndef XRAUDIO_RESOURCE_MGMT
       xraudio_hal_capabilities caps;
+      XLOGD_INFO("PJT calling hal_plugin->capabilities_get");
       obj->hal_plugin->capabilities_get(&caps);
       // Allocate the first resource since resource management is disabled
       if(output != XRAUDIO_DEVICE_OUTPUT_NONE) {
@@ -1121,8 +1125,8 @@ xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
 
       // Get qahw handle from process global memory
       if(g_xraudio_process.hal_obj == NULL) {
-         XLOGD_INFO("hal open obj");
          g_xraudio_process.hal_obj = obj->hal_plugin->open(false, g_xraudio_process.power_mode, g_xraudio_process.privacy_mode, xraudio_hal_msg_async_handler);
+         XLOGD_INFO("hal open obj %p", g_xraudio_process.hal_obj);
          if(g_xraudio_process.hal_obj == NULL) {
             XLOGD_ERROR("hal open failed.");
             return(XRAUDIO_RESULT_ERROR_INTERNAL);
@@ -1172,6 +1176,7 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
       params.obj_output                     = NULL;
       params.json_obj_output                = NULL;
    }
+   #ifdef PJT_OLD_HAL
    if(obj->kwd_plugin != NULL && obj->obj_input != NULL) {
       params.hal_obj                        = g_xraudio_process.hal_obj;
       params.dsp_config                     = g_xraudio_process.dsp_config;
@@ -1181,6 +1186,12 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
       memset(&params.dsp_config, 0, sizeof(params.dsp_config));
       params.hal_input_obj                  = NULL;
    }
+   #else
+   params.hal_obj                        = g_xraudio_process.hal_obj;
+   params.dsp_config                     = g_xraudio_process.dsp_config;
+   params.hal_input_obj                  = xraudio_input_hal_obj_get(obj->obj_input);
+   XLOGD_WARN("PJT params hal_obj %p hal_input_obj %p", params.hal_obj, params.hal_input_obj);
+   #endif
    params.internal_capture_params        = obj->internal_capture_params;
    params.json_obj_input                 = obj->json_obj_input;
 
@@ -1398,6 +1409,7 @@ xraudio_result_t xraudio_detect_stop(xraudio_object_t object) {
 }
 
 xraudio_result_t xraudio_detect_sensitivity_limits_get(xraudio_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity_min, xraudio_keyword_sensitivity_t *keyword_sensitivity_max) {
+   #ifdef PJT_OLD_HAL
    xraudio_obj_t *obj = (xraudio_obj_t *)object;
    if(!xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");
@@ -1432,6 +1444,9 @@ xraudio_result_t xraudio_detect_sensitivity_limits_get(xraudio_object_t object, 
 
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
+   #else
+   return(XRAUDIO_RESULT_OK);
+   #endif
 }
 
 xraudio_result_t xraudio_source_fd_set(xraudio_object_t object, xraudio_devices_input_t source, int fd, xraudio_input_format_t format, xraudio_input_data_read_cb_t callback, void *user_data) {
@@ -2635,7 +2650,7 @@ xraudio_result_t xraudio_privacy_mode_get(xraudio_object_t object, xraudio_devic
    msg.enabled     = enabled;
    msg.semaphore   = &semaphore;
    msg.result      = &result;
-
+XLOGD_INFO("PJT %d", __LINE__);
    queue_msg_push(obj->msgq_main, (const char*)&msg, sizeof(msg));
 
    sem_wait(&semaphore);
@@ -2646,7 +2661,7 @@ xraudio_result_t xraudio_privacy_mode_get(xraudio_object_t object, xraudio_devic
    } else {
       g_xraudio_process.privacy_mode = *enabled;
    }
-
+XLOGD_INFO("PJT %d enabled %d", __LINE__, *enabled);
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }

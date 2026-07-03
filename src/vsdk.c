@@ -28,7 +28,11 @@
 #include <xr_voice_sdk.h>
 #include <vsdk_version.h>
 #include <vsdk_private.h>
-
+#ifndef PJT_OLD_HAL
+#include <unistd.h>
+#include <errno.h>
+#include "xr_ffv_hal_interface.h"
+#endif
 #define VSDK_VENDOR_OPTIONS_FILE  "/etc/vendor/input/vsdk_options.json"
 
 typedef struct {
@@ -51,6 +55,9 @@ typedef struct {
    xraudio_kwd_plugin_api_t *kwd_plugin;
    xraudio_eos_plugin_api_t *eos_plugin;
    xraudio_dga_plugin_api_t *dga_plugin;
+   #ifndef PJT_OLD_HAL   
+   xr_ffv_hal_plugin_func_t *ffv_hal_interface_plugin;
+   #endif
    xraudio_sdf_plugin_api_t *sdf_plugin;
    xraudio_ovc_plugin_api_t *ovc_plugin;
    xraudio_ppr_plugin_api_t *ppr_plugin;
@@ -65,10 +72,622 @@ static bool  vsdk_file_exists(const char *filename);
 static void  vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio_allow_input_failure);
 static bool  vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles);
 static void *vsdk_load_plugin_ffv_hal(bool *out_enabled);
+#ifdef PJT_OLD_HAL
 static void *vsdk_load_plugin_ffv_kwd(void);
 static void *vsdk_load_plugin_ffv_alg(void **handle_ppr);
+#endif
 static void *vsdk_load_plugin_ffv_sdf(void);
 static void *vsdk_load_plugin_ffv_ovc(void);
+
+#ifndef PJT_OLD_HAL
+typedef xr_ffv_hal_plugin_func_t *(*xr_ffv_hal_plugin_func_get_t)(void);
+
+#define VSDK_FFV_HAL_OBJ_MAGIC   (0x7668646f) // "vhdo"
+#define VSDK_FFV_INPUT_OBJ_MAGIC (0x7668696f) // "vhio"
+
+typedef struct {
+   uint32_t                    magic;
+   xr_ffv_hal_plugin_func_t   *ffv_api;
+   FFVhalHandle                ffv_handle;
+   FFVhalControlHandle         ffv_controller;
+   xraudio_hal_msg_callback_t  callback;
+   xraudio_power_mode_t        power_mode;
+   bool                        privacy_mode;
+   xraudio_devices_input_t     source;
+} vsdk_ffv_hal_obj_t;
+
+typedef struct {
+   uint32_t                 magic;
+   vsdk_ffv_hal_obj_t      *hal_obj;
+   FFVhalFileDescriptor     fd;
+   const char              *channel_type;
+   xraudio_devices_input_t  source;
+} vsdk_ffv_input_obj_t;
+
+static vsdk_ffv_hal_obj_t *g_vsdk_ffv_hal_active_obj = NULL;
+
+static FFVhalPowerMode_t vsdk_ffv_power_mode_from_xraudio(xraudio_power_mode_t power_mode) {
+   switch(power_mode) {
+      case XRAUDIO_POWER_MODE_FULL:  return(FULL_POWER);
+      case XRAUDIO_POWER_MODE_LOW:   return(STANDBY);
+      case XRAUDIO_POWER_MODE_SLEEP: return(DEEP_SLEEP);
+      default:                       return(NONE);
+   }
+}
+
+//PJT not sure we need this really but if we do we can query the HAL directly instead of inferring like this
+static bool vsdk_ffv_channel_is_keyword(xraudio_input_format_t format) {
+   if((format.encoding.type == XRAUDIO_ENCODING_PCM_RAW) || (format.sample_size > 4)) {
+      XLOGD_ERROR("encoding_type is %d, sample_size is %d, not a keyword channel", format.encoding.type, format.sample_size);
+      return(false);
+   }
+   return(true);
+}
+
+static bool vsdk_ffv_source_is_local(xraudio_devices_input_t source) {
+   return((XRAUDIO_DEVICE_INPUT_LOCAL_GET(source) != XRAUDIO_DEVICE_INPUT_NONE) || (source == XRAUDIO_DEVICE_INPUT_FF));
+}
+
+static void vsdk_ffv_emit_session_request(vsdk_ffv_hal_obj_t *obj) {
+   if((obj == NULL) || (obj->callback == NULL)) {
+      return;
+   }
+XLOGD_INFO("PJT called");
+   xraudio_hal_msg_session_request_t msg;
+   memset(&msg, 0, sizeof(msg));
+   msg.header.type   = XRAUDIO_MSG_TYPE_SESSION_REQUEST;
+   msg.header.source = obj->source;
+   obj->callback(&msg);
+}
+
+static void vsdk_ffv_emit_session_begin(vsdk_ffv_hal_obj_t *obj) {
+   if((obj == NULL) || (obj->callback == NULL)) {
+      return;
+   }
+XLOGD_INFO("PJT called");
+   xraudio_hal_msg_session_begin_t msg;
+   memset(&msg, 0, sizeof(msg));
+   msg.header.type            = XRAUDIO_MSG_TYPE_SESSION_BEGIN;
+   msg.header.source          = obj->source;
+   msg.format.container       = XRAUDIO_CONTAINER_NONE;
+   msg.format.encoding.type   = XRAUDIO_ENCODING_PCM;
+   msg.format.sample_rate     = 16000;
+   msg.format.sample_size     = 2;
+   msg.format.channel_qty     = 1;
+   msg.stream_params.valid    = true;
+   msg.stream_params.kwd_pre  = 0;
+   msg.stream_params.kwd_begin= 0;
+   msg.stream_params.kwd_end  = 0;
+   msg.stream_params.keyword_detector = "ffv-hal";
+   msg.stream_params.dsp_name = "ffv-hal";
+   msg.stream_params.sensitivity = 0.0f;
+
+   obj->callback(&msg);
+}
+
+static void vsdk_ffv_emit_session_end(vsdk_ffv_hal_obj_t *obj) {
+   if((obj == NULL) || (obj->callback == NULL)) {
+      return;
+   }
+XLOGD_INFO("PJT called");
+   xraudio_hal_msg_session_end_t msg;
+   memset(&msg, 0, sizeof(msg));
+   msg.header.type   = XRAUDIO_MSG_TYPE_SESSION_END;
+   msg.header.source = obj->source;
+   obj->callback(&msg);
+}
+
+static void vsdk_ffv_on_state_changed_cb(FFVhalState_t oldState, FFVhalState_t newState) {
+   (void)oldState;
+   (void)newState;
+   XLOGD_INFO("FFV HAL state changed from %d to %d", oldState, newState);
+}
+
+static void vsdk_ffv_on_entered_power_mode_cb(FFVhalPowerMode_t powerMode) {
+   (void)powerMode;
+   XLOGD_INFO("FFV HAL entered power mode %d", powerMode);
+}
+
+static const char *vsdk_ffv_failure_code_str(FFVhalFailureCode_t failureCode) {
+   switch(failureCode) {
+      case SUB_COMPONENT_FAILURE: return("SUB_COMPONENT_FAILURE");
+      case IO_FAILURE:            return("IO_FAILURE");
+      default:                    return("UNKNOWN");
+   }
+}
+
+static void vsdk_ffv_on_hardware_failed_cb(FFVhalFailureCode_t failureCode) {
+   XLOGD_ERROR("FFV HAL hardware failure <%s> (%d)", vsdk_ffv_failure_code_str(failureCode), failureCode);
+   if((g_vsdk_ffv_hal_active_obj == NULL) || (g_vsdk_ffv_hal_active_obj->callback == NULL)) {
+      return;
+   }
+
+   // If a session is active, force an end before reporting the input error.
+   vsdk_ffv_emit_session_end(g_vsdk_ffv_hal_active_obj);
+
+   xraudio_hal_msg_input_error_t msg;
+   memset(&msg, 0, sizeof(msg));
+   msg.header.type   = XRAUDIO_MSG_TYPE_INPUT_ERROR;
+   msg.header.source = g_vsdk_ffv_hal_active_obj->source;
+   g_vsdk_ffv_hal_active_obj->callback(&msg);
+}
+
+static void vsdk_ffv_on_keyword_detected_cb(void) {
+   XLOGD_INFO("PJT FFV HAL keyword detected");
+   if(g_vsdk_ffv_hal_active_obj == NULL) {
+      XLOGD_ERROR("FFV HAL keyword detected but no active HAL object");
+      return;
+   }
+   vsdk_ffv_emit_session_request(g_vsdk_ffv_hal_active_obj);
+   vsdk_ffv_emit_session_begin(g_vsdk_ffv_hal_active_obj);
+}
+
+static void vsdk_ffv_on_end_of_command_cb(int32_t sampleOffset, bool timedOut) {
+   (void)sampleOffset;
+   (void)timedOut;
+   XLOGD_INFO("PJT FFV HAL end of command detected at sample offset %d, timed out=%d", sampleOffset, timedOut);
+   if(g_vsdk_ffv_hal_active_obj == NULL) {
+      XLOGD_ERROR("FFV HAL end of command detected but no active HAL object");
+      return;
+   }
+   vsdk_ffv_emit_session_end(g_vsdk_ffv_hal_active_obj);
+}
+
+static void vsdk_ffv_adapter_version(xraudio_version_info_t *version_info, uint32_t *qty) {
+   if((version_info == NULL) || (qty == NULL) || (*qty == 0)) {
+      XLOGD_ERROR("Invalid parameters to vsdk_ffv_adapter_version");
+      return;
+   }
+   XLOGD_INFO("vsdk_ffv_adapter_version called, returning version info");
+   version_info[0].name      = "ffv-hal-interface-adapter";
+   version_info[0].version   = "1.0";
+   version_info[0].branch    = "main";
+   version_info[0].commit_id = "n/a";
+   *qty = 1;
+}
+
+static bool vsdk_ffv_adapter_init(json_t *obj_config) {
+   (void)obj_config;
+   XLOGD_INFO("xffv_hal_interface_plugin is %p", g_vsdk.ffv_hal_interface_plugin);
+   if(g_vsdk.ffv_hal_interface_plugin == NULL) {
+      XLOGD_ERROR("FFV HAL interface plugin not loaded");
+      return(false);
+   }
+   return(true);
+}
+
+static void vsdk_ffv_adapter_capabilities_get(xraudio_hal_capabilities *caps) {
+   if(caps == NULL) {
+      XLOGD_ERROR("Invalid parameters");
+      return;
+   }
+   memset(caps, 0, sizeof(*caps));
+   XLOGD_INFO("xffv_hal_interface_plugin is %p", g_vsdk.ffv_hal_interface_plugin);
+   if(g_vsdk.ffv_plugins.handle_ffv_hal == NULL) {
+      return;
+   }
+
+   //This is here because xraudio wants to check capabilities before opening and for the moment we'll just open and close to get caps
+   xr_ffv_hal_plugin_func_t *ffv_api = g_vsdk.ffv_hal_interface_plugin;
+   XLOGD_INFO("PJT ffv_api is %p", ffv_api);
+   if((ffv_api == NULL) || (ffv_api->get_handle == NULL) || (ffv_api->get_capabilities == NULL) || (ffv_api->destroy == NULL)) {
+      return;
+   }
+
+   FFVhalHandle handle = ffv_api->get_handle();
+   XLOGD_INFO("PJT FFV HAL handle is %p", handle);
+   if(handle == NULL) {
+      XLOGD_ERROR("FFV HAL handle is NULL");
+      return;
+   }
+
+   FFVhalCapabilities_t ffv_caps;
+   memset(&ffv_caps, 0, sizeof(ffv_caps));
+   XLOGD_INFO("calling ffv_api->get_capabilities");
+   FFVhalApiStatus_t status = ffv_api->get_capabilities(handle, &ffv_caps);
+   if(status == EX_NONE) {
+      caps->input_qty      = 1;
+      caps->input_caps[0]  = XRAUDIO_CAPS_INPUT_LOCAL | XRAUDIO_CAPS_INPUT_SELECT;
+      if(ffv_caps.channelTypes[0] != NULL || ffv_caps.channelTypes[1] != NULL) {
+         caps->input_caps[0] |= XRAUDIO_CAPS_INPUT_EOS_DETECTION;
+      }
+      if(ffv_caps.microphoneChannelCount > 1) {
+         caps->input_caps[0] |= XRAUDIO_CAPS_INPUT_LOCAL_32_BIT;
+      }
+      caps->output_qty = 0;
+   }
+
+   /*
+   //Just close the handle we'll open it back up later for reading
+   XLOGD_WARN("PJT destroying FFV HAL handle %p", handle);
+   ffv_api->destroy(handle);
+   */
+}
+
+static bool vsdk_ffv_adapter_dsp_config_get(xraudio_hal_dsp_config_t *dsp_config) {
+   if(dsp_config == NULL) {
+      XLOGD_ERROR("Invalid parameters");
+      return(false);
+   }
+XLOGD_INFO("PJT vsdk_ffv_adapter_dsp_config_get called");
+//Not sure we need this at all with new HAL but for now we'll just return some defaults
+   memset(dsp_config, 0, sizeof(*dsp_config));
+   dsp_config->ppr_enabled               = (g_vsdk.ppr_plugin != NULL);
+   dsp_config->dga_enabled               = false;
+   dsp_config->eos_enabled               = true;
+   dsp_config->input_asr_max_channel_qty = XRAUDIO_INPUT_ASR_MAX_CHANNEL_QTY;
+   dsp_config->input_kwd_max_channel_qty = XRAUDIO_INPUT_KWD_MAX_CHANNEL_QTY;
+   dsp_config->aop_adjust                = 0.0f;
+   dsp_config->dsp_output_override_enable= false;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_available_devices_get(xraudio_devices_input_t *inputs, uint32_t input_qty_max, xraudio_devices_output_t *outputs, uint32_t output_qty_max) {
+   //if((inputs == NULL) || (input_qty_max < XRAUDIO_INPUT_MAX_DEVICE_QTY) || (outputs == NULL) || (output_qty_max < XRAUDIO_OUTPUT_MAX_DEVICE_QTY)) {
+   if((inputs == NULL) || (input_qty_max < 1) || (outputs == NULL) || (output_qty_max < 1)) {
+      XLOGD_ERROR("Invalid parameters");
+      return(false);
+   }
+XLOGD_INFO("PJT");
+   memset(inputs, 0, sizeof(*inputs) * input_qty_max);
+   memset(outputs, 0, sizeof(*outputs) * output_qty_max);
+
+   inputs[0] = XRAUDIO_DEVICE_INPUT_SINGLE;
+   outputs[0] = XRAUDIO_DEVICE_OUTPUT_NONE;
+   return(true);
+}
+
+static xraudio_hal_obj_t vsdk_ffv_adapter_open(bool debug, xraudio_power_mode_t power_mode, bool privacy_mode, xraudio_hal_msg_callback_t callback) {
+   (void)debug;
+
+   xr_ffv_hal_plugin_func_t *ffv_api = g_vsdk.ffv_hal_interface_plugin;
+
+   XLOGD_INFO("PJT ...");
+   if((ffv_api == NULL) ||
+      (ffv_api->get_handle == NULL) ||
+      (ffv_api->register_event_listeners == NULL) ||
+      (ffv_api->open == NULL) ||
+      (ffv_api->close == NULL) ||
+      (ffv_api->unregister_event_listeners == NULL) ||
+      (ffv_api->destroy == NULL)) {
+      XLOGD_ERROR("FFV HAL interface API incomplete");
+      return(NULL);
+   }
+
+   vsdk_ffv_hal_obj_t *obj = (vsdk_ffv_hal_obj_t *)calloc(1, sizeof(*obj));
+   if(obj == NULL) {
+      return(NULL);
+   }
+
+   obj->magic        = VSDK_FFV_HAL_OBJ_MAGIC;
+   obj->ffv_api      = ffv_api;
+   obj->callback     = callback;
+   obj->power_mode   = power_mode;
+   obj->privacy_mode = privacy_mode;
+   obj->source       = XRAUDIO_DEVICE_INPUT_SINGLE;
+
+   if(obj->ffv_handle == NULL) {
+         XLOGD_INFO("PJT there is no ffv_handle so get one");
+         obj->ffv_handle = ffv_api->get_handle();
+         if(obj->ffv_handle == NULL) {
+            XLOGD_ERROR("FFVhal_getService failed");
+            free(obj);
+            return(NULL);
+         }
+   }
+
+   XLOGD_WARN("PJT registering state %p power mode %p hardware failed %p callbacks", vsdk_ffv_on_state_changed_cb, vsdk_ffv_on_entered_power_mode_cb, vsdk_ffv_on_hardware_failed_cb);
+   if(ffv_api->register_event_listeners(obj->ffv_handle,
+                                        vsdk_ffv_on_state_changed_cb,
+                                        vsdk_ffv_on_entered_power_mode_cb,
+                                        vsdk_ffv_on_hardware_failed_cb) != EX_NONE) {
+      XLOGD_ERROR("PJT FFVhal_registerEventListeners failed");
+      ffv_api->destroy(obj->ffv_handle);
+      free(obj);
+      return(NULL);
+   }
+XLOGD_INFO("PJT opening FFV HAL adapter with power mode <%d> privacy mode <%d>", power_mode, privacy_mode);
+   if(ffv_api->open(obj->ffv_handle, vsdk_ffv_on_keyword_detected_cb, vsdk_ffv_on_end_of_command_cb, &obj->ffv_controller) != EX_NONE) {
+      XLOGD_ERROR("FFVhal_open failed");
+      ffv_api->unregister_event_listeners(obj->ffv_handle,
+                                          vsdk_ffv_on_state_changed_cb,
+                                          vsdk_ffv_on_entered_power_mode_cb,
+                                          vsdk_ffv_on_hardware_failed_cb);
+      ffv_api->destroy(obj->ffv_handle);
+      free(obj);
+      return(NULL);
+   }
+
+   if(ffv_api->set_power_mode(obj->ffv_controller, vsdk_ffv_power_mode_from_xraudio(power_mode)) != EX_NONE) {
+      XLOGD_WARN("FFVhal_setPowerMode failed");
+   }
+   if(ffv_api->set_privacy_state(obj->ffv_controller, privacy_mode) != EX_NONE) {
+      XLOGD_WARN("FFVhal_setPrivacyState failed");
+   }
+
+   g_vsdk_ffv_hal_active_obj = obj;
+   XLOGD_INFO("FFV HAL adapter opened successfully");
+   XLOGD_INFO("PJT obj->ffv_source is 0x%x", obj->source);
+   return((xraudio_hal_obj_t)obj);
+}
+
+static bool vsdk_ffv_adapter_power_mode(xraudio_hal_obj_t hal_obj, xraudio_power_mode_t power_mode) {
+   vsdk_ffv_hal_obj_t *obj = (vsdk_ffv_hal_obj_t *)hal_obj;
+   XLOGD_INFO("PJT vsdk_ffv_adapter_power_mode called with power mode <%d>", power_mode);
+   if((obj == NULL) || (obj->magic != VSDK_FFV_HAL_OBJ_MAGIC) || (obj->ffv_api == NULL) || (obj->ffv_api->set_power_mode == NULL)) {
+      return(false);
+   }
+   if(obj->ffv_api->set_power_mode(obj->ffv_controller, vsdk_ffv_power_mode_from_xraudio(power_mode)) != EX_NONE) {
+      return(false);
+   }
+   obj->power_mode = power_mode;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_privacy_mode(xraudio_hal_obj_t hal_obj, bool enable) {
+   vsdk_ffv_hal_obj_t *obj = (vsdk_ffv_hal_obj_t *)hal_obj;
+   XLOGD_INFO("PJT vsdk_ffv_adapter_privacy_mode called with enable <%d>", enable);
+   if((obj == NULL) || (obj->magic != VSDK_FFV_HAL_OBJ_MAGIC) || (obj->ffv_api == NULL) || (obj->ffv_api->set_privacy_state == NULL)) {
+      return(false);
+   }
+   if(obj->ffv_api->set_privacy_state(obj->ffv_controller, enable) != EX_NONE) {
+      return(false);
+   }
+   obj->privacy_mode = enable;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_privacy_mode_get(xraudio_hal_obj_t hal_obj, bool *enabled) {
+   XLOGD_INFO("PJT vsdk_ffv_adapter_privacy_mode_get called, obj %p", hal_obj);
+   vsdk_ffv_hal_obj_t *obj = (vsdk_ffv_hal_obj_t *)hal_obj;
+   if((obj == NULL) || (obj->magic != VSDK_FFV_HAL_OBJ_MAGIC) || (enabled == NULL)) {
+      XLOGD_ERROR("PJT vsdk_ffv_adapter_privacy_mode_get called with invalid parameters (obj %p, magic 0x%x, enabled %p)", obj, (obj != NULL) ? obj->magic : 0, enabled);
+      return(false);
+   }
+   XLOGD_INFO("PJT obj->privacy_mode before call is <%d>", obj->privacy_mode);
+   FFVhalStatus_t status = {0};
+   obj->ffv_api->get_status(obj->ffv_handle, &status);
+   XLOGD_INFO("PJT get_status returned privacy mode <%d>", status.privacyStateActive);
+   *enabled = status.privacyStateActive;
+   return(true);
+}
+
+static void vsdk_ffv_adapter_close(xraudio_hal_obj_t hal_obj) {
+   vsdk_ffv_hal_obj_t *obj = (vsdk_ffv_hal_obj_t *)hal_obj;
+   XLOGD_WARN("PJT");
+   if((obj == NULL) || (obj->magic != VSDK_FFV_HAL_OBJ_MAGIC) || (obj->ffv_api == NULL)) {
+      XLOGD_ERROR("PJT vsdk_ffv_adapter_close called with invalid parameters (obj %p, magic 0x%x)", obj, (obj != NULL) ? obj->magic : 0);
+      return;
+   }
+
+   if(g_vsdk_ffv_hal_active_obj == obj) {
+      g_vsdk_ffv_hal_active_obj = NULL;
+   }
+
+   if(obj->ffv_handle == NULL) {
+      obj->magic = 0;
+      free(obj);
+      return;
+   }
+
+   if(obj->ffv_api->close(obj->ffv_handle) != EX_NONE) {
+      XLOGD_WARN("FFVhal_close failed");
+   }
+
+   if(obj->ffv_api->unregister_event_listeners(obj->ffv_handle,
+                                               vsdk_ffv_on_state_changed_cb,
+                                               vsdk_ffv_on_entered_power_mode_cb,
+                                               vsdk_ffv_on_hardware_failed_cb) != EX_NONE) {
+      XLOGD_WARN("FFVhal_unregisterEventListeners failed");
+   }
+
+   XLOGD_WARN("PJT destroying FFV HAL handle %p", obj->ffv_handle);
+   obj->ffv_api->destroy(obj->ffv_handle);
+   obj->ffv_handle = NULL;
+
+   obj->magic = 0;
+   free(obj);
+   XLOGD_INFO("PJT FFV HAL adapter closed");
+}
+
+static bool vsdk_ffv_adapter_thread_poll(void) {
+   return(true);
+}
+
+static xraudio_hal_input_obj_t vsdk_ffv_adapter_input_open(xraudio_hal_obj_t hal_obj, xraudio_devices_input_t device, xraudio_input_format_t format, xraudio_device_input_configuration_t *configuration) {
+   vsdk_ffv_hal_obj_t *obj = NULL;
+   vsdk_ffv_input_obj_t *existing = (vsdk_ffv_input_obj_t *)hal_obj;
+   if((existing != NULL) && (existing->magic == VSDK_FFV_INPUT_OBJ_MAGIC)) {
+      obj = existing->hal_obj;
+      configuration->fd = existing->fd;
+      XLOGD_WARN("PJT vsdk_ffv_adapter_input_open called with existing input object, reusing HAL object %p and fd %d", obj, configuration->fd);
+      return((xraudio_hal_input_obj_t)existing);
+   } else {
+      obj = (vsdk_ffv_hal_obj_t *)hal_obj;
+   }
+
+   if((obj == NULL) || (obj->magic != VSDK_FFV_HAL_OBJ_MAGIC) || (obj->ffv_api == NULL) || (obj->ffv_api->open_channel == NULL)) {
+      return(NULL);
+   }
+   if(!vsdk_ffv_source_is_local(device)) {
+      return(NULL);
+   }
+
+   const char *channel = vsdk_ffv_channel_is_keyword(format) ? "KEYWORD" : "MICROPHONES";
+   FFVhalFileDescriptor fd = -1;
+   if(obj->ffv_api->open_channel(obj->ffv_controller, channel, &fd) != EX_NONE) {
+      XLOGD_ERROR("PJT FFVhal_open_channel failed for channel %s", channel);
+      return(NULL);
+   }
+
+   vsdk_ffv_input_obj_t *input = (vsdk_ffv_input_obj_t *)calloc(1, sizeof(*input));
+   if(input == NULL) {
+      (void)obj->ffv_api->close_channel(obj->ffv_controller, channel);
+      return(NULL);
+   }
+
+   input->magic       = VSDK_FFV_INPUT_OBJ_MAGIC;
+   input->hal_obj     = obj;
+   input->fd          = fd;
+   input->channel_type= channel;
+   input->source      = device;
+   obj->source        = device;
+   configuration->fd = fd;
+   XLOGD_INFO("PJT vsdk_ffv_adapter_input_open called for channel %s, fd %d", channel, fd);
+
+   return((xraudio_hal_input_obj_t)input);
+}
+
+static void vsdk_ffv_adapter_input_close(xraudio_hal_input_obj_t input_obj) {
+   vsdk_ffv_input_obj_t *obj = (vsdk_ffv_input_obj_t *)input_obj;
+   if((obj == NULL) || (obj->magic != VSDK_FFV_INPUT_OBJ_MAGIC) || (obj->hal_obj == NULL)) {
+      XLOGD_ERROR("Invalid input object");
+      return;
+   }
+XLOGD_INFO("PJT vsdk_ffv_adapter_input_close called for channel %s", obj->channel_type);
+   if((obj->hal_obj->ffv_api != NULL) && (obj->hal_obj->ffv_api->close_channel != NULL) && (obj->channel_type != NULL)) {
+      (void)obj->hal_obj->ffv_api->close_channel(obj->hal_obj->ffv_controller, obj->channel_type);
+   }
+   if(obj->fd >= 0) {
+      (void)close(obj->fd);
+   }
+
+   obj->magic = 0;
+   free(obj);
+}
+
+static uint32_t vsdk_ffv_adapter_input_buffer_size_get(xraudio_hal_input_obj_t obj) {
+   (void)obj;
+   return(4096);
+}
+
+static int32_t vsdk_ffv_adapter_input_read(xraudio_hal_input_obj_t input_obj, uint8_t *data, uint32_t size, xraudio_eos_event_t *eos_event) {
+   vsdk_ffv_input_obj_t *obj = (vsdk_ffv_input_obj_t *)input_obj;
+   if((obj == NULL) || (obj->magic != VSDK_FFV_INPUT_OBJ_MAGIC) || (data == NULL) || (size == 0) || (obj->fd < 0)) {
+      return(-1);
+   }
+
+   if(eos_event != NULL) {
+      memset(eos_event, 0, sizeof(*eos_event));
+   }
+
+   ssize_t rc = read(obj->fd, data, size);
+   if(rc < 0) {
+      if((errno == EAGAIN) || (errno == EINTR)) {
+         return(0);
+      }
+      return(-1);
+   }
+   return((int32_t)rc);
+}
+
+static bool vsdk_ffv_adapter_input_mute(xraudio_hal_input_obj_t obj, xraudio_devices_input_t device, bool enable) {
+   (void)obj;
+   (void)device;
+   (void)enable;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_input_focus(xraudio_hal_input_obj_t obj, xraudio_sdf_mode_t mode) {
+   (void)obj;
+   (void)mode;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_input_stats(xraudio_hal_input_obj_t obj, xraudio_hal_input_stats_t *input_stats, bool reset) {
+   (void)obj;
+   (void)reset;
+   if(input_stats != NULL) {
+      memset(input_stats, 0, sizeof(*input_stats));
+      input_stats->dsp_name = "ffv-hal";
+   }
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_input_detection(xraudio_hal_input_obj_t obj, uint32_t chan, bool *ignore) {
+   (void)obj;
+   (void)chan;
+   if(ignore != NULL) {
+      *ignore = false;
+   }
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_input_eos_cmd(xraudio_hal_input_obj_t obj, xraudio_eos_cmd_t cmd, uint32_t chan) {
+   (void)obj;
+   (void)cmd;
+   (void)chan;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_input_stream_params_get(xraudio_hal_input_obj_t obj, xraudio_hal_stream_params_t *stream_params) {
+   (void)obj;
+   if(stream_params == NULL) {
+      return(false);
+   }
+   memset(stream_params, 0, sizeof(*stream_params));
+   stream_params->valid = false;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_input_stream_start_set(xraudio_hal_input_obj_t obj, uint32_t start_sample) {
+   (void)obj;
+   (void)start_sample;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_input_keyword_detector_reset(xraudio_hal_input_obj_t obj) {
+   (void)obj;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_input_test_mode(xraudio_hal_input_obj_t obj, bool enable) {
+   (void)obj;
+   (void)enable;
+   return(true);
+}
+
+static bool vsdk_ffv_adapter_input_stream_latency_set(xraudio_hal_input_obj_t obj, xraudio_stream_latency_mode_t latency_mode) {
+   (void)obj;
+   (void)latency_mode;
+   return(true);
+}
+
+static xraudio_hal_plugin_api_t g_vsdk_ffv_adapter_api = {
+   .version                      = vsdk_ffv_adapter_version,
+   .init                         = vsdk_ffv_adapter_init,
+   .capabilities_get             = vsdk_ffv_adapter_capabilities_get,
+   .dsp_config_get               = vsdk_ffv_adapter_dsp_config_get,
+   .available_devices_get        = vsdk_ffv_adapter_available_devices_get,
+   .open                         = vsdk_ffv_adapter_open,
+   .power_mode                   = vsdk_ffv_adapter_power_mode,
+   .privacy_mode                 = vsdk_ffv_adapter_privacy_mode,
+   .privacy_mode_get             = vsdk_ffv_adapter_privacy_mode_get,
+   .close                        = vsdk_ffv_adapter_close,
+   .thread_poll                  = vsdk_ffv_adapter_thread_poll,
+   .input_open                   = vsdk_ffv_adapter_input_open,
+   .input_close                  = vsdk_ffv_adapter_input_close,
+   .input_buffer_size_get        = vsdk_ffv_adapter_input_buffer_size_get,
+   .input_read                   = vsdk_ffv_adapter_input_read,
+   .input_mute                   = vsdk_ffv_adapter_input_mute,
+   .input_focus                  = vsdk_ffv_adapter_input_focus,
+   .input_stats                  = vsdk_ffv_adapter_input_stats,
+   .input_detection              = vsdk_ffv_adapter_input_detection,
+   .input_eos_cmd                = vsdk_ffv_adapter_input_eos_cmd,
+   .input_stream_params_get      = vsdk_ffv_adapter_input_stream_params_get,
+   .input_stream_start_set       = vsdk_ffv_adapter_input_stream_start_set,
+   .input_keyword_detector_reset = vsdk_ffv_adapter_input_keyword_detector_reset,
+   .input_test_mode              = vsdk_ffv_adapter_input_test_mode,
+   .input_stream_latency_set     = vsdk_ffv_adapter_input_stream_latency_set,
+   .output_open                  = NULL,
+   .output_close                 = NULL,
+   .output_buffer_size_get       = NULL,
+   .output_write                 = NULL,
+   .output_volume_set_int        = NULL,
+   .output_volume_set_float      = NULL,
+   .output_latency_get           = NULL,
+};
+#endif
 
 void vsdk_version(vsdk_version_info_t *version_info, uint32_t *qty) {
    if(qty == NULL || *qty < VSDK_VERSION_QTY_MAX || version_info == NULL) {
@@ -90,7 +709,7 @@ int vsdk_init(bool ansi_color, const char *filename, uint32_t file_size_max) {
    if(g_vsdk.initialized) {
       return(0);
    }
-
+XLOGD_INFO("PJT");
    bool curtail_xlog        = false;
    bool curtail_xraudio     = false;
    bool allow_input_failure = true;
@@ -342,11 +961,12 @@ void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio
 
 bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
    if(handles == NULL) {
+      XLOGD_ERROR("PJT handles null");
       return(false);
    }
 
    bool ret = false;
-
+XLOGD_INFO("PJT");
    memset(handles, 0, sizeof(*handles));
    do {
       handles->handle_ffv_hal = vsdk_load_plugin_ffv_hal(&g_vsdk.hal_out_enabled);
@@ -355,6 +975,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
          break;
       }
 
+      #ifdef PJT_OLD_HAL
       handles->handle_ffv_kwd  = vsdk_load_plugin_ffv_kwd();
 
       if(handles->handle_ffv_kwd == NULL) {
@@ -363,12 +984,15 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
       handles->handle_ffv_alg = vsdk_load_plugin_ffv_alg(&handles->handle_ffv_ppr);
 
+      XLOGD_WARN("PJT ffv_handle_alg is <%p> ffv_handle_ppr is <%p>", handles->handle_ffv_alg, handles->handle_ffv_ppr);
       if(handles->handle_ffv_alg == NULL) {
          break;
       }
+      #endif
 
       handles->handle_ffv_sdf = vsdk_load_plugin_ffv_sdf();
       handles->handle_ffv_ovc = vsdk_load_plugin_ffv_ovc();
+      XLOGD_WARN("PJT ffv_handle_sdf is <%p> ffv_handle_ovc is <%p>", handles->handle_ffv_sdf, handles->handle_ffv_ovc);
       ret = true;
    } while(0);
 
@@ -380,6 +1004,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
          }
          handles->handle_ffv_hal = NULL;
       }
+      #ifdef PJT_OLD_HAL
       if(handles->handle_ffv_kwd != NULL) {
          if(dlclose(handles->handle_ffv_kwd) != 0) {
             const char *err = dlerror();
@@ -387,6 +1012,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
          }
          handles->handle_ffv_kwd = NULL;
       }
+      #endif
       if(handles->handle_ffv_alg != NULL) {
          if(dlclose(handles->handle_ffv_alg) != 0) {
             const char *err = dlerror();
@@ -422,6 +1048,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
    return(ret);
 }
 
+#ifdef PJT_OLD_HAL
 void *vsdk_load_plugin_ffv_kwd(void) {
    void *handle = NULL;
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-kwd.so";
@@ -489,11 +1116,19 @@ void *vsdk_load_plugin_ffv_kwd(void) {
 
    return(handle);
 }
+#endif
 
+#ifdef PJT_OLD_HAL
 void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    void *handle = NULL;
+   #ifdef PJT_OLD_HAL
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-algorithms.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-algorithms.so";
+   #else
+   const char *so_path_vd = "/data/jason/usr/lib/libxraudio-ffv-algorithms.so";
+   const char *so_path_mw = "/data/jason/usr/lib/libxraudio-ffv-algorithms.so";
+
+   #endif
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
    } else if(vsdk_file_exists(so_path_mw)) {
@@ -510,6 +1145,9 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
    dlerror();  // Clear any existing error
 
+   char *error = dlerror();
+
+   #ifdef PJT_OLD_HAL
    xraudio_eos_plugin_api_get_t eos_plugin_api_get = (xraudio_eos_plugin_api_get_t)dlsym(handle, "xraudio_eos_plugin_api_get");
    char *error = dlerror();
 
@@ -596,6 +1234,10 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    XLOGD_INFO("Loaded required plugin DGA.");
 
    dlerror();  // Clear any existing error
+#else
+   g_vsdk.dga_plugin = NULL;
+   g_vsdk.eos_plugin = NULL;
+#endif
 
    xraudio_ppr_plugin_api_get_t ppr_plugin_api_get = (xraudio_ppr_plugin_api_get_t)dlsym(handle, "xraudio_ppr_plugin_api_get");
    error = dlerror();
@@ -641,11 +1283,20 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    
    return(handle);
 }
+#endif
 
 void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
    void *handle = NULL;
+   #ifdef PJT_OLD_HAL
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-hal.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-hal.so";
+   #else
+   const char *so_path_vd = "/data/jason/usr/lib/libxr-ffv-hal.so";
+   const char *so_path_mw = "/data/jason/usr/usr/lib/libxr-ffv-hal.so";
+   #endif 
+
+   XLOGD_WARN("opening %s", so_path_vd);
+
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
    } else if(vsdk_file_exists(so_path_mw)) {
@@ -654,7 +1305,7 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
       XLOGD_INFO("FFV HAL plugin is not present.");
       return(NULL);
    }
-
+XLOGD_WARN("PJT handle is %p", handle);
    if(NULL == handle) {
       XLOGD_ERROR("Failed to load FFV HAL plugin <%s>", dlerror());
       return(NULL);
@@ -664,12 +1315,55 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
 
    xraudio_hal_plugin_api_get_t plugin_api_get = (xraudio_hal_plugin_api_get_t)dlsym(handle, "xraudio_hal_plugin_api_get");
    char *error = dlerror();
+XLOGD_WARN("PJT plugin_api_get is %p", plugin_api_get);
+   #ifndef PJT_OLD_HAL
+   if(error != NULL) {
+      dlerror();  // Clear any existing error
+      xr_ffv_hal_plugin_func_get_t ffv_plugin_func_get = (xr_ffv_hal_plugin_func_get_t)dlsym(handle, "xr_ffv_hal_plugin_func_get");
+      error = dlerror();
+XLOGD_WARN("PJT ffv_plugin_func_get is %p", ffv_plugin_func_get);
+      if(error == NULL) {
+         xr_ffv_hal_plugin_func_t *ffv_api = ffv_plugin_func_get();
+         if((ffv_api == NULL) ||
+            (ffv_api->get_handle == NULL) ||
+            (ffv_api->destroy == NULL) ||
+            (ffv_api->get_capabilities == NULL) ||
+            (ffv_api->open == NULL) ||
+            (ffv_api->close == NULL) ||
+            (ffv_api->open_channel == NULL) ||
+            (ffv_api->close_channel == NULL) ||
+            (ffv_api->set_privacy_state == NULL) ||
+            (ffv_api->set_power_mode == NULL)) {
+               //PJT finish filling this out it doesn't have all the functions
+            XLOGD_ERROR("FFV HAL interface API incomplete");
+            if(dlclose(handle) != 0) {
+               const char *err = dlerror();
+               XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+            }
+            return(NULL);
+         }
+
+         XLOGD_WARN("PJT Loading required plugin HAL through xr_ffv_hal_interface adapter.");
+         g_vsdk.ffv_hal_interface_plugin = ffv_api;
+         g_vsdk.hal_plugin = &g_vsdk_ffv_adapter_api;
+
+         if(out_enabled != NULL) {
+            *out_enabled = false;
+         }
+         XLOGD_WARN("PJT handle is %p", handle);
+         XLOGD_WARN("PJT g_vsdk.hal_plugin is %p", g_vsdk.hal_plugin);
+         XLOGD_WARN("PJT g_vsdk.hal_plugin.privacy_mode_get is %p", g_vsdk.hal_plugin->privacy_mode_get);
+
+         return(handle);
+      }
+   }
+   #endif
 
    if(error != NULL) {
       XLOGD_ERROR("Required plugin HAL not present, error <%s>", error);
       return(NULL);
    }
-   XLOGD_INFO("Loading required plugin HAL.");
+   XLOGD_WARN("PJT Loading required plugin HAL.");
    g_vsdk.hal_plugin = plugin_api_get();
 
    if(g_vsdk.hal_plugin == NULL) {
@@ -730,7 +1424,7 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
       }
    }
 
-   XLOGD_INFO("Loaded required plugin HAL.");
+   XLOGD_WARN("PJT Loaded required plugin HAL.");
       
    return(handle);
 }

@@ -92,7 +92,9 @@ static xraudio_result_t xraudio_output_stop_locked(xraudio_output_obj_t *obj);
 
 xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, uint8_t user_id, int msgq, uint16_t capabilities, xraudio_hal_dsp_config_t *dsp_config, json_t* json_obj_output) {
    xraudio_output_obj_t *obj = (xraudio_output_obj_t *)malloc(sizeof(xraudio_output_obj_t));
+   #ifdef PJT_OLD_HAL
    json_t *jeos_config = NULL;
+   #endif
 
    if(obj == NULL) {
       XLOGD_ERROR("Out of memory.");
@@ -124,11 +126,12 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->volume_right         = XRAUDIO_VOLUME_NOM;
    obj->volume_mono_cur      = XRAUDIO_VOLUME_NOM;
    obj->play_bumper          = 0;
-   obj->dsp_config           = *dsp_config;
    obj->hal_plugin           = vsdk_hal_plugin_get();
-   obj->eos_plugin           = vsdk_eos_plugin_get();
    obj->ovc_plugin           = vsdk_ovc_plugin_get();
-   
+   #ifdef PJT_OLD_HAL
+   obj->dsp_config           = *dsp_config;
+   obj->eos_plugin           = vsdk_eos_plugin_get();
+  
    if(obj->eos_plugin != NULL) {
       if(NULL == json_obj_output) {
          XLOGD_INFO("json_obj_output is null, using defaults");
@@ -148,6 +151,8 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
 
       obj->obj_eos              = obj->eos_plugin->object_create(true, jeos_config);
    }
+   #endif
+
    obj->use_external_gain    = (capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL) ? 1 : 0;
    obj->ramp_enable          = 1;
 

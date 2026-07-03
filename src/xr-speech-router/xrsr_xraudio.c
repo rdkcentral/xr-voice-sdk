@@ -58,10 +58,12 @@ static bool xrsr_xraudio_object_is_valid(xrsr_xraudio_obj_t *obj);
 #ifdef XRAUDIO_RESOURCE_MGMT
 static void xrsr_xraudio_resource_notification(xraudio_resource_event_t event, void *param);
 #endif
-static void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t *uuid, keyword_callback_event_t event, void *param, xraudio_keyword_detector_result_t *detector_result, xraudio_input_format_t format);
 static void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback_event_t event, void *event_param, void *user_param);
+#ifdef PJT_OLD_HAL
+static void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t *uuid, keyword_callback_event_t event, void *param, xraudio_keyword_detector_result_t *detector_result, xraudio_input_format_t format);
 static void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj);
 static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj);
+#endif
 static void xrsr_audio_stats_clear(xrsr_xraudio_stream_t *stream);
 static void xrsr_xraudio_local_mic_type_get(xrsr_xraudio_obj_t *obj);
 static __inline xrsr_session_group_t xrsr_xraudio_source_to_group(xraudio_devices_input_t source);
@@ -182,6 +184,7 @@ void xrsr_xraudio_resource_notification(xraudio_resource_event_t event, void *pa
 }
 #endif
 
+#ifdef PJT_OLD_HAL //I do want a keyword callback but not this one
 void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t *uuid, keyword_callback_event_t event, void *param, xraudio_keyword_detector_result_t *detector_result, xraudio_input_format_t format) {
    xrsr_queue_msg_keyword_detected_t msg;
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)param;
@@ -225,6 +228,7 @@ void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t 
 
    xrsr_queue_msg_push(xrsr_msgq_fd_get(), (const char *)&msg, sizeof(msg));
 }
+#endif
 
 void xrsr_xraudio_device_update(xrsr_xraudio_object_t object, xrsr_src_t srcs[]) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
@@ -234,7 +238,6 @@ void xrsr_xraudio_device_update(xrsr_xraudio_object_t object, xrsr_src_t srcs[])
       XLOGD_ERROR("invalid xrsr xraudio object");
       return;
    }
-
    xraudio_devices_input_t device_input = obj->device_input;
 
    obj->device_input = XRAUDIO_DEVICE_INPUT_NONE;
@@ -264,8 +267,11 @@ void xrsr_xraudio_device_update(xrsr_xraudio_object_t object, xrsr_src_t srcs[])
             break;
          }
       }
+      XLOGD_WARN("PJT srcs[%d] is 0x%x", index, srcs[index]);
       index++;
    } while(1);
+
+   XLOGD_WARN("PJT obj->device_input <%s> obj->device_output <%s>", xraudio_devices_input_str(obj->device_input), xraudio_devices_output_str(obj->device_output));
    
    obj->device_output = XRAUDIO_DEVICE_OUTPUT_NONE;
    XLOGD_INFO("input <%s> output <%s>", xraudio_devices_input_str(obj->device_input), xraudio_devices_output_str(obj->device_output));
@@ -358,12 +364,14 @@ void xrsr_xraudio_device_granted(xrsr_xraudio_object_t object) {
    }
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
    
+   #ifdef PJT_OLD_HAL
    if(!obj->detect_active) {
       XLOGD_INFO("don't start keyword detection");
       return;
    }
 
    xrsr_xraudio_keyword_detect_start(obj);
+   #endif
 }
 
 void xrsr_xraudio_device_close(xrsr_xraudio_object_t object) {
@@ -425,6 +433,7 @@ void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_k
    }
 }
 
+#ifdef PJT_OLD_HAL
 void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
 
@@ -472,7 +481,7 @@ void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
    }
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
 }
-
+#endif
 void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_keyword_detected_t *msg, xrsr_src_t current_session_src, bool requested_more_audio, bool *audio_stream_start) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
    xrsr_src_t          src = XRSR_SRC_INVALID;
@@ -504,8 +513,10 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
       return;
    }
 
+   #ifdef PJT_OLD_HAL
    // Stop the detector
    xrsr_xraudio_keyword_detect_stop(obj);
+   #endif
 
    if((uint32_t)current_session_src < XRSR_SRC_INVALID) {
       if(src == current_session_src && requested_more_audio) { // TODO add in boolean indicating more audio was requested
@@ -517,7 +528,10 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
       } else {
          XLOGD_WARN("Rejecting keyword detected from source <%s>, session in progress on source <%s>.  Restarting keyword detector...", xrsr_src_str(src), xrsr_src_str(current_session_src));
          obj->session_rejected = true;
+         #ifdef PJT_OLD_HAL
          xrsr_xraudio_keyword_detect_restart(obj);
+         //PJT we do need to do something to tell the HAL to get back to it, maybe use same function names?
+         #endif
          return;
       }
    }
@@ -568,8 +582,10 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
       return;
    }
 
+   #ifdef PJT_OLD_HAL
    // Stop the detector
    xrsr_xraudio_keyword_detect_stop(obj);
+   #endif
 
    // Call the appropriate handler based on the source
    xrsr_keyword_detect_error(src);
@@ -585,10 +601,12 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
       #endif
    }
 
+   #ifdef PJT_OLD_HAL
    // TODO Should the app determine what to do here?
    if(obj->detect_active) { // Start detector again
       xrsr_xraudio_keyword_detect_start(obj);
    }
+   #endif
 }
 
 bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_id, xraudio_devices_input_t source, bool user_initiated, xraudio_input_format_t *format_decoded, xraudio_dst_pipe_t dsts[], uint16_t stream_time_min, uint32_t keyword_begin, uint32_t keyword_duration, uint32_t frame_duration, bool low_latency, bool low_cpu_util, bool subsequent) {
@@ -716,6 +734,7 @@ bool xrsr_xraudio_stream_end(xrsr_xraudio_object_t object, xraudio_devices_input
    if(!more_streams) { // no more streams open
       obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
 
+      #ifdef PJT_OLD_HAL
       if(source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
          obj->detect_active = detect_resume;
 
@@ -723,6 +742,7 @@ bool xrsr_xraudio_stream_end(xrsr_xraudio_object_t object, xraudio_devices_input
             xrsr_xraudio_keyword_detect_start(obj);
          }
       }
+      #endif
       xrsr_audio_stats_clear(stream);
    }
 
@@ -923,6 +943,7 @@ void xrsr_xraudio_local_mic_type_get(xrsr_xraudio_obj_t *obj) {
          break;
       }
    }
+   XLOGD_INFO("PJT local mic low power <%s> full power <%s>", xraudio_devices_input_str(g_local_mic_low_power), xraudio_devices_input_str(g_local_mic_full_power));
 }
 
 void xrsr_xraudio_session_capture_start(xrsr_xraudio_object_t object, xrsr_audio_container_t container, const char *file_path, bool raw_mic_enable) {
