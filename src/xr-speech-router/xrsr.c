@@ -1942,7 +1942,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
       if(begin->detector_result.chan_selected >= XRAUDIO_INPUT_MAX_CHANNEL_QTY) {
          XLOGD_ERROR("invalid selected channel <%u>", begin->detector_result.chan_selected);
       } else {
-         #ifdef PJT_OLD_HAL //I think we do want to provide this data
+         #ifdef USE_RDKV_HAL //I think we do want to provide this data
          detector_result.score                = begin->detector_result.channels[begin->detector_result.chan_selected].score;
          detector_result.snr                  = begin->detector_result.channels[begin->detector_result.chan_selected].snr;
          detector_result.doa                  = begin->detector_result.channels[begin->detector_result.chan_selected].doa;
@@ -1959,7 +1959,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
 
          detector_result_ptr   = &detector_result;
 
-         #ifdef PJT_OLD_HAL
+         #ifdef USE_RDKV_HAL
          XLOGD_INFO("selected kwd channel <%u> gain <%f> buf begin <%d> kwd begin <%d> end <%d>", begin->detector_result.chan_selected, detector_result.kwd_gain, detector_result.offset_buf_begin, detector_result.offset_kwd_begin, detector_result.offset_kwd_end);
          for(uint32_t chan = 0; chan < XRAUDIO_INPUT_MAX_CHANNEL_QTY; chan++) {
             xraudio_kwd_chan_result_t *chan_result = &begin->detector_result.channels[chan];

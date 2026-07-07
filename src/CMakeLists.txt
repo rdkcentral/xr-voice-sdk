@@ -34,6 +34,7 @@ target_sources(xr-voice-sdk PUBLIC
                xraudio_config.h
                rdkx_logger.h
                vsdk.c
+               vsdk_ffv_adapter.c
                rdkx_logger_modules.c
                rdkx_logger_level.c
                rdkx_logger_modules_lookup.c

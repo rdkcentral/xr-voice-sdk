@@ -61,7 +61,7 @@ static void xrsr_xraudio_resource_notification(xraudio_resource_event_t event, v
 static void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback_event_t event, void *event_param, void *user_param);
 static void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t *uuid, keyword_callback_event_t event, void *param, xraudio_keyword_detector_result_t *detector_result, xraudio_input_format_t format);
 static void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj);
-#ifdef PJT_OLD_HAL
+#ifdef USE_RDKV_HAL
 static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj);
 #endif
 static void xrsr_audio_stats_clear(xrsr_xraudio_stream_t *stream);
@@ -192,7 +192,7 @@ void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t 
       XLOGD_INFO("invalid object");
       return;
    }
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    if(!obj->detect_active) {
       XLOGD_INFO("ignore keyword detect event");
       return;
@@ -363,7 +363,7 @@ void xrsr_xraudio_device_granted(xrsr_xraudio_object_t object) {
    }
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
    
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    if(!obj->detect_active) {
       XLOGD_INFO("don't start keyword detection");
       return;
@@ -432,7 +432,7 @@ void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_k
    }
 }
 
-#ifdef PJT_OLD_HAL
+#ifdef USE_RDKV_HAL
 void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
 
@@ -446,7 +446,7 @@ void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
 
 
 void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    if(obj->default_sensitivity) {
       XLOGD_INFO("sensitivity <default>");
    } else {
@@ -457,7 +457,7 @@ void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
    xraudio_result_t result;
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    result = xraudio_detect_params(obj->xraudio_obj, obj->default_sensitivity ? NULL : &obj->keyword_sensitivity);
    if(XRAUDIO_RESULT_OK != result) {
       XLOGD_ERROR("xraudio_detect_params <%s>", xraudio_result_str(result));
@@ -478,7 +478,7 @@ void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
    }
 }
 
-#ifdef PJT_OLD_HAL
+#ifdef USE_RDKV_HAL
 void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
    xraudio_result_t result = xraudio_detect_stop(obj->xraudio_obj);
 
@@ -520,7 +520,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
       return;
    }
 
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    // Stop the detector
    xrsr_xraudio_keyword_detect_stop(obj);
    #endif
@@ -535,7 +535,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
       } else {
          XLOGD_WARN("Rejecting keyword detected from source <%s>, session in progress on source <%s>.  Restarting keyword detector...", xrsr_src_str(src), xrsr_src_str(current_session_src));
          obj->session_rejected = true;
-         #ifdef PJT_OLD_HAL
+         #ifdef USE_RDKV_HAL
          xrsr_xraudio_keyword_detect_restart(obj);
          //PJT we do need to do something to tell the HAL to get back to it, maybe use same function names?
          #endif
@@ -589,7 +589,7 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
       return;
    }
 
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    // Stop the detector
    xrsr_xraudio_keyword_detect_stop(obj);
    #endif
@@ -608,7 +608,7 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
       #endif
    }
 
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    // TODO Should the app determine what to do here?
    if(obj->detect_active) { // Start detector again
       xrsr_xraudio_keyword_detect_start(obj);
@@ -741,7 +741,7 @@ bool xrsr_xraudio_stream_end(xrsr_xraudio_object_t object, xraudio_devices_input
    if(!more_streams) { // no more streams open
       obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
 
-      #ifdef PJT_OLD_HAL
+      #ifdef USE_RDKV_HAL
       if(source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
          obj->detect_active = detect_resume;
 
