@@ -59,9 +59,9 @@ static bool xrsr_xraudio_object_is_valid(xrsr_xraudio_obj_t *obj);
 static void xrsr_xraudio_resource_notification(xraudio_resource_event_t event, void *param);
 #endif
 static void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback_event_t event, void *event_param, void *user_param);
-#ifdef PJT_OLD_HAL
 static void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t *uuid, keyword_callback_event_t event, void *param, xraudio_keyword_detector_result_t *detector_result, xraudio_input_format_t format);
 static void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj);
+#ifdef PJT_OLD_HAL
 static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj);
 #endif
 static void xrsr_audio_stats_clear(xrsr_xraudio_stream_t *stream);
@@ -113,6 +113,7 @@ bool xrsr_xraudio_object_is_valid(xrsr_xraudio_obj_t *obj) {
    if(obj != NULL && obj->identifier == XRSR_XRAUDIO_IDENTIFIER) {
       return(true);
    }
+
    return(false);
 }
 
@@ -184,7 +185,6 @@ void xrsr_xraudio_resource_notification(xraudio_resource_event_t event, void *pa
 }
 #endif
 
-#ifdef PJT_OLD_HAL //I do want a keyword callback but not this one
 void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t *uuid, keyword_callback_event_t event, void *param, xraudio_keyword_detector_result_t *detector_result, xraudio_input_format_t format) {
    xrsr_queue_msg_keyword_detected_t msg;
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)param;
@@ -192,16 +192,18 @@ void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t 
       XLOGD_INFO("invalid object");
       return;
    }
+   #ifdef PJT_OLD_HAL
    if(!obj->detect_active) {
       XLOGD_INFO("ignore keyword detect event");
       return;
    }
+   #endif
    if(uuid != NULL) {
       uuid_copy(msg.uuid, *uuid);
    } else {
       uuid_clear(msg.uuid);
    }
-
+XLOGD_INFO("source <%s> event <%s> ", xraudio_devices_input_str(source), keyword_callback_event_str(event));
    if(event == KEYWORD_CALLBACK_EVENT_DETECTED) {
       msg.header.type    = XRSR_QUEUE_MSG_TYPE_KEYWORD_DETECTED;
       msg.source         = source;
@@ -212,6 +214,7 @@ void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t 
       msg.xraudio_format.container     = XRAUDIO_CONTAINER_NONE;
       msg.xraudio_format.encoding.type = XRAUDIO_ENCODING_INVALID;
       msg.xraudio_format.sample_rate   = XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE;
+
       msg.xraudio_format.sample_size   = XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE;
       msg.xraudio_format.channel_qty   = XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY;
    } else {
@@ -225,10 +228,9 @@ void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t 
       msg.has_result      = true;
       msg.detector_result = *detector_result;
    }
-
+XLOGD_INFO("detector_result %p, has_result %d", detector_result, msg.has_result);
    xrsr_queue_msg_push(xrsr_msgq_fd_get(), (const char *)&msg, sizeof(msg));
 }
-#endif
 
 void xrsr_xraudio_device_update(xrsr_xraudio_object_t object, xrsr_src_t srcs[]) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
@@ -267,12 +269,9 @@ void xrsr_xraudio_device_update(xrsr_xraudio_object_t object, xrsr_src_t srcs[])
             break;
          }
       }
-      XLOGD_WARN("PJT srcs[%d] is 0x%x", index, srcs[index]);
       index++;
    } while(1);
 
-   XLOGD_WARN("PJT obj->device_input <%s> obj->device_output <%s>", xraudio_devices_input_str(obj->device_input), xraudio_devices_output_str(obj->device_output));
-   
    obj->device_output = XRAUDIO_DEVICE_OUTPUT_NONE;
    XLOGD_INFO("input <%s> output <%s>", xraudio_devices_input_str(obj->device_input), xraudio_devices_output_str(obj->device_output));
 
@@ -369,9 +368,9 @@ void xrsr_xraudio_device_granted(xrsr_xraudio_object_t object) {
       XLOGD_INFO("don't start keyword detection");
       return;
    }
-
-   xrsr_xraudio_keyword_detect_start(obj);
    #endif
+   xrsr_xraudio_keyword_detect_start(obj);
+
 }
 
 void xrsr_xraudio_device_close(xrsr_xraudio_object_t object) {
@@ -443,17 +442,23 @@ void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
    }
    xrsr_xraudio_keyword_detect_start(obj);
 }
+#endif
+
 
 void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
+   #ifdef PJT_OLD_HAL
    if(obj->default_sensitivity) {
       XLOGD_INFO("sensitivity <default>");
    } else {
       XLOGD_INFO("sensitivity <%f>", obj->keyword_sensitivity);
    }
+   #endif
 
+   xraudio_result_t result;
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
-   xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->default_sensitivity ? NULL : &obj->keyword_sensitivity);
+   #ifdef PJT_OLD_HAL
+   result = xraudio_detect_params(obj->xraudio_obj, obj->default_sensitivity ? NULL : &obj->keyword_sensitivity);
    if(XRAUDIO_RESULT_OK != result) {
       XLOGD_ERROR("xraudio_detect_params <%s>", xraudio_result_str(result));
    }
@@ -463,6 +468,7 @@ void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
       xraudio_stream_stop(obj->xraudio_obj, obj->device_input, -1);
       obj->session_rejected = false;
    }
+   #endif
 
    result = xraudio_detect_keyword(obj->xraudio_obj, xrsr_xraudio_keyword_callback, obj);
    if(result != XRAUDIO_RESULT_OK) {
@@ -472,6 +478,7 @@ void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
    }
 }
 
+#ifdef PJT_OLD_HAL
 void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
    xraudio_result_t result = xraudio_detect_stop(obj->xraudio_obj);
 
@@ -492,7 +499,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
    }
 
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
-
+   XLOGD_INFO("xrsr_xraudio_keyword_detected called for source <%s> current_session_src <%s> requested_more_audio <%d>", xraudio_devices_input_str(msg->source), xrsr_src_str(current_session_src), requested_more_audio);
    if(!stream->detecting) {
       XLOGD_ERROR("state <%s> not detecting", xrsr_xraudio_state_str(obj->xraudio_state));
       return;
@@ -943,7 +950,7 @@ void xrsr_xraudio_local_mic_type_get(xrsr_xraudio_obj_t *obj) {
          break;
       }
    }
-   XLOGD_INFO("PJT local mic low power <%s> full power <%s>", xraudio_devices_input_str(g_local_mic_low_power), xraudio_devices_input_str(g_local_mic_full_power));
+   XLOGD_INFO("local mic low power <%s> full power <%s>", xraudio_devices_input_str(g_local_mic_low_power), xraudio_devices_input_str(g_local_mic_full_power));
 }
 
 void xrsr_xraudio_session_capture_start(xrsr_xraudio_object_t object, xrsr_audio_container_t container, const char *file_path, bool raw_mic_enable) {

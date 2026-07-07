@@ -92,7 +92,7 @@ static xraudio_result_t xraudio_output_stop_locked(xraudio_output_obj_t *obj);
 
 xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, uint8_t user_id, int msgq, uint16_t capabilities, xraudio_hal_dsp_config_t *dsp_config, json_t* json_obj_output) {
    xraudio_output_obj_t *obj = (xraudio_output_obj_t *)malloc(sizeof(xraudio_output_obj_t));
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    json_t *jeos_config = NULL;
    #endif
 
@@ -128,7 +128,7 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->play_bumper          = 0;
    obj->hal_plugin           = vsdk_hal_plugin_get();
    obj->ovc_plugin           = vsdk_ovc_plugin_get();
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    obj->dsp_config           = *dsp_config;
    obj->eos_plugin           = vsdk_eos_plugin_get();
   

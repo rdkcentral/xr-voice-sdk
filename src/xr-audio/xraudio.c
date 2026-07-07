@@ -305,7 +305,7 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
    }
 
    obj->devices_input |= *inputs;
-   XLOGD_INFO("PJT obtained additional input devices from HAL plugin: <%s>", xraudio_devices_input_str(obj->devices_input));
+   XLOGD_INFO("obtained additional input devices from HAL plugin: <%s>", xraudio_devices_input_str(obj->devices_input));
 
    return(XRAUDIO_RESULT_OK);
 }
@@ -490,7 +490,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
    if(obj->hal_plugin != NULL) {
       #ifndef XRAUDIO_RESOURCE_MGMT
       xraudio_hal_capabilities caps;
-      XLOGD_INFO("PJT calling hal_plugin->capabilities_get");
+
       obj->hal_plugin->capabilities_get(&caps);
       // Allocate the first resource since resource management is disabled
       if(output != XRAUDIO_DEVICE_OUTPUT_NONE) {
@@ -1176,7 +1176,7 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
       params.obj_output                     = NULL;
       params.json_obj_output                = NULL;
    }
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    if(obj->kwd_plugin != NULL && obj->obj_input != NULL) {
       params.hal_obj                        = g_xraudio_process.hal_obj;
       params.dsp_config                     = g_xraudio_process.dsp_config;
@@ -1190,7 +1190,6 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
    params.hal_obj                        = g_xraudio_process.hal_obj;
    params.dsp_config                     = g_xraudio_process.dsp_config;
    params.hal_input_obj                  = xraudio_input_hal_obj_get(obj->obj_input);
-   XLOGD_WARN("PJT params hal_obj %p hal_input_obj %p", params.hal_obj, params.hal_input_obj);
    #endif
    params.internal_capture_params        = obj->internal_capture_params;
    params.json_obj_input                 = obj->json_obj_input;
@@ -1365,7 +1364,7 @@ xraudio_result_t xraudio_detect_keyword(xraudio_object_t object, keyword_callbac
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-
+   XLOGD_INFO("entered: callback is %p", callback);
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1409,7 +1408,7 @@ xraudio_result_t xraudio_detect_stop(xraudio_object_t object) {
 }
 
 xraudio_result_t xraudio_detect_sensitivity_limits_get(xraudio_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity_min, xraudio_keyword_sensitivity_t *keyword_sensitivity_max) {
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    xraudio_obj_t *obj = (xraudio_obj_t *)object;
    if(!xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");
@@ -2650,7 +2649,6 @@ xraudio_result_t xraudio_privacy_mode_get(xraudio_object_t object, xraudio_devic
    msg.enabled     = enabled;
    msg.semaphore   = &semaphore;
    msg.result      = &result;
-XLOGD_INFO("PJT %d", __LINE__);
    queue_msg_push(obj->msgq_main, (const char*)&msg, sizeof(msg));
 
    sem_wait(&semaphore);
@@ -2661,7 +2659,7 @@ XLOGD_INFO("PJT %d", __LINE__);
    } else {
       g_xraudio_process.privacy_mode = *enabled;
    }
-XLOGD_INFO("PJT %d enabled %d", __LINE__, *enabled);
+   XLOGD_INFO("enabled %d", *enabled);
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }

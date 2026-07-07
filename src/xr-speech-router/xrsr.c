@@ -579,7 +579,6 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
       json_obj_final = NULL;
    }
 
-   XLOGD_WARN("PJT capture_config dir_path <%p>", capture_config->dir_path);
    if(capture_config != NULL) {
       if(!xrsr_capture_config_apply(capture_config)) {
          XLOGD_ERROR("unable to apply capture config");
@@ -1853,7 +1852,6 @@ void xrsr_msg_keyword_detected(const xrsr_thread_params_t *params, xrsr_thread_s
    bool audio_stream_start = false;
 
    xrsr_xraudio_keyword_detected(g_xrsr.xrsr_xraudio_object, keyword_detected, session->src, session->requested_more_audio, &audio_stream_start);
-
    if(audio_stream_start) {
       xrsr_queue_msg_session_audio_stream_start_t audio_stream_start;
       audio_stream_start.header.type = XRSR_QUEUE_MSG_TYPE_SESSION_AUDIO_STREAM_START;

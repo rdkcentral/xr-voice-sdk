@@ -148,7 +148,7 @@ typedef struct {
 
 static bool             xraudio_input_object_is_valid(xraudio_input_obj_t *obj);
 static void             xraudio_input_queue_msg_push(xraudio_input_obj_t *obj, const char *msg, size_t msg_len);
-#ifdef PJT_OLD_HAL
+#ifdef USE_RDKV_HAL
 static void             xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj);
 static void             xraudio_input_dispatch_idle_stop(xraudio_input_obj_t *obj);
 #endif
@@ -177,7 +177,7 @@ static xraudio_result_t xraudio_input_capture_stop_locked(xraudio_input_obj_t *o
 static __inline xraudio_input_session_t *xraudio_input_source_to_session(xraudio_input_obj_t *obj, xraudio_devices_input_t source);
 
 xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, uint8_t user_id, int msgq, uint16_t capabilities, xraudio_hal_dsp_config_t *dsp_config, json_t *json_obj_input) {
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    json_t *jeos_config = NULL;
    #endif
    json_t *jppr_config = NULL;
@@ -253,7 +253,7 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
    if(NULL == json_obj_input) {
       XLOGD_INFO("json_obj_input is null, using defaults");
    } else {
-      #ifdef PJT_OLD_HAL
+      #ifdef USE_RDKV_HAL
       if(obj->eos_plugin != NULL) {
          jeos_config = json_object_get(json_obj_input, JSON_OBJ_NAME_INPUT_EOS);
          if(NULL == jeos_config) {
@@ -276,7 +276,7 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       }
    }
 
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    if(obj->eos_plugin != NULL) {
       for (uint8_t i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
          obj->obj_eos[i] = obj->eos_plugin->object_create(false, jeos_config);
@@ -340,7 +340,7 @@ void xraudio_input_object_destroy(xraudio_input_object_t object) {
          // Close the microphone interface
          xraudio_input_close_locked(obj);
       }
-      #ifdef PJT_OLD_HAL
+      #ifdef USE_RDKV_HAL
       if(obj->eos_plugin != NULL) {
          for (int i = 0; i < XRAUDIO_INPUT_MAX_CHANNEL_QTY; ++i) {
             if(obj->obj_eos[i] != NULL) {
@@ -430,7 +430,7 @@ xraudio_result_t xraudio_input_open(xraudio_input_object_t object, xraudio_devic
    #else //This is not a good test but we'll come back to it
    if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(device) == XRAUDIO_DEVICE_INPUT_SINGLE) {
    #endif
-      XLOGD_WARN("PJT opening FFV HAL");
+      XLOGD_INFO("Opening FFV HAL");
       xraudio_devices_input_t device_input_local = XRAUDIO_DEVICE_INPUT_LOCAL_GET(device);
       if(device_input_local != XRAUDIO_DEVICE_INPUT_NONE) {
 
@@ -462,13 +462,13 @@ xraudio_result_t xraudio_input_open(xraudio_input_object_t object, xraudio_devic
    obj->format_in          = format_in;
    obj->pcm_bit_qty        = pcm_bit_qty;
    obj->fd                 = fd;
-   XLOGD_INFO("PJT fd is %d", obj->fd);
+   XLOGD_INFO("obj->fd is %d", obj->fd);
 
    xraudio_input_sound_intensity_fifo_open(obj);
 
    XLOGD_INFO("sample size <%u> %u-bit pcm using <%s>", obj->format_in.sample_size, obj->pcm_bit_qty, obj->fd >= 0 ? "fd" : "timing");
 
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    xraudio_input_dispatch_idle_start(obj);
    #endif
 
@@ -505,7 +505,7 @@ void xraudio_input_close_locked(xraudio_input_obj_t *obj) {
       xraudio_input_capture_stop_locked(obj);
    }
 
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    xraudio_input_dispatch_idle_stop(obj);
    #endif
 
@@ -1231,7 +1231,8 @@ xraudio_result_t xraudio_input_keyword_detect(xraudio_input_object_t object, key
    XRAUDIO_RECORD_MUTEX_LOCK();
 
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
-
+XLOGD_INFO("keyword detect <%s> callback %p param %p", (synchronous) ? "sync" : "async", callback, param);
+   #ifdef USE_RDKV_HAL
    // Ensure that the microphone is not already open
    if(session->state != XRAUDIO_INPUT_STATE_IDLING) {
       XLOGD_ERROR("invalid state <%s>.", xraudio_input_state_str(session->state));
@@ -1245,6 +1246,7 @@ xraudio_result_t xraudio_input_keyword_detect(xraudio_input_object_t object, key
       XRAUDIO_RECORD_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
+   #endif
    
    session->state = XRAUDIO_INPUT_STATE_DETECTING;
    xraudio_result_t result = xraudio_input_dispatch_detect(obj, callback, param, synchronous);
@@ -1598,7 +1600,7 @@ xraudio_result_t xraudio_input_capture_stop_locked(xraudio_input_obj_t *obj) {
    return(XRAUDIO_RESULT_OK);
 }
 
-#ifdef PJT_OLD_HAL
+#ifdef USE_RDKV_HAL
 void xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj) {
    xraudio_queue_msg_idle_start_t msg;
    msg.header.type         = XRAUDIO_MAIN_QUEUE_MSG_TYPE_RECORD_IDLE_START;
@@ -1694,7 +1696,6 @@ xraudio_result_t xraudio_input_dispatch_record(xraudio_input_obj_t *obj, xraudio
 }
 
 xraudio_result_t xraudio_input_dispatch_detect(xraudio_input_obj_t *obj, keyword_callback_t callback, void *param, bool synchronous) {
-   #ifdef PJT_OLD_HAL
    xraudio_queue_msg_detect_t msg;
 
    msg.header.type            = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT;
@@ -1718,12 +1719,12 @@ xraudio_result_t xraudio_input_dispatch_detect(xraudio_input_obj_t *obj, keyword
    }
 
    xraudio_input_queue_msg_push(obj, (const char *)&msg, sizeof(msg));
-   #endif
+
    return(XRAUDIO_RESULT_OK);
 }
 
 xraudio_result_t xraudio_input_dispatch_detect_params(xraudio_input_obj_t *obj) {
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    xraudio_queue_msg_detect_params_t msg;
    msg.header.type            = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_PARAMS;
    msg.default_sensitivity    = obj->detect_params.default_sensitivity;
@@ -1735,7 +1736,7 @@ xraudio_result_t xraudio_input_dispatch_detect_params(xraudio_input_obj_t *obj) 
 }
 
 xraudio_result_t xraudio_input_dispatch_detect_stop(xraudio_input_obj_t *obj, xraudio_devices_input_t source, audio_in_callback_t callback, void *param) {
-   #ifdef PJT_OLD_HAL
+   #ifdef USE_RDKV_HAL
    bool synchronous = (callback == NULL) ? true : false;
    xraudio_queue_msg_detect_stop_t msg;
    msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_STOP;
