@@ -3,7 +3,6 @@ option(HTTP_ENABLED,             "speech router http protocol"                 O
 option(WS_ENABLED,               "speech router websocket protocol"            OFF)
 option(WS_NOPOLL_PATCHES,        "speech router websocket nopoll patches"      OFF)
 option(SDT_ENABLED,              "speech router secure data transfer protocol" OFF)
-option(USE_SAFEC,                "Use safec"                                   OFF)
 option(INSTALL_INTERNAL_HEADERS, "Install internal sub-component headers"      OFF)
 
 add_library(xr-voice-sdk SHARED)
@@ -119,15 +118,8 @@ if(CURTAIL_LIBRARY)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
 endif()
 
-if(USE_SAFEC)
-   find_package(PkgConfig)
-   pkg_check_modules(SAFEC REQUIRED libsafec)
-   if(SAFEC_FOUND)
-      target_link_libraries(xr-voice-sdk ${SAFEC_LIBRARIES})
-   endif()
-else()
-   add_compile_definitions(SAFEC_DUMMY_API)
-endif()
+# TODO: Remove, temp testing
+add_compile_definitions(SAFEC_DUMMY_API)
 
 # CONFIG FILES
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_INSTALL_SYSCONFDIR} COMPONENT config )
