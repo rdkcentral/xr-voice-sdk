@@ -1,12 +1,9 @@
-option(RDK_VERSION_ENABLED,      "Build with RDK versioning support"           OFF)
-option(HTTP_ENABLED,             "speech router http protocol"                 OFF)
-option(WS_ENABLED,               "speech router websocket protocol"            OFF)
-option(WS_NOPOLL_PATCHES,        "speech router websocket nopoll patches"      OFF)
-option(SDT_ENABLED,              "speech router secure data transfer protocol" OFF)
-option(USE_SAFEC,                "Use safec"                                   OFF)
-option(VAD_ENABLED,              "Enable VAD feature"                          ON)
-option(VAD_TEST_ENABLED,         "Build the VAD wave-file processing test"     OFF)
-option(INSTALL_INTERNAL_HEADERS, "Install internal sub-component headers"      OFF)
+option(RDK_VERSION_ENABLED,     "Build with RDK versioning support"           OFF)
+option(HTTP_ENABLED,            "speech router http protocol"                 OFF)
+option(WS_ENABLED,              "speech router websocket protocol"            OFF)
+option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
+option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
+option(INSTALL_INTERNAL_HEADERS, "Install internal sub-component headers"     OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -32,20 +29,15 @@ target_include_directories(xr-voice-sdk PUBLIC
                            ${CMAKE_SYSROOT}/usr/include/libsafec/
                           )
 
-target_sources(xr-voice-sdk PRIVATE
+target_sources(xr-voice-sdk PUBLIC
                vsdk_version.h
                xrsr_config.h
                xraudio_config.h
                rdkx_logger.h
+               vsdk.c
                rdkx_logger_modules.c
                rdkx_logger_level.c
                rdkx_logger_modules_lookup.c
-               xrsv_ws_nextgen_msgtype.c
-               xrsv_ws_nextgen_tv_control.c
-               )
-
-target_sources(xr-voice-sdk PUBLIC
-               vsdk.c
                xr-logger/rdkx_logger.c
                xr-timer/xr_timer.c
                xr-timestamp/xr_timestamp.c
@@ -59,6 +51,8 @@ target_sources(xr-voice-sdk PUBLIC
                xr-speech-vrex/xrsv_utils.c
                xr-speech-vrex/xrsv_http/xrsv_http.c
                xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.c
+               xrsv_ws_nextgen_msgtype.c
+               xrsv_ws_nextgen_tv_control.c
                xr-audio/xraudio.c
                xr-audio/xraudio_input.c
                xr-audio/xraudio_output.c
@@ -80,8 +74,7 @@ if(RDK_VERSION_ENABLED)
 endif()
 
 if(HTTP_ENABLED)
-   target_sources(xr-voice-sdk PUBLIC xr-speech-router/xrsr_protocol_http.c)
-   target_sources(xr-voice-sdk PRIVATE xrsr_protocol_http_log_filter.c)
+   target_sources(xr-voice-sdk PUBLIC xr-speech-router/xrsr_protocol_http.c xrsr_protocol_http_log_filter.c)
    target_compile_definitions(xr-voice-sdk PUBLIC HTTP_ENABLED)
    target_link_libraries(xr-voice-sdk curl)
 
@@ -99,7 +92,7 @@ if(WS_ENABLED)
       target_compile_definitions(xr-voice-sdk PUBLIC WS_NOPOLL_PATCHES)
    endif()
    target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/nopoll/)
-   target_link_libraries(xr-voice-sdk ssl crypto nopoll)
+   target_link_libraries(xr-voice-sdk nopoll)
 endif()
 
 if(SDT_ENABLED)
@@ -123,31 +116,6 @@ find_library(CURTAIL_LIBRARY NAMES curtail)
 if(CURTAIL_LIBRARY)
    target_compile_definitions(xr-voice-sdk PUBLIC VSDK_CURTAIL_ENABLED)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
-endif()
-
-if(USE_SAFEC)
-   find_package(PkgConfig)
-   pkg_check_modules(SAFEC REQUIRED libsafec)
-   if(SAFEC_FOUND)
-      target_link_libraries(xr-voice-sdk ${SAFEC_LIBRARIES})
-   endif()
-else()
-   add_compile_definitions(SAFEC_DUMMY_API)
-endif()
-
-if(VAD_ENABLED)
-   target_sources(xr-voice-sdk PUBLIC xr-audio/xraudio_vad.cpp)
-   target_compile_definitions(xr-voice-sdk PUBLIC XRAUDIO_VAD_ENABLED)
-   target_include_directories(xr-voice-sdk PUBLIC ${CMAKE_SYSROOT}/usr/include/webrtc_audio_processing/)
-   target_link_libraries(xr-voice-sdk webrtc_audio_processing)
-endif()
-
-# VAD component test (optional, requires VAD_ENABLED)
-if(VAD_TEST_ENABLED)
-   if(NOT VAD_ENABLED)
-      message(FATAL_ERROR "VAD_TEST_ENABLED requires VAD_ENABLED to be ON (xraudio_vad.cpp is not built without VAD_ENABLED, causing missing-symbol link failures)")
-   endif()
-   add_subdirectory(xr-audio/test)
 endif()
 
 # CONFIG FILES
@@ -191,7 +159,7 @@ install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
 add_custom_command(
    OUTPUT vsdk_version.h
    COMMAND echo -n "#define VSDK_BRANCH    \"" > vsdk_version.h
-   COMMAND git -C ${CMAKE_SOURCE_DIR} branch --all --contains | sed -n -e "s/^\\s*remotes\\/origin\\///" -e "2p" | tr -d "\\n" >> vsdk_version.h
+   COMMAND sh -c "src=\"${CMAKE_CURRENT_SOURCE_DIR}\"; ref=$(git -C \"$src\" describe --tags --exact-match 2>/dev/null || git -C \"$src\" branch -a --format='%(refname:short)' --contains HEAD 2>/dev/null | sed -n '2{p;q}'); echo -n \"$ref\" >> vsdk_version.h"
    COMMAND echo "\"" >> vsdk_version.h
    COMMAND echo -n "#define VSDK_COMMIT_ID " >> vsdk_version.h
    COMMAND git -C ${CMAKE_SOURCE_DIR} log --format=\"%H\" -n 1 >> vsdk_version.h
@@ -238,7 +206,7 @@ add_custom_command(
 
 add_custom_command(
    OUTPUT xrsr_config.h
-   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i vsdk_config.json -o xrsr_config.h -v "ws,http,xraudio"
+   COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/vsdk_json_to_header.py" -i vsdk_config.json -o xrsr_config.h -v "ws,http"
    DEPENDS vsdk_config.json
    VERBATIM)
 

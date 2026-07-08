@@ -52,7 +52,6 @@ typedef struct {
    rdkx_timestamp_t              retry_timestamp_end;
    int32_t                       connect_wait_time;
    bool                          stream_time_min_rxd;
-   bool                          stream_vad_detect_rxd;
    xrsr_url_parts_t *            url_parts;
    char                          url[XRSR_WS_URL_SIZE_MAX];
    const char *                  sat_token;

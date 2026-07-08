@@ -48,8 +48,6 @@ typedef struct {
    uuid_t                        uuid;
    xrsr_session_config_out_t     session_config_out;
    xrsr_session_config_in_t      session_config_in;
-   bool                          stream_time_min_rxd;
-   bool                          stream_vad_detect_rxd;
    const char *                  sat_token;
    const char *                  user_agent;
    char                          transcription_in[XRSR_SESSION_BY_TEXT_MAX_LENGTH];
