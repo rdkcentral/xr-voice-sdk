@@ -1,9 +1,10 @@
-option(RDK_VERSION_ENABLED,     "Build with RDK versioning support"           OFF)
-option(HTTP_ENABLED,            "speech router http protocol"                 OFF)
-option(WS_ENABLED,              "speech router websocket protocol"            OFF)
-option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
-option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
-option(INSTALL_INTERNAL_HEADERS, "Install internal sub-component headers"     OFF)
+option(RDK_VERSION_ENABLED,      "Build with RDK versioning support"           OFF)
+option(HTTP_ENABLED,             "speech router http protocol"                 OFF)
+option(WS_ENABLED,               "speech router websocket protocol"            OFF)
+option(WS_NOPOLL_PATCHES,        "speech router websocket nopoll patches"      OFF)
+option(SDT_ENABLED,              "speech router secure data transfer protocol" OFF)
+option(USE_SAFEC,                "Use safec"                                   OFF)
+option(INSTALL_INTERNAL_HEADERS, "Install internal sub-component headers"      OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -116,6 +117,16 @@ find_library(CURTAIL_LIBRARY NAMES curtail)
 if(CURTAIL_LIBRARY)
    target_compile_definitions(xr-voice-sdk PUBLIC VSDK_CURTAIL_ENABLED)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
+endif()
+
+if(USE_SAFEC)
+   find_package(PkgConfig)
+   pkg_check_modules(SAFEC REQUIRED libsafec)
+   if(SAFEC_FOUND)
+      target_link_libraries(xr-voice-sdk ${SAFEC_LIBRARIES})
+   endif()
+else()
+   add_compile_definitions(SAFEC_DUMMY_API)
 endif()
 
 # CONFIG FILES
