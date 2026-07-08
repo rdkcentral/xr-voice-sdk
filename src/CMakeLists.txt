@@ -118,9 +118,6 @@ if(CURTAIL_LIBRARY)
    target_link_libraries(xr-voice-sdk ${CURTAIL_LIBRARY})
 endif()
 
-# TODO: Remove, temp testing
-add_compile_definitions(SAFEC_DUMMY_API)
-
 # CONFIG FILES
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_INSTALL_SYSCONFDIR} COMPONENT config )
 
