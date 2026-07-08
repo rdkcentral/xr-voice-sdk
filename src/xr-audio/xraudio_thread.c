@@ -938,6 +938,15 @@ void *xraudio_main_thread(void *param) {
       state->record.obj_dga = NULL;
    }
 
+   if(state->params.mfv_plugin != NULL && state->record.obj_mfv != NULL) {
+      if(state->record.mfv_session_active) {
+         state->params.mfv_plugin->session_close(state->record.obj_mfv, NULL);
+         state->record.mfv_session_active = false;
+      }
+      state->params.mfv_plugin->object_destroy(state->record.obj_mfv);
+      state->record.obj_mfv = NULL;
+   }
+
    adpcm_decode_destroy(state->decoders.adpcm);
    #ifdef XRAUDIO_DECODE_OPUS
    if(state->decoders.opus != NULL) {
