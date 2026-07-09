@@ -53,8 +53,13 @@ typedef struct {
    xraudio_devices_input_t  source;
 } vsdk_ffv_input_obj_t;
 
-static xr_ffv_hal_plugin_func_t *g_ffv_hal_interface_plugin = NULL;
-static vsdk_ffv_hal_obj_t *g_vsdk_ffv_hal_active_obj = NULL;
+typedef struct {
+   xr_ffv_hal_plugin_func_t *ffv_hal_interface_plugin;
+   vsdk_ffv_hal_obj_t       *active_hal_obj;
+   xraudio_hal_plugin_api_t  plugin_api;
+} vsdk_ffv_adapter_t;
+
+static vsdk_ffv_adapter_t g_vsdk_ffv_adapter = {0};
 
 static FFVhalPowerMode_t vsdk_ffv_power_mode_from_xraudio(xraudio_power_mode_t power_mode) {
    switch(power_mode) {
@@ -65,10 +70,10 @@ static FFVhalPowerMode_t vsdk_ffv_power_mode_from_xraudio(xraudio_power_mode_t p
    }
 }
 
-//This function decides whether we're requesting keyword or microphone channel
+//This function decides whether we're requesting keyword or microphone channel, needs updating
 static bool vsdk_ffv_channel_is_keyword(xraudio_input_format_t format) {
    XLOGD_INFO("format.container=%d, format.encoding.type=%d, format.sample_rate=%d, format.sample_size=%d, format.channel_qty=%d", format.container, format.encoding.type, format.sample_rate, format.sample_size, format.channel_qty);
-   //This is not a good test but will maybe do the job here
+   //This is not a good test but will do for the moment
    if(format.sample_size == 2) {
       XLOGD_INFO("sample_size is %d, not a keyword channel", format.sample_size);
       return(false);
@@ -132,11 +137,13 @@ static void vsdk_ffv_emit_session_end(vsdk_ffv_hal_obj_t *obj) {
 static void vsdk_ffv_on_state_changed_cb(FFVhalState_t oldState, FFVhalState_t newState) {
    (void)oldState;
    (void)newState;
+   //Need to fill this out.
    XLOGD_INFO("FFV HAL state changed from %d to %d", oldState, newState);
 }
 
 static void vsdk_ffv_on_entered_power_mode_cb(FFVhalPowerMode_t powerMode) {
    (void)powerMode;
+   //Do we need to do anything here given that the HAL changed power mode because vsdk said to?
    XLOGD_INFO("FFV HAL entered power mode %d", powerMode);
 }
 
@@ -149,40 +156,41 @@ static const char *vsdk_ffv_failure_code_str(FFVhalFailureCode_t failureCode) {
 }
 
 static void vsdk_ffv_on_hardware_failed_cb(FFVhalFailureCode_t failureCode) {
+
    XLOGD_ERROR("FFV HAL hardware failure <%s> (%d)", vsdk_ffv_failure_code_str(failureCode), failureCode);
-   if((g_vsdk_ffv_hal_active_obj == NULL) || (g_vsdk_ffv_hal_active_obj->callback == NULL)) {
+   if((g_vsdk_ffv_adapter.active_hal_obj == NULL) || (g_vsdk_ffv_adapter.active_hal_obj->callback == NULL)) {
       return;
    }
 
    // If a session is active, force an end before reporting the input error.
-   vsdk_ffv_emit_session_end(g_vsdk_ffv_hal_active_obj);
+   vsdk_ffv_emit_session_end(g_vsdk_ffv_adapter.active_hal_obj);
 
    xraudio_hal_msg_input_error_t msg;
    memset(&msg, 0, sizeof(msg));
    msg.header.type   = XRAUDIO_MSG_TYPE_INPUT_ERROR;
-   msg.header.source = g_vsdk_ffv_hal_active_obj->source;
-   g_vsdk_ffv_hal_active_obj->callback(&msg);
+   msg.header.source = g_vsdk_ffv_adapter.active_hal_obj->source;
+   g_vsdk_ffv_adapter.active_hal_obj->callback(&msg);
 }
 
 static void vsdk_ffv_on_keyword_detected_cb(void) {
    XLOGD_INFO("");
-   if(g_vsdk_ffv_hal_active_obj == NULL) {
+   if(g_vsdk_ffv_adapter.active_hal_obj == NULL) {
       XLOGD_ERROR("FFV HAL keyword detected but no active HAL object");
       return;
    }
-   vsdk_ffv_emit_session_request(g_vsdk_ffv_hal_active_obj);
-   vsdk_ffv_emit_session_begin(g_vsdk_ffv_hal_active_obj);
+   vsdk_ffv_emit_session_request(g_vsdk_ffv_adapter.active_hal_obj);
+   vsdk_ffv_emit_session_begin(g_vsdk_ffv_adapter.active_hal_obj);
 }
 
 static void vsdk_ffv_on_end_of_command_cb(int32_t sampleOffset, bool timedOut) {
    (void)sampleOffset;
    (void)timedOut;
    XLOGD_INFO("end of command detected at sample offset %d, timed out=%d", sampleOffset, timedOut);
-   if(g_vsdk_ffv_hal_active_obj == NULL) {
+   if(g_vsdk_ffv_adapter.active_hal_obj == NULL) {
       XLOGD_ERROR("FFV HAL end of command detected but no active HAL object");
       return;
    }
-   vsdk_ffv_emit_session_end(g_vsdk_ffv_hal_active_obj);
+   vsdk_ffv_emit_session_end(g_vsdk_ffv_adapter.active_hal_obj);
 }
 
 static void vsdk_ffv_adapter_version(xraudio_version_info_t *version_info, uint32_t *qty) {
@@ -200,8 +208,8 @@ static void vsdk_ffv_adapter_version(xraudio_version_info_t *version_info, uint3
 
 static bool vsdk_ffv_adapter_init(json_t *obj_config) {
    (void)obj_config;
-   XLOGD_INFO("xffv_hal_interface_plugin is %p", g_ffv_hal_interface_plugin);
-   if(g_ffv_hal_interface_plugin == NULL) {
+   XLOGD_INFO("xffv_hal_interface_plugin is %p", g_vsdk_ffv_adapter.ffv_hal_interface_plugin);
+   if(g_vsdk_ffv_adapter.ffv_hal_interface_plugin == NULL) {
       XLOGD_ERROR("FFV HAL interface plugin not loaded");
       return(false);
    }
@@ -214,9 +222,9 @@ static void vsdk_ffv_adapter_capabilities_get(xraudio_hal_capabilities *caps) {
       return;
    }
    memset(caps, 0, sizeof(*caps));
-   XLOGD_INFO("xffv_hal_interface_plugin is %p", g_ffv_hal_interface_plugin);
+   XLOGD_INFO("xffv_hal_interface_plugin is %p", g_vsdk_ffv_adapter.ffv_hal_interface_plugin);
 
-   xr_ffv_hal_plugin_func_t *ffv_api = g_ffv_hal_interface_plugin;
+   xr_ffv_hal_plugin_func_t *ffv_api = g_vsdk_ffv_adapter.ffv_hal_interface_plugin;
    if((ffv_api == NULL) || (ffv_api->get_handle == NULL) || (ffv_api->get_capabilities == NULL) || (ffv_api->destroy == NULL)) {
       return;
    }
@@ -277,7 +285,7 @@ static bool vsdk_ffv_adapter_available_devices_get(xraudio_devices_input_t *inpu
 static xraudio_hal_obj_t vsdk_ffv_adapter_open(bool debug, xraudio_power_mode_t power_mode, bool privacy_mode, xraudio_hal_msg_callback_t callback) {
    (void)debug;
 
-   xr_ffv_hal_plugin_func_t *ffv_api = g_ffv_hal_interface_plugin;
+   xr_ffv_hal_plugin_func_t *ffv_api = g_vsdk_ffv_adapter.ffv_hal_interface_plugin;
 
    if((ffv_api == NULL) ||
       (ffv_api->get_handle == NULL) ||
@@ -342,7 +350,7 @@ static xraudio_hal_obj_t vsdk_ffv_adapter_open(bool debug, xraudio_power_mode_t 
       XLOGD_WARN("FFVhal_setPrivacyState failed");
    }
 
-   g_vsdk_ffv_hal_active_obj = obj;
+   g_vsdk_ffv_adapter.active_hal_obj = obj;
    XLOGD_INFO("FFV HAL adapter opened successfully");
    XLOGD_INFO("source is 0x%x", obj->source);
    return((xraudio_hal_obj_t)obj);
@@ -396,8 +404,8 @@ static void vsdk_ffv_adapter_close(xraudio_hal_obj_t hal_obj) {
       return;
    }
 
-   if(g_vsdk_ffv_hal_active_obj == obj) {
-      g_vsdk_ffv_hal_active_obj = NULL;
+   if(g_vsdk_ffv_adapter.active_hal_obj == obj) {
+      g_vsdk_ffv_adapter.active_hal_obj = NULL;
    }
 
    if(obj->ffv_handle == NULL) {
@@ -426,6 +434,7 @@ static void vsdk_ffv_adapter_close(xraudio_hal_obj_t hal_obj) {
 }
 
 static bool vsdk_ffv_adapter_thread_poll(void) {
+   //Call the HAL status function here
    return(true);
 }
 
@@ -502,6 +511,7 @@ static int32_t vsdk_ffv_adapter_input_read(xraudio_hal_input_obj_t input_obj, ui
    if((obj == NULL) || (obj->magic != VSDK_FFV_INPUT_OBJ_MAGIC) || (data == NULL) || (size == 0) || (obj->fd < 0)) {
       return(-1);
    }
+   static int doit = 1;
 
    if(eos_event != NULL) {
       memset(eos_event, 0, sizeof(*eos_event));
@@ -513,6 +523,12 @@ static int32_t vsdk_ffv_adapter_input_read(xraudio_hal_input_obj_t input_obj, ui
          return(0);
       }
       return(-1);
+   }
+   if(doit) {
+      for(uint32_t i = 0; i < (uint32_t)rc; i+=8) {
+         XLOGD_INFO("data[%d]: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x", i, data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], data[i+6], data[i+7]);
+      }
+      doit = 0;
    }
    return((int32_t)rc);
 }
@@ -589,47 +605,50 @@ static bool vsdk_ffv_adapter_input_stream_latency_set(xraudio_hal_input_obj_t ob
    return(true);
 }
 
-static xraudio_hal_plugin_api_t g_vsdk_ffv_adapter_api = {
-   .version                      = vsdk_ffv_adapter_version,
-   .init                         = vsdk_ffv_adapter_init,
-   .capabilities_get             = vsdk_ffv_adapter_capabilities_get,
-   .dsp_config_get               = vsdk_ffv_adapter_dsp_config_get,
-   .available_devices_get        = vsdk_ffv_adapter_available_devices_get,
-   .open                         = vsdk_ffv_adapter_open,
-   .power_mode                   = vsdk_ffv_adapter_power_mode,
-   .privacy_mode                 = vsdk_ffv_adapter_privacy_mode,
-   .privacy_mode_get             = vsdk_ffv_adapter_privacy_mode_get,
-   .close                        = vsdk_ffv_adapter_close,
-   .thread_poll                  = vsdk_ffv_adapter_thread_poll,
-   .input_open                   = vsdk_ffv_adapter_input_open,
-   .input_close                  = vsdk_ffv_adapter_input_close,
-   .input_buffer_size_get        = vsdk_ffv_adapter_input_buffer_size_get,
-   .input_read                   = vsdk_ffv_adapter_input_read,
-   .input_mute                   = vsdk_ffv_adapter_input_mute,
-   .input_focus                  = vsdk_ffv_adapter_input_focus,
-   .input_stats                  = vsdk_ffv_adapter_input_stats,
-   .input_detection              = vsdk_ffv_adapter_input_detection,
-   .input_eos_cmd                = vsdk_ffv_adapter_input_eos_cmd,
-   .input_stream_params_get      = vsdk_ffv_adapter_input_stream_params_get,
-   .input_stream_start_set       = vsdk_ffv_adapter_input_stream_start_set,
-   .input_keyword_detector_reset = vsdk_ffv_adapter_input_keyword_detector_reset,
-   .input_test_mode              = vsdk_ffv_adapter_input_test_mode,
-   .input_stream_latency_set     = vsdk_ffv_adapter_input_stream_latency_set,
-   .output_open                  = NULL,
-   .output_close                 = NULL,
-   .output_buffer_size_get       = NULL,
-   .output_write                 = NULL,
-   .output_volume_set_int        = NULL,
-   .output_volume_set_float      = NULL,
-   .output_latency_get           = NULL,
-};
+static void vsdk_ffv_adapter_plugin_api_init(vsdk_ffv_adapter_t *vsdk_ffv_adapter) {
+   vsdk_ffv_adapter->plugin_api = (xraudio_hal_plugin_api_t){
+      .version                      = vsdk_ffv_adapter_version,
+      .init                         = vsdk_ffv_adapter_init,
+      .capabilities_get             = vsdk_ffv_adapter_capabilities_get,
+      .dsp_config_get               = vsdk_ffv_adapter_dsp_config_get,
+      .available_devices_get        = vsdk_ffv_adapter_available_devices_get,
+      .open                         = vsdk_ffv_adapter_open,
+      .power_mode                   = vsdk_ffv_adapter_power_mode,
+      .privacy_mode                 = vsdk_ffv_adapter_privacy_mode,
+      .privacy_mode_get             = vsdk_ffv_adapter_privacy_mode_get,
+      .close                        = vsdk_ffv_adapter_close,
+      .thread_poll                  = vsdk_ffv_adapter_thread_poll,
+      .input_open                   = vsdk_ffv_adapter_input_open,
+      .input_close                  = vsdk_ffv_adapter_input_close,
+      .input_buffer_size_get        = vsdk_ffv_adapter_input_buffer_size_get,
+      .input_read                   = vsdk_ffv_adapter_input_read,
+      .input_mute                   = vsdk_ffv_adapter_input_mute,
+      .input_focus                  = vsdk_ffv_adapter_input_focus,
+      .input_stats                  = vsdk_ffv_adapter_input_stats,
+      .input_detection              = vsdk_ffv_adapter_input_detection,
+      .input_eos_cmd                = vsdk_ffv_adapter_input_eos_cmd,
+      .input_stream_params_get      = vsdk_ffv_adapter_input_stream_params_get,
+      .input_stream_start_set       = vsdk_ffv_adapter_input_stream_start_set,
+      .input_keyword_detector_reset = vsdk_ffv_adapter_input_keyword_detector_reset,
+      .input_test_mode              = vsdk_ffv_adapter_input_test_mode,
+      .input_stream_latency_set     = vsdk_ffv_adapter_input_stream_latency_set,
+      .output_open                  = NULL,
+      .output_close                 = NULL,
+      .output_buffer_size_get       = NULL,
+      .output_write                 = NULL,
+      .output_volume_set_int        = NULL,
+      .output_volume_set_float      = NULL,
+      .output_latency_get           = NULL,
+   };
+}
 
 void vsdk_ffv_adapter_set_interface_plugin(xr_ffv_hal_plugin_func_t *plugin) {
-   g_ffv_hal_interface_plugin = plugin;
+   g_vsdk_ffv_adapter.ffv_hal_interface_plugin = plugin;
 }
 
 xraudio_hal_plugin_api_t *vsdk_ffv_adapter_api_get(void) {
-   return(&g_vsdk_ffv_adapter_api);
+   vsdk_ffv_adapter_plugin_api_init(&g_vsdk_ffv_adapter);
+   return(&g_vsdk_ffv_adapter.plugin_api);
 }
 
 #endif

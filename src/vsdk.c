@@ -68,7 +68,7 @@ static bool  vsdk_file_exists(const char *filename);
 static void  vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio_allow_input_failure);
 static bool  vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles);
 static void *vsdk_load_plugin_ffv_hal(bool *out_enabled);
-#ifdef USE_RDKV_HAL
+#ifdef USE_RDKV_HAL //We can put these back later. Right now it's going to load the default ones along with the new HAL, so just avoiding it for the time being
 static void *vsdk_load_plugin_ffv_kwd(void);
 static void *vsdk_load_plugin_ffv_alg(void **handle_ppr);
 #endif
@@ -352,7 +352,7 @@ void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio
 
 bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
    if(handles == NULL) {
-      XLOGD_ERROR("handles is null");
+      XLOGD_ERROR("invalid parameters");
       return(false);
    }
 
@@ -509,14 +509,9 @@ void *vsdk_load_plugin_ffv_kwd(void) {
 #ifdef USE_RDKV_HAL
 void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    void *handle = NULL;
-   #ifdef USE_RDKV_HAL
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-algorithms.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-algorithms.so";
-   #else
-   const char *so_path_vd = "/data/jason/usr/lib/libxraudio-ffv-algorithms.so";
-   const char *so_path_mw = "/data/jason/usr/lib/libxraudio-ffv-algorithms.so";
 
-   #endif
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
    } else if(vsdk_file_exists(so_path_mw)) {
@@ -681,9 +676,7 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
    #else
    const char *so_path_vd = "/data/jason/usr/lib/libxr-ffv-hal.so";
    const char *so_path_mw = "/data/jason/usr/usr/lib/libxr-ffv-hal.so";
-   #endif 
-
-   XLOGD_WARN("opening %s", so_path_vd);
+   #endif
 
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
@@ -722,7 +715,7 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
             (ffv_api->close_channel == NULL) ||
             (ffv_api->set_privacy_state == NULL) ||
             (ffv_api->set_power_mode == NULL)) {
-               //PJT finish filling this out it doesn't have all the functions
+               //TODO finish filling this out it doesn't check all the functions
             XLOGD_ERROR("FFV HAL interface API incomplete");
             if(dlclose(handle) != 0) {
                const char *err = dlerror();

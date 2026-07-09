@@ -304,8 +304,10 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       }
    }
 
+   #ifndef USE_RDKV_HAL
    obj->devices_input |= *inputs;
    XLOGD_INFO("obtained additional input devices from HAL plugin: <%s>", xraudio_devices_input_str(obj->devices_input));
+   #endif
 
    return(XRAUDIO_RESULT_OK);
 }
@@ -1125,8 +1127,8 @@ xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
 
       // Get qahw handle from process global memory
       if(g_xraudio_process.hal_obj == NULL) {
+         XLOGD_INFO("hal open obj");
          g_xraudio_process.hal_obj = obj->hal_plugin->open(false, g_xraudio_process.power_mode, g_xraudio_process.privacy_mode, xraudio_hal_msg_async_handler);
-         XLOGD_INFO("hal open obj %p", g_xraudio_process.hal_obj);
          if(g_xraudio_process.hal_obj == NULL) {
             XLOGD_ERROR("hal open failed.");
             return(XRAUDIO_RESULT_ERROR_INTERNAL);
@@ -1364,7 +1366,7 @@ xraudio_result_t xraudio_detect_keyword(xraudio_object_t object, keyword_callbac
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   XLOGD_INFO("entered: callback is %p", callback);
+
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -2649,6 +2651,7 @@ xraudio_result_t xraudio_privacy_mode_get(xraudio_object_t object, xraudio_devic
    msg.enabled     = enabled;
    msg.semaphore   = &semaphore;
    msg.result      = &result;
+   
    queue_msg_push(obj->msgq_main, (const char*)&msg, sizeof(msg));
 
    sem_wait(&semaphore);
@@ -2659,7 +2662,7 @@ xraudio_result_t xraudio_privacy_mode_get(xraudio_object_t object, xraudio_devic
    } else {
       g_xraudio_process.privacy_mode = *enabled;
    }
-   XLOGD_INFO("enabled %d", *enabled);
+
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }

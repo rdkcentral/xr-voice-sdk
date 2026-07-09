@@ -29,6 +29,8 @@
 
 #pragma once
 
+//TODO this file exists in the FFV HAL and should be included from there instead of copied into this project
+
 #include <stdint.h>
 #include <stdbool.h>
 

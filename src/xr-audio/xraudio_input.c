@@ -425,7 +425,7 @@ xraudio_result_t xraudio_input_open(xraudio_input_object_t object, xraudio_devic
    uint8_t pcm_bit_qty = 16;
    int     fd          = -1;
 
-   #ifdef PJT_USE_OLD_HAL
+   #ifdef USE_RDKV_HAL
    if(obj->kwd_enabled) {
    #else //This is not a good test but we'll come back to it
    if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(device) == XRAUDIO_DEVICE_INPUT_SINGLE) {
@@ -462,7 +462,6 @@ xraudio_result_t xraudio_input_open(xraudio_input_object_t object, xraudio_devic
    obj->format_in          = format_in;
    obj->pcm_bit_qty        = pcm_bit_qty;
    obj->fd                 = fd;
-   XLOGD_INFO("obj->fd is %d", obj->fd);
 
    xraudio_input_sound_intensity_fifo_open(obj);
 

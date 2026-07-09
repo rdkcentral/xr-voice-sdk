@@ -353,8 +353,6 @@ typedef struct {
    xraudio_session_record_t     record;
    xraudio_session_playback_t   playback;
    xraudio_decoders_t           decoders;
-   fd_set                       rfds;
-   int                          nfds;
 } xraudio_thread_state_t;
 
 #ifdef MASK_FIRST_WRITE_DELAY
@@ -812,26 +810,27 @@ void *xraudio_main_thread(void *param) {
    do {
 
       int src;
-      state->nfds = state->params.msgq + 1;
-      FD_ZERO(&state->rfds);
-      FD_SET(state->params.msgq, &state->rfds);
+      int nfds = state->params.msgq + 1;
+      fd_set rfds;
+      FD_ZERO(&rfds);
+      FD_SET(state->params.msgq, &rfds);
       #ifdef USE_RDKV_HAL
       if(state->params.kwd_plugin != NULL && state->record.fd >= 0) {
       #else
       if(state->record.fd >= 0) {
       #endif
          if(state->record.fd > state->params.msgq) {
-            state->nfds = state->record.fd + 1;
+            nfds = state->record.fd + 1;
          }
-         FD_SET(state->record.fd, &state->rfds);
+         FD_SET(state->record.fd, &rfds);
       }
       xraudio_session_record_inst_t *instance = &state->record.instances[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
       xraudio_devices_input_t ext_source = XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source);
       if(ext_source != XRAUDIO_DEVICE_INPUT_NONE && state->record.external_fd >= 0 && ext_source == xraudio_in_session_group_source_get(XRAUDIO_INPUT_SESSION_GROUP_DEFAULT)) {
          if(state->record.external_fd > state->params.msgq) {
-            state->nfds = state->record.external_fd + 1;
+            nfds = state->record.external_fd + 1;
          }
-         FD_SET(state->record.external_fd, &state->rfds);
+         FD_SET(state->record.external_fd, &rfds);
       }
 
       struct timeval tv;
@@ -841,9 +840,9 @@ void *xraudio_main_thread(void *param) {
 
       errno = 0;
       if(timer_id >= 0) {
-         src = select(state->nfds, &state->rfds, NULL, NULL, &tv);
+         src = select(nfds, &rfds, NULL, NULL, &tv);
       } else {
-         src = select(state->nfds, &state->rfds, NULL, NULL, NULL);
+         src = select(nfds, &rfds, NULL, NULL, NULL);
       }
 
       if(src < 0) { // error occurred
@@ -874,7 +873,7 @@ void *xraudio_main_thread(void *param) {
 
       if(state->record.fd >= 0) {
       #endif
-         if(FD_ISSET(state->record.fd, &state->rfds)) {
+         if(FD_ISSET(state->record.fd, &rfds)) {
             uint64_t val;
             errno = 0;
 
@@ -893,21 +892,18 @@ void *xraudio_main_thread(void *param) {
                   xraudio_process_mic_data(&state->params, &state->record, &timeout);
                }
             }
-         } //to be removed
-         else {
-            XLOGD_WARN("state->record.fd <%d> not in set", state->record.fd);
          }
       }
       
       if(state->record.external_fd >= 0) {
-         if(FD_ISSET(state->record.external_fd, &state->rfds)) {
+         if(FD_ISSET(state->record.external_fd, &rfds)) {
             // Read more audio data from the external fd interface
             xraudio_process_input_external_data(&state->params, &state->record, &state->decoders);
          }
       }
 
       // Process message queue if it is ready
-      if(FD_ISSET(state->params.msgq, &state->rfds)) {
+      if(FD_ISSET(state->params.msgq, &rfds)) {
          xr_mq_msg_size_t bytes_read = xr_mq_pop(state->params.msgq, msg, sizeof(msg));
          if(bytes_read <= 0) {
             XLOGD_ERROR("xr_mq_pop failed <%d>", bytes_read);
@@ -915,12 +911,9 @@ void *xraudio_main_thread(void *param) {
          }
          xraudio_main_queue_msg_header_t *header = (xraudio_main_queue_msg_header_t *)msg;
 
-         XLOGD_WARN("Received msg type <%s>", xraudio_main_queue_msg_type_str(header->type));
          if((uint32_t)header->type >= XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID) {
             XLOGD_ERROR("invalid msg type <%s>", xraudio_main_queue_msg_type_str(header->type));
          } else {
-            XLOGD_WARN("msg_handler %p", g_xraudio_msg_handlers[header->type]);
-            XLOGD_WARN("state %p msg %p", state, msg);
             (*g_xraudio_msg_handlers[header->type])(state, msg);
          }
       }
@@ -1109,7 +1102,7 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
 
    bool external_src = (XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source) != XRAUDIO_DEVICE_INPUT_NONE) ? true : false;
 
-   #ifndef PJT_USE_OLD_HAL
+   #ifndef USE_RDKV_HAL
    XLOGD_INFO("setting handler_unpack to xraudio_unpack_multi_int16");
    state->record.handler_unpack = xraudio_unpack_multi_int16;
    #endif
@@ -1938,7 +1931,6 @@ void xraudio_msg_detect(xraudio_thread_state_t *state, void *msg) {
    state->record.frame_group_index = 0;
 
    xraudio_input_sound_focus_set(state->params.obj_input, XRAUDIO_SDF_MODE_KEYWORD_DETECTION);
-
    #else
    XLOGD_INFO("Registering callback %p at state->record.keyword_detector with param 0x%x", detect->callback, detect->param);
    state->record.keyword_detector.callback = detect->callback;
@@ -1972,9 +1964,11 @@ void xraudio_msg_detect_params(xraudio_thread_state_t *state, void *msg) {
 void xraudio_msg_detect_sensitivity_limits_get(xraudio_thread_state_t *state, void *msg) {
    xraudio_main_queue_msg_detect_sensitivity_limits_get_t *detect_sensitivity_limits_get = (xraudio_main_queue_msg_detect_sensitivity_limits_get_t *)msg;
    xraudio_result_t result = XRAUDIO_RESULT_ERROR_INTERNAL;
-#ifdef USE_RDKV_HAL
+
+   XLOGD_DEBUG("");
+
+   #ifdef USE_RDKV_HAL
    if(state->params.kwd_plugin != NULL) {
-      XLOGD_DEBUG("");
 
       xraudio_keyword_detector_t *detector = &state->record.keyword_detector;
       if(!state->params.kwd_plugin->sensitivity_limits_get(detector->kwd_object, detect_sensitivity_limits_get->min, detect_sensitivity_limits_get->max)) {
@@ -1984,6 +1978,7 @@ void xraudio_msg_detect_sensitivity_limits_get(xraudio_thread_state_t *state, vo
       }
    }
    #endif
+
    if(detect_sensitivity_limits_get->semaphore != NULL) {
       if(detect_sensitivity_limits_get->result != NULL) {
          *(detect_sensitivity_limits_get->result) = result;
@@ -2038,7 +2033,7 @@ void xraudio_msg_async_session_begin(xraudio_thread_state_t *state, void *msg) {
    configuration.fd = -1;
 
    xraudio_keyword_detector_result_t detector_result;
-XLOGD_INFO("");
+
    memset(&detector_result, 0, sizeof(xraudio_keyword_detector_result_t));
 
    // mic fd may have changed with firmware load
@@ -2052,13 +2047,10 @@ XLOGD_INFO("");
       state->params.hal_input_obj = state->params.hal_plugin->input_open(state->params.hal_obj, begin->source, begin->format, &configuration);
    }
    
-   // The select loop rebuilds fd sets every iteration, so only update record.fd here.
    state->record.fd = configuration.fd;
    if(state->record.fd < 0) {
       XLOGD_ERROR("invalid fd for HAL read <%d>", state->record.fd);
       event = KEYWORD_CALLBACK_EVENT_ERROR_FD;
-   } else {
-      XLOGD_INFO("state->record.fd %d", state->record.fd);
    }
 
    if(!begin->stream_params.valid) {
@@ -2105,13 +2097,12 @@ XLOGD_INFO("");
       dynamic_gain -= state->record.input_aop_adjust_dB;
       detector_result.channels[state->record.keyword_detector.active_chan].dynamic_gain = dynamic_gain;
       #endif
-      //PJT fix later XLOGD_DEBUG("pcm bit qty in <%u> out <%u>", state->record.pcm_bit_qty, instance->dynamic_gain_pcm_bit_qty);
+      //TODO fix this XLOGD_DEBUG("pcm bit qty in <%u> out <%u>", state->record.pcm_bit_qty, instance->dynamic_gain_pcm_bit_qty);
    }
 
    //xraudio_msg_record_start uses some data from state->record.keyword_detector and it's not in use now so let's borrow
    memcpy(&state->record.keyword_detector.result, &detector_result, sizeof(xraudio_keyword_detector_result_t));
 
-   XLOGD_INFO("state->record.keyword_detector %p, state->record.keyword_detector.callback %p", &state->record.keyword_detector, state->record.keyword_detector.callback);
    xraudio_keyword_detector_session_event(&state->params, &state->record.keyword_detector, begin->source, uuid_is_null(begin->uuid) ? NULL : &begin->uuid, event, &detector_result, begin->format);
 }
 
@@ -2198,13 +2189,12 @@ void xraudio_msg_privacy_mode_get(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    //Call HAL to get mute state
-  XLOGD_INFO("kwd_plugin %p, hal_plugin %p, privacy_mode_get %p", state->params.kwd_plugin, state->params.hal_plugin, state->params.hal_plugin->privacy_mode_get);
   #ifdef USE_RDKV_HAL
   if(state->params.kwd_plugin != NULL && !state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
    #else
-  if(!state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
+   if(!state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
    #endif
@@ -2269,8 +2259,8 @@ void xraudio_msg_input_source_fd_set(xraudio_thread_state_t *state, void *msg) {
    xraudio_result_t result = XRAUDIO_RESULT_OK;
 
    uint32_t group = xraudio_input_source_to_group(input_source_fd_set->source);
-   XLOGD_WARN("");
-   XLOGD_WARN("source <%s> fd <%d> encoding <%s>", xraudio_devices_input_str(input_source_fd_set->source), input_source_fd_set->fd, xraudio_encoding_str(input_source_fd_set->format.encoding.type));
+
+   XLOGD_DEBUG("source <%s> fd <%d> encoding <%s>", xraudio_devices_input_str(input_source_fd_set->source), input_source_fd_set->fd, xraudio_encoding_str(input_source_fd_set->format.encoding.type));
    if(input_source_fd_set->source != xraudio_in_session_group_source_get(group)) { // Acquire the session
       if(!xraudio_in_session_group_semaphore_lock(input_source_fd_set->source)) {
          XLOGD_ERROR("could not acquire session");
@@ -2308,10 +2298,21 @@ void timer_frame_process(void *data) {
 
    bool playback_active = false;
 
+   #ifdef USE_RDKV_HAL
+   #ifdef MASK_FIRST_READ_DELAY
+   if(state->params.obj_input != NULL && (state->record.recording || !state->record.first_read_complete)) {
+   #else
+   if(state->params.obj_input != NULL && state->record.recording) {
+   #endif
+      if(state->params.kwd_plugin != NULL) {
+         xraudio_process_mic_data(&state->params, &state->record, &timeout_mic);
+      }
+   #else
    // Process microphone data when either recording or fd is ready (fd acts as bootstrap trigger)
    if(state->params.obj_input != NULL && (state->record.recording || state->record.fd >= 0)) {
       state->record.handler_unpack = xraudio_unpack_multi_int16;
       xraudio_process_mic_data(&state->params, &state->record, &timeout_mic);
+   #endif
       if(state->params.out_enabled && state->params.obj_output != NULL) { // Simultaneous record and playback
          xraudio_process_spkr_data(&state->params, &state->playback, state->playback.frame_size, &timeout_spkr, &state->record.timestamp_next);
       }
@@ -2420,7 +2421,7 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
       return;
    }
 
-   //Serious hack here but just testing, to be removed
+   //TODO get this unpack handler correctly
    if(session->handler_unpack == NULL) {
       XLOGD_WARN("session->handler_unpack is NULL, setting to xraudio_unpack_multi_int16");
       session->handler_unpack = xraudio_unpack_multi_int16;
@@ -3841,7 +3842,6 @@ void xraudio_keyword_detector_session_event(xraudio_main_thread_params_t *params
       return;
    }
 
-   XLOGD_INFO("detector is %p, callback is %p cb_param is %p", detector, detector->callback, detector->cb_param);
    detector->callback(source, uuid, event, detector->cb_param, detector_result, format);
    #ifdef USE_RDKV_HAL
    xraudio_keyword_detector_session_disarm(params, detector);

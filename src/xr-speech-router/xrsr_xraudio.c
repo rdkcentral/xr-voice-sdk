@@ -203,7 +203,7 @@ void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t 
    } else {
       uuid_clear(msg.uuid);
    }
-XLOGD_INFO("source <%s> event <%s> ", xraudio_devices_input_str(source), keyword_callback_event_str(event));
+
    if(event == KEYWORD_CALLBACK_EVENT_DETECTED) {
       msg.header.type    = XRSR_QUEUE_MSG_TYPE_KEYWORD_DETECTED;
       msg.source         = source;
@@ -228,7 +228,7 @@ XLOGD_INFO("source <%s> event <%s> ", xraudio_devices_input_str(source), keyword
       msg.has_result      = true;
       msg.detector_result = *detector_result;
    }
-XLOGD_INFO("detector_result %p, has_result %d", detector_result, msg.has_result);
+   
    xrsr_queue_msg_push(xrsr_msgq_fd_get(), (const char *)&msg, sizeof(msg));
 }
 
@@ -489,6 +489,7 @@ void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
 }
 #endif
+
 void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_keyword_detected_t *msg, xrsr_src_t current_session_src, bool requested_more_audio, bool *audio_stream_start) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
    xrsr_src_t          src = XRSR_SRC_INVALID;
@@ -499,7 +500,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
    }
 
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
-   XLOGD_INFO("xrsr_xraudio_keyword_detected called for source <%s> current_session_src <%s> requested_more_audio <%d>", xraudio_devices_input_str(msg->source), xrsr_src_str(current_session_src), requested_more_audio);
+   XLOGD_DEBUG("xrsr_xraudio_keyword_detected called for source <%s> current_session_src <%s> requested_more_audio <%d>", xraudio_devices_input_str(msg->source), xrsr_src_str(current_session_src), requested_more_audio);
    if(!stream->detecting) {
       XLOGD_ERROR("state <%s> not detecting", xrsr_xraudio_state_str(obj->xraudio_state));
       return;
@@ -537,7 +538,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
          obj->session_rejected = true;
          #ifdef USE_RDKV_HAL
          xrsr_xraudio_keyword_detect_restart(obj);
-         //PJT we do need to do something to tell the HAL to get back to it, maybe use same function names?
+         //TODO inform new HAL to restart detection? The HAL might do that automatically after some time or after reading mic data, check on this
          #endif
          return;
       }
@@ -950,7 +951,6 @@ void xrsr_xraudio_local_mic_type_get(xrsr_xraudio_obj_t *obj) {
          break;
       }
    }
-   XLOGD_INFO("local mic low power <%s> full power <%s>", xraudio_devices_input_str(g_local_mic_low_power), xraudio_devices_input_str(g_local_mic_full_power));
 }
 
 void xrsr_xraudio_session_capture_start(xrsr_xraudio_object_t object, xrsr_audio_container_t container, const char *file_path, bool raw_mic_enable) {
