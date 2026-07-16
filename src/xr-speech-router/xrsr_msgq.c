@@ -42,9 +42,9 @@ void xrsr_message_queue_close(int *msgq) {
    }
 }
 int xrsr_queue_msg_push(int msgq, const char *msg, size_t msg_len) {
-   XLOGD_DEBUG("msgq %d size %d msg %p", msgq, msg_len, msg);
+   XLOGD_DEBUG("msgq %d size %zu msg %p", msgq, msg_len, msg);
    if(msg_len > XRSR_MSG_QUEUE_MSG_SIZE_MAX) {
-      XLOGD_ERROR("Message size is too big! size %d max %d", msg_len, XRSR_MSG_QUEUE_MSG_SIZE_MAX);
+      XLOGD_ERROR("Message size is too big! size %zu max %u", msg_len, XRSR_MSG_QUEUE_MSG_SIZE_MAX);
       return(-1);
    }
    if(msgq < 0) {
