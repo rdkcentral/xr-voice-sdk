@@ -1337,7 +1337,7 @@ void *xrsr_thread_main(void *param) {
 
       errno = 0;
       if(timer_id >= 0) {
-         XLOGD_DEBUG("timer id <%d> timeout %d secs %ld microsecs", timer_id, tv.tv_sec, tv.tv_usec);
+         XLOGD_DEBUG("timer id <%d> timeout %ld secs %ld microsecs", timer_id, tv.tv_sec, tv.tv_usec);
          if(tv.tv_sec == 0 && tv.tv_usec == 0) { // Process the expired timer instead of calling select().
             src = 0;
          } else {
@@ -1366,9 +1366,9 @@ void *xrsr_thread_main(void *param) {
          continue;
       }
       if(FD_ISSET(params.msgq_id, &rfds)) {
-         ssize_t bytes_read = xr_mq_pop(params.msgq_id, msg, sizeof(msg));
-         if(bytes_read <= 0) {
-            XLOGD_ERROR("mq_receive failed, rc <%zd>", bytes_read);
+         size_t bytes_read = xr_mq_pop(params.msgq_id, msg, sizeof(msg));
+         if(bytes_read == 0) {
+            XLOGD_ERROR("mq_receive failed, rc <%zu>", bytes_read);
          } else {
             xrsr_queue_msg_header_t *header = (xrsr_queue_msg_header_t *)msg;
 
