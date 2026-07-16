@@ -3137,7 +3137,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                   XLOGD_ERROR("failed to parse wave header <%s>", audio_file_in);
                   stream_begin_failure = true;
                } else if(format.channel_qty != 1 || format.sample_rate != 16000 || format.sample_size != 2 || format.encoding.type != XRAUDIO_ENCODING_PCM) {
-                  XLOGD_ERROR("unsupported wave file format - channel qty <%u> sample rate <%d> sample size <%u> encoding <%d>", format.channel_qty, format.sample_rate, format.sample_size, format.encoding);
+                  XLOGD_ERROR("unsupported wave file format - channel qty <%u> sample rate <%d> sample size <%u> encoding <%d>", format.channel_qty, format.sample_rate, format.sample_size, format.encoding.type);
                   stream_begin_failure = true;
                } else if(data_length == 0) {
                   XLOGD_ERROR("zero length audio data <%s>", audio_file_in);
