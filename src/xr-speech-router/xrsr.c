@@ -1522,7 +1522,7 @@ bool xrsr_session_request(xrsr_src_t src,  uint8_t dst_index, xrsr_audio_format_
       return(false);
    }
    xrsr_audio_format_type_t output_format_type = output_format.type;
-   xraudio_input_format_t xraudio_format;
+   xraudio_input_format_t xraudio_format = { 0 };
    xraudio_format.container     = XRAUDIO_CONTAINER_NONE;
    xraudio_format.encoding.type = (output_format_type == XRSR_AUDIO_FORMAT_PCM_RAW) ? XRAUDIO_ENCODING_PCM_RAW : (output_format_type == XRSR_AUDIO_FORMAT_OPUS) ? XRAUDIO_ENCODING_OPUS : XRAUDIO_ENCODING_PCM;
    xraudio_format.sample_rate   = XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE;
