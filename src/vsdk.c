@@ -644,6 +644,11 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
 
 void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
    void *handle = NULL;
+
+   if(out_enabled != NULL) { // Default to disabled
+      *out_enabled = false;
+   }
+
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-hal.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-hal.so";
    if(vsdk_file_exists(so_path_vd)) {
@@ -725,9 +730,6 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
       g_vsdk.hal_plugin->output_volume_set_float == NULL ||
       g_vsdk.hal_plugin->output_latency_get      == NULL) {
       XLOGD_INFO("HAL plugin OUTPUT API not present");
-      if(out_enabled != NULL) {
-         *out_enabled = false;
-      }
    } else {
       if(out_enabled != NULL) {
          *out_enabled = true;
