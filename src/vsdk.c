@@ -667,6 +667,10 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
 
    if(error != NULL) {
       XLOGD_ERROR("Required plugin HAL not present, error <%s>", error);
+      if(dlclose(handle) != 0) {
+         const char *err = dlerror();
+         XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+      }
       return(NULL);
    }
    XLOGD_INFO("Loading required plugin HAL.");

@@ -1481,7 +1481,7 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
    xraudio_capture_file_t *capture_file = NULL;
    xraudio_pcm_range_t    *pcm_range    = NULL;
 
-   xraudio_input_format_t format_16k_16bit_mono;
+   xraudio_input_format_t format_16k_16bit_mono = { 0 };
    format_16k_16bit_mono.container     = capture->container;
    format_16k_16bit_mono.encoding.type = XRAUDIO_ENCODING_PCM;
    format_16k_16bit_mono.sample_rate   = 16000;
