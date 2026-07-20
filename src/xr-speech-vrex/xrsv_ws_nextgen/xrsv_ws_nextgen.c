@@ -653,7 +653,11 @@ void xrsv_ws_nextgen_handler_ws_session_begin(void *data, const uuid_t uuid, xrs
       stream_params.dsp_name                           = (detector_result->dsp_name)      ? detector_result->dsp_name      : "unknown";
    }
 
-   obj->user_initiated       = config_out->user_initiated;
+   // MFV and FF sources are wake-word triggered regardless of user_initiated flag,
+   // which is set to true by xrsr when there is no local keyword detector result.
+   obj->user_initiated       = config_out->user_initiated &&
+                               (src != XRSR_SRC_RCU_MFV) &&
+                               (src != XRSR_SRC_RCU_FF);
    obj->first_audio_stream   = true;
    uuid_copy(obj->uuid, uuid);
 
