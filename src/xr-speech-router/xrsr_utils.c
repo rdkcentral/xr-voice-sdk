@@ -400,7 +400,7 @@ bool xrsr_url_parse(const char *url, xrsr_url_parts_t *url_parts) {
          free(ptr_urle);
          return(false);
       } else if(port > UINT16_MAX) {
-         XLOGD_ERROR("port out of range <%u>", port);
+         XLOGD_ERROR("port out of range <%lu>", port);
          free(ptr_urle);
          return(false);
       }

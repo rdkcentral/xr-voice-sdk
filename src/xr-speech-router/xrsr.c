@@ -1337,7 +1337,7 @@ void *xrsr_thread_main(void *param) {
 
       errno = 0;
       if(timer_id >= 0) {
-         XLOGD_DEBUG("timer id <%d> timeout %d secs %d microsecs", timer_id, tv.tv_sec, tv.tv_usec);
+         XLOGD_DEBUG("timer id <%d> timeout %ld secs %ld microsecs", timer_id, (long)tv.tv_sec, (long)tv.tv_usec);
          if(tv.tv_sec == 0 && tv.tv_usec == 0) { // Process the expired timer instead of calling select().
             src = 0;
          } else {
@@ -1366,9 +1366,9 @@ void *xrsr_thread_main(void *param) {
          continue;
       }
       if(FD_ISSET(params.msgq_id, &rfds)) {
-         ssize_t bytes_read = xr_mq_pop(params.msgq_id, msg, sizeof(msg));
-         if(bytes_read <= 0) {
-            XLOGD_ERROR("mq_receive failed, rc <%d>", bytes_read);
+         size_t bytes_read = xr_mq_pop(params.msgq_id, msg, sizeof(msg));
+         if(bytes_read == 0) {
+            XLOGD_ERROR("mq_receive failed, rc <%zu>", bytes_read);
          } else {
             xrsr_queue_msg_header_t *header = (xrsr_queue_msg_header_t *)msg;
 
@@ -3137,7 +3137,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                   XLOGD_ERROR("failed to parse wave header <%s>", audio_file_in);
                   stream_begin_failure = true;
                } else if(format.channel_qty != 1 || format.sample_rate != 16000 || format.sample_size != 2 || format.encoding.type != XRAUDIO_ENCODING_PCM) {
-                  XLOGD_ERROR("unsupported wave file format - channel qty <%u> sample rate <%d> sample size <%u> encoding <%d>", format.channel_qty, format.sample_rate, format.sample_size, format.encoding);
+                  XLOGD_ERROR("unsupported wave file format - channel qty <%u> sample rate <%u> sample size <%u> encoding <%d>", (unsigned)format.channel_qty, (unsigned)format.sample_rate, (unsigned)format.sample_size, (int)format.encoding.type);
                   stream_begin_failure = true;
                } else if(data_length == 0) {
                   XLOGD_ERROR("zero length audio data <%s>", audio_file_in);
@@ -3226,10 +3226,10 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      } else {
                         chunk_size = (data_length >= sizeof(buffer)) ? sizeof(buffer) : data_length;
                         errno = 0;
-                        int rc = read(fd, buffer, chunk_size);
-                        if(rc != chunk_size) {
+                        ssize_t rc = read(fd, buffer, chunk_size);
+                        if((size_t)rc != chunk_size) {
                            int errsv = errno;
-                           XLOGD_ERROR("failed to read wave data <%s> exp <%u> rxd <%d> <%s>", audio_file_in, chunk_size, rc, strerror(errsv));
+                           XLOGD_ERROR("failed to read wave data <%s> exp <%zu> rxd <%zd> <%s>", audio_file_in, chunk_size, rc, strerror(errsv));
                            stream_begin_failure = true;
                            break;
                         }
@@ -3244,10 +3244,10 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            continue;
                         }
                         errno = 0;
-                        int rc = write(dsts[index].pipe, buffer, chunk_size);
-                        if(rc != chunk_size) {
+                        ssize_t rc = write(dsts[index].pipe, buffer, chunk_size);
+                        if((size_t)rc != chunk_size) {
                            int errsv = errno;
-                           XLOGD_ERROR("failed to write wave data - exp <%u> rxd <%d> <%s>", chunk_size, rc, strerror(errsv));
+                           XLOGD_ERROR("failed to write wave data - exp <%zu> rxd <%zd> <%s>", chunk_size, rc, strerror(errsv));
                            stream_begin_failure = true;
                            data_length = 0; // to exit the while loop
                            break;
