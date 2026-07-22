@@ -54,8 +54,9 @@ typedef enum {
    XRSR_QUEUE_MSG_TYPE_SESSION_AUDIO_STREAM_START              = 17,
    XRSR_QUEUE_MSG_TYPE_SESSION_CAPTURE_START                   = 18,
    XRSR_QUEUE_MSG_TYPE_SESSION_CAPTURE_STOP                    = 19,
-   XRSR_QUEUE_MSG_TYPE_THREAD_POLL                             = 20,
-   XRSR_QUEUE_MSG_TYPE_INVALID                                 = 21,
+   XRSR_QUEUE_MSG_TYPE_SESSION_STREAM_PARAMS                   = 20,
+   XRSR_QUEUE_MSG_TYPE_THREAD_POLL                             = 21,
+   XRSR_QUEUE_MSG_TYPE_INVALID                                 = 22,
 } xrsr_queue_msg_type_t;
 
 typedef enum {
@@ -230,6 +231,17 @@ typedef struct {
    sem_t *                 semaphore;
    xrsr_src_t              src;
 } xrsr_queue_msg_session_audio_stream_start_t;
+
+typedef struct {
+   xrsr_queue_msg_header_t header;
+   sem_t *                 semaphore;
+   xrsr_src_t              src;
+   bool                    valid;
+   uint32_t                keyword_sample_begin;
+   uint32_t                keyword_sample_end;
+   double                  confidence;
+   double                  signal_noise_ratio;
+} xrsr_queue_msg_session_stream_params_t;
 
 typedef struct {
    xrsr_queue_msg_header_t      header;

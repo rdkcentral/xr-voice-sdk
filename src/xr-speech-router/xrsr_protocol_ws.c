@@ -823,13 +823,33 @@ void xrsr_ws_handle_speech_event(xrsr_state_ws_t *ws, xrsr_speech_event_t *event
       }
       case XRSR_EVENT_STREAM_TIME_MINIMUM: {
          ws->stream_time_min_rxd = true;
-         xrsr_ws_event(ws, SM_EVENT_STM, false);
+         // For a session that defers its connect until the wake word stream parameters are supplied
+         // (e.g. BLE MFV), stay in the buffering state - continuing to accumulate audio - until those
+         // parameters arrive via xrsr_session_stream_params_set().  Otherwise proceed to connect.
+         if(ws->session_config_update != NULL && ws->session_config_update->defer_connect && !ws->session_config_update->stream_params_ready) {
+            XLOGD_INFO("src <%s> stream time minimum reached; holding connect until wake word stream parameters are supplied", xrsr_src_str(ws->audio_src));
+         } else {
+            xrsr_ws_event(ws, SM_EVENT_STM, false);
+         }
          break;
       }
       default: {
          XLOGD_WARN("src <%s> unhandled speech event <%s>", xrsr_src_str(ws->audio_src), xrsr_event_str(event->event));
          break;
       }
+   }
+}
+
+void xrsr_ws_stream_params_ready(xrsr_state_ws_t *ws) {
+   if(ws == NULL) {
+      return;
+   }
+   // The wake word stream parameters have been supplied.  If the connect was held in the buffering state
+   // (minimum stream time already reached), release it now so the connection proceeds and the init
+   // message is sent with the parameters included.
+   if(ws->stream_time_min_rxd && !xrsr_ws_is_disconnected(ws)) {
+      XLOGD_INFO("src <%s> stream parameters ready; releasing deferred connect", xrsr_src_str(ws->audio_src));
+      xrsr_ws_event(ws, SM_EVENT_STM, false);
    }
 }
 
