@@ -96,6 +96,7 @@ const char *xrsr_queue_msg_type_str(xrsr_queue_msg_type_t type) {
       case XRSR_QUEUE_MSG_TYPE_SESSION_AUDIO_STREAM_START:              return("AUDIO_STREAM_START");
       case XRSR_QUEUE_MSG_TYPE_SESSION_CAPTURE_START:                   return("SESSION_CAPTURE_START");
       case XRSR_QUEUE_MSG_TYPE_SESSION_CAPTURE_STOP:                    return("SESSION_CAPTURE_STOP");
+      case XRSR_QUEUE_MSG_TYPE_SESSION_STREAM_PARAMS:                   return("SESSION_STREAM_PARAMS");
       case XRSR_QUEUE_MSG_TYPE_THREAD_POLL:                             return("THREAD_POLL");
       case XRSR_QUEUE_MSG_TYPE_INVALID:                                 return("INVALID");
    }

@@ -837,7 +837,12 @@ bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, 
       }
    }
 
-   xrsr_session_begin(src, dst_index, detector_result == NULL, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
+   // A push-to-talk fd session is user initiated; wake-word sources (FF/MFV) are not, so they are
+   // treated as wake-up-word sessions (not PTT) by the endpoint even though no local detector result
+   // is present (the wake word was detected on the remote).
+   bool user_initiated = (detector_result == NULL) && (src != XRSR_SRC_RCU_FF) && (src != XRSR_SRC_RCU_MFV);
+
+   xrsr_session_begin(src, dst_index, user_initiated, xraudio_format, detector_result, input_format, uuid, low_latency, low_cpu_util);
 
    return(true);
 }

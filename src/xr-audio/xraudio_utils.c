@@ -170,7 +170,7 @@ bool xraudio_devices_input_local_is_valid(xraudio_devices_input_t devices) {
 bool xraudio_devices_input_external_is_valid(xraudio_devices_input_t devices) {
    bool ret = true;
    devices = XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(devices);
-   if((devices & ~(XRAUDIO_DEVICE_INPUT_PTT | XRAUDIO_DEVICE_INPUT_FF))) {
+   if((devices & ~(XRAUDIO_DEVICE_INPUT_PTT | XRAUDIO_DEVICE_INPUT_FF | XRAUDIO_DEVICE_INPUT_MFV))) {
       ret = false;
    }
    return(ret);

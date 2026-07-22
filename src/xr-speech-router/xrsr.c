@@ -183,6 +183,7 @@ static void xrsr_msg_session_terminate                      (const xrsr_thread_p
 static void xrsr_msg_session_audio_stream_start             (const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg);
 static void xrsr_msg_session_capture_start                  (const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg);
 static void xrsr_msg_session_capture_stop                   (const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg);
+static void xrsr_msg_session_stream_params                  (const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg);
 static void xrsr_msg_thread_poll                            (const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg);
 
 static bool     xrsr_is_source_active(xrsr_src_t src);
@@ -212,6 +213,7 @@ static const xrsr_msg_handler_t g_xrsr_msg_handlers[XRSR_QUEUE_MSG_TYPE_INVALID]
    xrsr_msg_session_audio_stream_start,
    xrsr_msg_session_capture_start,
    xrsr_msg_session_capture_stop,
+   xrsr_msg_session_stream_params,
    xrsr_msg_thread_poll,
 };
 
@@ -1529,11 +1531,20 @@ bool xrsr_session_request(xrsr_src_t src,  uint8_t dst_index, xrsr_audio_format_
    xraudio_format.sample_size   = (output_format_type == XRSR_AUDIO_FORMAT_PCM_RAW || output_format_type == XRSR_AUDIO_FORMAT_PCM_32_BIT || output_format_type == XRSR_AUDIO_FORMAT_PCM_32_BIT_MULTI) ? XRAUDIO_INPUT_MAX_SAMPLE_SIZE : XRAUDIO_INPUT_DEFAULT_SAMPLE_SIZE;
    xraudio_format.channel_qty   = (output_format_type == XRSR_AUDIO_FORMAT_PCM_RAW || output_format_type == XRSR_AUDIO_FORMAT_PCM_32_BIT_MULTI) ? XRAUDIO_INPUT_MAX_CHANNEL_QTY : XRAUDIO_INPUT_DEFAULT_CHANNEL_QTY;
 
+   // Reset any session config updates from a previous session on this source.
+   xrsr_session_config_update_t *session_config_update = &g_xrsr.sessions[xrsr_source_to_group(src)].session_config_update;
+   memset(session_config_update, 0, sizeof(*session_config_update));
+
    if(input_format.type == XRSR_SESSION_REQUEST_TYPE_AUDIO_MIC) {
       if(input_format.value.audio_mic.stream_params_required == true ) {
-         xrsr_session_config_update_t *session_config_update = &g_xrsr.sessions[xrsr_source_to_group(src)].session_config_update;
          session_config_update->update_required = true;
          input_format.value.audio_mic.dynamic_gain_update = &session_config_update->dynamic_gain;
+      }
+   } else if(input_format.type == XRSR_SESSION_REQUEST_TYPE_AUDIO_FD) {
+      if(input_format.value.audio_fd.stream_params_required == true) {
+         // The requestor will supply the wake word stream parameters after the session begins.  Hold the
+         // connect/init in the buffering state until xrsr_session_stream_params_set() is called.
+         session_config_update->defer_connect = true;
       }
    }
 
@@ -1640,6 +1651,31 @@ void xrsr_session_audio_stream_start(xrsr_src_t src) {
 
    sem_wait(&semaphore);
    sem_destroy(&semaphore);
+}
+
+bool xrsr_session_stream_params_set(xrsr_src_t src, bool valid, uint32_t keyword_begin, uint32_t keyword_end, double confidence, double snr) {
+   if((uint32_t)src >= XRSR_SRC_INVALID) {
+      XLOGD_ERROR("invalid source <%s>", xrsr_src_str(src));
+      return(false);
+   }
+
+   sem_t semaphore;
+   sem_init(&semaphore, 0, 0);
+
+   xrsr_queue_msg_session_stream_params_t stream_params;
+   stream_params.header.type          = XRSR_QUEUE_MSG_TYPE_SESSION_STREAM_PARAMS;
+   stream_params.semaphore            = &semaphore;
+   stream_params.src                  = src;
+   stream_params.valid                = valid;
+   stream_params.keyword_sample_begin = keyword_begin;
+   stream_params.keyword_sample_end   = keyword_end;
+   stream_params.confidence           = confidence;
+   stream_params.signal_noise_ratio   = snr;
+   xrsr_queue_msg_push(xrsr_msgq_fd_get(), (const char *)&stream_params, sizeof(stream_params));
+
+   sem_wait(&semaphore);
+   sem_destroy(&semaphore);
+   return(true);
 }
 
 void xrsr_msg_keyword_update(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg) {
@@ -2735,6 +2771,50 @@ void xrsr_msg_session_audio_stream_start(const xrsr_thread_params_t *params, xrs
       sem_post(audio_stream_start->semaphore);
    }
 }
+
+void xrsr_msg_session_stream_params(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg) {
+   xrsr_queue_msg_session_stream_params_t *stream_params = (xrsr_queue_msg_session_stream_params_t *)msg;
+
+   xrsr_src_t src = stream_params->src;
+
+   if((uint32_t)src >= XRSR_SRC_INVALID) {
+      XLOGD_ERROR("source is invalid <%s>", xrsr_src_str(src));
+      if(stream_params->semaphore != NULL) {
+         sem_post(stream_params->semaphore);
+      }
+      return;
+   }
+
+   // Record the late-arriving wake word stream parameters in the session config update so they get
+   // injected into the init message when the connection is established.
+   xrsr_session_config_update_t *scu = &g_xrsr.sessions[xrsr_source_to_group(src)].session_config_update;
+   scu->stream_params_valid   = stream_params->valid;
+   scu->keyword_sample_begin  = stream_params->keyword_sample_begin;
+   scu->keyword_sample_end    = stream_params->keyword_sample_end;
+   scu->confidence            = stream_params->confidence;
+   scu->signal_noise_ratio    = stream_params->signal_noise_ratio;
+   scu->stream_params_ready   = true;
+   if(stream_params->valid) {
+      scu->update_required = true; // so the endpoint injects the wake word parameters into the init message
+   }
+
+   XLOGD_INFO("src <%s> stream params %s begin <%u> end <%u> confidence <%.3f>", xrsr_src_str(src), stream_params->valid ? "valid" : "invalid (release only)", stream_params->keyword_sample_begin, stream_params->keyword_sample_end, stream_params->confidence);
+
+   // Release any connect that was held in the buffering state waiting for these parameters.
+   #ifdef WS_ENABLED
+   for(uint32_t index_dst = 0; index_dst < XRSR_DST_QTY_MAX; index_dst++) {
+      xrsr_dst_int_t *dst = &g_xrsr.routes[src].dsts[index_dst];
+      if(dst->url_parts.prot == XRSR_PROTOCOL_WS || dst->url_parts.prot == XRSR_PROTOCOL_WSS) {
+         xrsr_ws_stream_params_ready(&dst->conn_state.ws);
+      }
+   }
+   #endif
+
+   if(stream_params->semaphore != NULL) {
+      sem_post(stream_params->semaphore);
+   }
+}
+
 void xrsr_session_stream_begin(const uuid_t uuid, const char *uuid_str, xrsr_src_t src, uint32_t dst_index) {
    rdkx_timestamp_t timestamp;
    rdkx_timestamp_get_realtime(&timestamp);
