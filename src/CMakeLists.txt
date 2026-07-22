@@ -35,6 +35,7 @@ target_sources(xr-voice-sdk PUBLIC
                xraudio_config.h
                rdkx_logger.h
                vsdk.c
+               vsdk_ffv_adapter.c
                rdkx_logger_modules.c
                rdkx_logger_level.c
                rdkx_logger_modules_lookup.c
@@ -60,7 +61,7 @@ target_sources(xr-voice-sdk PUBLIC
                xr-audio/xraudio_utils.c
                xr-audio/xraudio_atomic.c)
 
-target_compile_options(xr-voice-sdk PUBLIC -fPIC -rdynamic -Wall -Werror)
+target_compile_options(xr-voice-sdk PUBLIC -fPIC -rdynamic -Wall -Werror -g)
 
 target_compile_definitions(xr-voice-sdk PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE)
 

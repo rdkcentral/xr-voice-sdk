@@ -225,7 +225,9 @@ typedef int16_t         xraudio_sample_t;
 typedef struct {
    uint32_t                  chan_selected;
    xraudio_kwd_endpoints_t   endpoints;
+   #ifdef USE_RDKV_HAL
    xraudio_kwd_chan_result_t channels[XRAUDIO_INPUT_MAX_CHANNEL_QTY];
+   #endif
    const char *              detector_name;
    const char *              dsp_name;
    float                     sensitivity;
