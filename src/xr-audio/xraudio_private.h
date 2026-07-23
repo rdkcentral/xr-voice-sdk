@@ -68,7 +68,7 @@
 #define XRAUDIO_IN_AOP_ADJ_DB_TO_SHIFT(x)    ((int8_t)roundf((x) / 6.02)) // 6 dB per bit shift
 
 #define XRAUDIO_CAPTURE_FILE_FLAGS (O_WRONLY | O_CREAT | O_TRUNC)
-#define XRAUDIO_CAPTURE_FILE_MODE  (S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH)
+#define XRAUDIO_CAPTURE_FILE_MODE  (S_IRUSR | S_IWUSR)
 
 typedef enum {
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_RECORD_IDLE_START               = 0,

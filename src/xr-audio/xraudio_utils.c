@@ -34,24 +34,6 @@ static char xraudio_invalid_str[XRAUDIO_INVALID_STR_LEN];
 
 static const char *xraudio_invalid_return(int value);
 
-#ifndef USE_RDKX_LOGGER
-void xraudio_get_log_time(char *log_buffer) {
-   struct tm *local;
-   struct timeval tv;
-   uint16_t msecs;
-   gettimeofday(&tv, NULL);
-   local = localtime(&tv.tv_sec);
-   msecs = (uint16_t)(tv.tv_usec/1000);
-   strftime(log_buffer, 9, "%T", local);
-   //printing milliseconds as ":XXX "
-   log_buffer[12] = '\0';                             //Null terminate milliseconds
-   log_buffer[11] = (msecs % 10) + '0'; msecs  /= 10; //get the 1's digit
-   log_buffer[10] = (msecs % 10) + '0'; msecs  /= 10; //get the 10's digit
-   log_buffer[9]  = (msecs % 10) + '0';               //get the 100's digit
-   log_buffer[8]  = ':';
-}
-#endif
-
 void xraudio_wave_header_gen(uint8_t *header, uint16_t audio_format, uint16_t num_channels, uint32_t sample_rate, uint16_t bits_per_sample, uint32_t pcm_data_size, uint32_t padding) {
    uint32_t byte_rate      = sample_rate * num_channels * bits_per_sample / 8;
    uint32_t chunk_size     = pcm_data_size + 36;
