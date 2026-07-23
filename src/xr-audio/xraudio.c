@@ -2749,7 +2749,7 @@ int32_t xraudio_container_header_parse_wave(int fd, const uint8_t *header, uint3
          has_data = true;
          data_offset  = subchunks_length + 20;
          *data_length = subchunk_length;
-         XLOGD_DEBUG("data Chunk length %lu offset %ld", subchunk_length, data_offset);
+         XLOGD_DEBUG("data Chunk length %u offset %ld", subchunk_length, data_offset);
          if(fd >= 0 && lseek(fd, subchunk_length, SEEK_CUR) < 0) {
             int errsv = errno;
             XLOGD_ERROR("Unable to seek <%s>", strerror(errsv));
