@@ -881,8 +881,8 @@ bool vsdk_load_plugin_mfv(void) {
    bool ret = false;
 
    void *handle = NULL;
-   const char *so_path_vd = "/vendor/lib/libxraudio-mfv.so";
-   const char *so_path_mw = "/usr/lib/libxraudio-mfv.so";
+   const char *so_path_vd = "/vendor/lib/libxraudio_mfv.so";
+   const char *so_path_mw = "/usr/lib/libxraudio_mfv.so";
 
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
