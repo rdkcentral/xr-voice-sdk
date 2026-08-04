@@ -885,8 +885,8 @@ void *xraudio_main_thread(void *param) {
       // Process message queue if it is ready
       if(FD_ISSET(state->params.msgq, &rfds)) {
          xr_mq_msg_size_t bytes_read = xr_mq_pop(state->params.msgq, msg, sizeof(msg));
-         if(bytes_read <= 0) {
-            XLOGD_ERROR("xr_mq_pop failed <%d>", bytes_read);
+         if(bytes_read == 0) {
+            XLOGD_ERROR("xr_mq_pop failed <%zu>", bytes_read);
             continue;
          }
          xraudio_main_queue_msg_header_t *header = (xraudio_main_queue_msg_header_t *)msg;
@@ -1481,7 +1481,7 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
    xraudio_capture_file_t *capture_file = NULL;
    xraudio_pcm_range_t    *pcm_range    = NULL;
 
-   xraudio_input_format_t format_16k_16bit_mono;
+   xraudio_input_format_t format_16k_16bit_mono = { 0 };
    format_16k_16bit_mono.container     = capture->container;
    format_16k_16bit_mono.encoding.type = XRAUDIO_ENCODING_PCM;
    format_16k_16bit_mono.sample_rate   = 16000;

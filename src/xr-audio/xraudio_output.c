@@ -147,6 +147,12 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
       }
 
       obj->obj_eos              = obj->eos_plugin->object_create(true, jeos_config);
+      if(obj->obj_eos == NULL) {
+         XLOGD_ERROR("Unable to allocate eos memory");
+         sem_destroy(&obj->mutex_play);
+         free(obj);
+         return(NULL);
+      }
    }
    obj->use_external_gain    = (capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL) ? 1 : 0;
    obj->ramp_enable          = 1;
@@ -155,6 +161,12 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
       obj->obj_ovc = obj->ovc_plugin->object_create(obj->ramp_enable, obj->use_external_gain);
       if(obj->obj_ovc == NULL) {
          XLOGD_ERROR("Unable to allocate ovc memory");
+         if(obj->eos_plugin != NULL && obj->obj_eos != NULL) {
+            obj->eos_plugin->object_destroy(obj->obj_eos);
+            obj->obj_eos = NULL;
+         }
+         sem_destroy(&obj->mutex_play);
+         free(obj);
          return(NULL);
       }
    }

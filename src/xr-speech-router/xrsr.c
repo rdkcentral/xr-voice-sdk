@@ -33,7 +33,9 @@
 #include <vsdk_private.h>
 #include <xrsr_private.h>
 #include <xraudio.h>
+#ifdef XRAUDIO_DECODE_OPUS
 #include <opus/opus.h>
+#endif
 
 typedef enum {
    XRSR_THREAD_MAIN = 0,
@@ -155,7 +157,9 @@ static void xrsr_session_stream_end(const uuid_t uuid, const char *uuid_str, xrs
 static void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config_in_t *config_in);
 #endif
 
+#ifdef WS_ENABLED
 static void xrsr_callback_session_config_in_ws(const uuid_t uuid, xrsr_session_config_in_t *config_in);
+#endif
 
 typedef void (*xrsr_msg_handler_t)(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg);
 
@@ -551,15 +555,21 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    switch(power_mode) {
       case XRSR_POWER_MODE_FULL:
          xraudio_power_mode = XRAUDIO_POWER_MODE_FULL;
+         #ifdef WS_ENABLED
          g_xrsr.ws_json_config = &g_xrsr.ws_json_config_fpm;
+         #endif
          break;
       case XRSR_POWER_MODE_LOW:
          xraudio_power_mode = XRAUDIO_POWER_MODE_LOW;
+         #ifdef WS_ENABLED
          g_xrsr.ws_json_config = &g_xrsr.ws_json_config_lpm;
+         #endif
          break;
       case XRSR_POWER_MODE_SLEEP:
          xraudio_power_mode = XRAUDIO_POWER_MODE_SLEEP;
+         #ifdef WS_ENABLED
          g_xrsr.ws_json_config = &g_xrsr.ws_json_config_lpm;
+         #endif
          break;
       default:
          XLOGD_ERROR("Invalid power mode");
@@ -1327,7 +1337,7 @@ void *xrsr_thread_main(void *param) {
 
       errno = 0;
       if(timer_id >= 0) {
-         XLOGD_DEBUG("timer id <%d> timeout %d secs %d microsecs", timer_id, tv.tv_sec, tv.tv_usec);
+         XLOGD_DEBUG("timer id <%d> timeout %ld secs %ld microsecs", timer_id, (long)tv.tv_sec, (long)tv.tv_usec);
          if(tv.tv_sec == 0 && tv.tv_usec == 0) { // Process the expired timer instead of calling select().
             src = 0;
          } else {
@@ -1356,9 +1366,9 @@ void *xrsr_thread_main(void *param) {
          continue;
       }
       if(FD_ISSET(params.msgq_id, &rfds)) {
-         ssize_t bytes_read = xr_mq_pop(params.msgq_id, msg, sizeof(msg));
-         if(bytes_read <= 0) {
-            XLOGD_ERROR("mq_receive failed, rc <%d>", bytes_read);
+         size_t bytes_read = xr_mq_pop(params.msgq_id, msg, sizeof(msg));
+         if(bytes_read == 0) {
+            XLOGD_ERROR("mq_receive failed, rc <%zu>", bytes_read);
          } else {
             xrsr_queue_msg_header_t *header = (xrsr_queue_msg_header_t *)msg;
 
@@ -1512,7 +1522,7 @@ bool xrsr_session_request(xrsr_src_t src,  uint8_t dst_index, xrsr_audio_format_
       return(false);
    }
    xrsr_audio_format_type_t output_format_type = output_format.type;
-   xraudio_input_format_t xraudio_format;
+   xraudio_input_format_t xraudio_format = { 0 };
    xraudio_format.container     = XRAUDIO_CONTAINER_NONE;
    xraudio_format.encoding.type = (output_format_type == XRSR_AUDIO_FORMAT_PCM_RAW) ? XRAUDIO_ENCODING_PCM_RAW : (output_format_type == XRSR_AUDIO_FORMAT_OPUS) ? XRAUDIO_ENCODING_OPUS : XRAUDIO_ENCODING_PCM;
    xraudio_format.sample_rate   = XRAUDIO_INPUT_DEFAULT_SAMPLE_RATE;
@@ -1937,6 +1947,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
    }
    session->src                  = begin->src;
 
+   #if defined(HTTP_ENABLED) || defined(WS_ENABLED)
    xrsr_keyword_detector_result_t *detector_result_ptr = NULL;
    xrsr_keyword_detector_result_t  detector_result;
    if(begin->has_result) {
@@ -1967,11 +1978,16 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
          }
       }
    }
+   #endif
 
+   #if defined(HTTP_ENABLED) || defined(WS_ENABLED) || defined(SDT_ENABLED)
    const char *transcription_in = (begin->transcription_in[0] == '\0') ? NULL : begin->transcription_in;
    const char *audio_file_in    = (begin->audio_file_in[0]    == '\0') ? NULL : begin->audio_file_in;
+   #endif
 
+   #if defined(WS_ENABLED) || defined(SDT_ENABLED)
    bool create_stream = true;
+   #endif
 
    // Default to all destinations
    uint8_t dst_index_begin = 0;
@@ -2206,7 +2222,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
 }
 
 #ifdef HTTP_ENABLED
-void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config_in_t *config_in) {
+static void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config_in_t *config_in) {
    xrsr_queue_msg_session_config_in_t msg;
 
    msg.header.type = XRSR_QUEUE_MSG_TYPE_SESSION_CONFIG_IN;
@@ -2243,7 +2259,7 @@ void xrsr_callback_session_config_in_http(const uuid_t uuid, xrsr_session_config
 #endif
 
 #ifdef WS_ENABLED
-void xrsr_callback_session_config_in_ws(const uuid_t uuid, xrsr_session_config_in_t *config_in) {
+static void xrsr_callback_session_config_in_ws(const uuid_t uuid, xrsr_session_config_in_t *config_in) {
    xrsr_queue_msg_session_config_in_t msg;
 
    msg.header.type = XRSR_QUEUE_MSG_TYPE_SESSION_CONFIG_IN;
@@ -2294,7 +2310,9 @@ void xrsr_msg_session_config_in(const xrsr_thread_params_t *params, xrsr_thread_
    xrsr_session_t *session = &g_xrsr.sessions[xrsr_source_to_group(config_in->src)];
 
    bool found_session = false;
+   #if defined(HTTP_ENABLED) || defined(WS_ENABLED)
    bool create_stream = true;
+   #endif
    for(uint32_t dst_index = 0; dst_index < XRSR_DST_QTY_MAX; dst_index++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[session->src].dsts[dst_index];
 
@@ -2657,7 +2675,9 @@ void xrsr_msg_session_audio_stream_start(const xrsr_thread_params_t *params, xrs
    }
 
    uint32_t index_src = src;
+   #ifdef WS_ENABLED
    bool create_stream = true;
+   #endif
    for(uint32_t index_dst = 0; index_dst < XRSR_DST_QTY_MAX; index_dst++) {
       xrsr_dst_int_t *dst = &g_xrsr.routes[index_src].dsts[index_dst];
 
@@ -3084,8 +3104,12 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
             // verify the audio format
             uint32_t data_length = 0;
             bool encoding_opus = (output_format.encoding.type == XRAUDIO_ENCODING_OPUS);
+
+            #ifdef XRAUDIO_DECODE_OPUS
             OpusDecoder *obj_opus = NULL;
+            #endif
             if(encoding_opus) {
+               #ifdef XRAUDIO_DECODE_OPUS
                int opus_error = 0;
                obj_opus = opus_decoder_create(16000, 1, &opus_error);
                if(obj_opus == NULL || opus_error != OPUS_OK) {
@@ -3102,6 +3126,10 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      data_length = statbuf.st_size; // the full length of the file
                   }
                }
+               #else
+               XLOGD_ERROR("opus input is not supported in this build");
+               stream_begin_failure = true;
+               #endif
             } else {
                xraudio_output_format_t format;
                int32_t offset =  xraudio_container_header_parse_wave(fd, NULL, 0, &format, &data_length);
@@ -3109,7 +3137,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                   XLOGD_ERROR("failed to parse wave header <%s>", audio_file_in);
                   stream_begin_failure = true;
                } else if(format.channel_qty != 1 || format.sample_rate != 16000 || format.sample_size != 2 || format.encoding.type != XRAUDIO_ENCODING_PCM) {
-                  XLOGD_ERROR("unsupported wave file format - channel qty <%u> sample rate <%d> sample size <%u> encoding <%d>", format.channel_qty, format.sample_rate, format.sample_size, format.encoding);
+                  XLOGD_ERROR("unsupported wave file format - channel qty <%u> sample rate <%u> sample size <%u> encoding <%d>", (unsigned)format.channel_qty, (unsigned)format.sample_rate, (unsigned)format.sample_size, (int)format.encoding.type);
                   stream_begin_failure = true;
                } else if(data_length == 0) {
                   XLOGD_ERROR("zero length audio data <%s>", audio_file_in);
@@ -3139,6 +3167,7 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                      size_t chunk_size = 0;
 
                      if(encoding_opus) { // Process one packet at a time
+                        #ifdef XRAUDIO_DECODE_OPUS
                         uint8_t length_bytes[2] = { '\0' };
                         errno = 0;
                         int rc = read(fd, &length_bytes[0], 1); // Read opus self-delimiting header first byte
@@ -3164,6 +3193,12 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            data_length--;
                         }
 
+                        if(opus_packet_size > sizeof(opus_packet_buf)) {
+                           XLOGD_ERROR("invalid opus packet size <%hu>", opus_packet_size);
+                           stream_begin_failure = true;
+                           break;
+                        }
+
                         if(opus_packet_size > 0) {
                            rc = read(fd, opus_packet_buf, opus_packet_size);
                            if(rc != opus_packet_size) {
@@ -3182,14 +3217,19 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            break;
                         }
                         chunk_size = samples * sizeof(int16_t);
+                        #else
+                        XLOGD_ERROR("opus input is not supported in this build");
+                        stream_begin_failure = true;
+                        break;
+                        #endif
 
                      } else {
                         chunk_size = (data_length >= sizeof(buffer)) ? sizeof(buffer) : data_length;
                         errno = 0;
-                        int rc = read(fd, buffer, chunk_size);
-                        if(rc != chunk_size) {
+                        ssize_t rc = read(fd, buffer, chunk_size);
+                        if((size_t)rc != chunk_size) {
                            int errsv = errno;
-                           XLOGD_ERROR("failed to read wave data <%s> exp <%u> rxd <%d> <%s>", audio_file_in, chunk_size, rc, strerror(errsv));
+                           XLOGD_ERROR("failed to read wave data <%s> exp <%zu> rxd <%zd> <%s>", audio_file_in, chunk_size, rc, strerror(errsv));
                            stream_begin_failure = true;
                            break;
                         }
@@ -3204,10 +3244,10 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                            continue;
                         }
                         errno = 0;
-                        int rc = write(dsts[index].pipe, buffer, chunk_size);
-                        if(rc != chunk_size) {
+                        ssize_t rc = write(dsts[index].pipe, buffer, chunk_size);
+                        if((size_t)rc != chunk_size) {
                            int errsv = errno;
-                           XLOGD_ERROR("failed to write wave data - exp <%u> rxd <%d> <%s>", chunk_size, rc, strerror(errsv));
+                           XLOGD_ERROR("failed to write wave data - exp <%zu> rxd <%zd> <%s>", chunk_size, rc, strerror(errsv));
                            stream_begin_failure = true;
                            data_length = 0; // to exit the while loop
                            break;
@@ -3228,9 +3268,11 @@ bool xrsr_speech_stream_begin(const uuid_t uuid, xrsr_src_t src, uint32_t dst_in
                }
             }
             close(fd);
-            if(obj_opus == NULL) {
+            #ifdef XRAUDIO_DECODE_OPUS
+            if(obj_opus != NULL) {
                opus_decoder_destroy(obj_opus);
             }
+            #endif
          }
       }
 

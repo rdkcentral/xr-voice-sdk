@@ -1,8 +1,9 @@
-option(RDK_VERSION_ENABLED,     "Build with RDK versioning support"           OFF)
-option(HTTP_ENABLED,            "speech router http protocol"                 OFF)
-option(WS_ENABLED,              "speech router websocket protocol"            OFF)
-option(WS_NOPOLL_PATCHES,       "speech router websocket nopoll patches"      OFF)
-option(SDT_ENABLED,             "speech router secure data transfer protocol" OFF)
+option(RDK_VERSION_ENABLED,      "Build with RDK versioning support"           OFF)
+option(HTTP_ENABLED,             "speech router http protocol"                 OFF)
+option(WS_ENABLED,               "speech router websocket protocol"            OFF)
+option(WS_NOPOLL_PATCHES,        "speech router websocket nopoll patches"      OFF)
+option(SDT_ENABLED,              "speech router secure data transfer protocol" OFF)
+option(INSTALL_INTERNAL_HEADERS, "Install internal sub-component headers"      OFF)
 
 add_library(xr-voice-sdk SHARED)
 set_target_properties(xr-voice-sdk PROPERTIES
@@ -123,11 +124,32 @@ install(FILES ${CMAKE_CURRENT_BINARY_DIR}/vsdk_config.json DESTINATION ${CMAKE_I
 install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.json TYPE SYSCONF)
 
 # HEADER FILES
-install(FILES xr_voice_sdk.h TYPE INCLUDE)
-install(FILES xr-speech-router/xrsr.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE)
-install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE)
+install(FILES xr_voice_sdk.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-router/xrsr.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv_http/xrsv_http.h TYPE INCLUDE COMPONENT headers)
+install(FILES xr-speech-vrex/xrsv_ws_nextgen/xrsv_ws_nextgen.h TYPE INCLUDE COMPONENT headers)
+
+if(INSTALL_INTERNAL_HEADERS)
+   install(FILES xr-mq/xr_mq.h               TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-fdc/xr_fdc.h             TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-timer/xr_timer.h         TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-timestamp/xr_timestamp.h TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-sm-engine/xr_sm_engine.h TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio.h          TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_hal.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_eos.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_dga.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_kwd.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_sdf.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_ovc.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_ppr.h      TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_common.h   TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_platform.h TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES xr-audio/xraudio_version.h  TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.h         TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_modules.h TYPE INCLUDE COMPONENT internal-headers)
+endif()
 
 # LIBRARY FILES
 install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
@@ -137,7 +159,7 @@ install(TARGETS xr-voice-sdk LIBRARY DESTINATION lib)
 add_custom_command(
    OUTPUT vsdk_version.h
    COMMAND echo -n "#define VSDK_BRANCH    \"" > vsdk_version.h
-   COMMAND git -C ${CMAKE_SOURCE_DIR} branch --all --contains | sed -n -e "s/^\\s*remotes\\/origin\\///" -e "2p" | tr -d "\\n" >> vsdk_version.h
+   COMMAND sh -c "src=\"${CMAKE_CURRENT_SOURCE_DIR}\"; ref=$(git -C \"$src\" describe --tags --exact-match 2>/dev/null || git -C \"$src\" branch -a --format='%(refname:short)' --contains HEAD 2>/dev/null | sed -n '2{p;q}'); echo -n \"$ref\" >> vsdk_version.h"
    COMMAND echo "\"" >> vsdk_version.h
    COMMAND echo -n "#define VSDK_COMMIT_ID " >> vsdk_version.h
    COMMAND git -C ${CMAKE_SOURCE_DIR} log --format=\"%H\" -n 1 >> vsdk_version.h
@@ -147,7 +169,7 @@ add_custom_command(
    VERBATIM)
 
 add_custom_command(
-   OUTPUT rdkx_logger_modules.hash rdkx_logger_modules_lookup.c
+   OUTPUT rdkx_logger_modules.hash rdkx_logger_modules.h rdkx_logger_modules_lookup.c
    COMMAND python3 "${CMAKE_SOURCE_DIR}/scripts/rdkx_logger_modules_to_c.py" ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json rdkx_logger_modules "mw"
    DEPENDS ${CMAKE_CURRENT_SOURCE_DIR}/xr-logger/rdkv/rdkx_logger_modules.json
    VERBATIM)
