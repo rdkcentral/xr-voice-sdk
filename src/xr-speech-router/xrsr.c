@@ -444,6 +444,7 @@ void xrsr_config_apply(json_t *json_obj_in) {
 
 bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, json_t *json_obj_vsdk) {
    json_t *json_obj_xraudio = NULL;
+   XLOGD_INFO("LLAMA-18353 start....");
    if(g_xrsr.opened) {
       XLOGD_ERROR("already open");
       return(false);
@@ -630,6 +631,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    }
 
    g_xrsr.opened       = true;
+   XLOGD_INFO("LLAMA-18353 done...");
    return(true);
 }
 
@@ -948,6 +950,7 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
 }
 
 bool xrsr_route(const xrsr_route_t routes[]) {
+   XLOGD_INFO("LLAMA-18353 start....");
    if(!g_xrsr.opened) {
       XLOGD_ERROR("not opened");
       return(false);
@@ -990,7 +993,7 @@ bool xrsr_route(const xrsr_route_t routes[]) {
    xrsr_queue_msg_push(xrsr_msgq_fd_get(), (const char *)&msg, sizeof(msg));
    sem_wait(&semaphore);
    sem_destroy(&semaphore);
-
+XLOGD_INFO("LLAMA-18353 done...");
    return(true);
 }
 
@@ -1208,7 +1211,7 @@ bool xrsr_privacy_mode_get(bool *enabled) {
       XLOGD_ERROR("not opened");
       return(false);
    }
-
+XLOGD_INFO("LLAMA-18353 start...");
    bool result = false;
    sem_t semaphore;
    sem_init(&semaphore, 0, 0);
@@ -1230,7 +1233,7 @@ bool xrsr_privacy_mode_get(bool *enabled) {
    } else {
       g_xrsr.privacy_mode = *enabled;
    }
-
+XLOGD_INFO("LLAMA-18353 done...");
    return(result);
 }
 
@@ -1481,6 +1484,7 @@ void xrsr_msg_terminate(const xrsr_thread_params_t *params, xrsr_thread_state_t 
 void xrsr_msg_route_update(const xrsr_thread_params_t *params, xrsr_thread_state_t *state, void *msg) {
    xrsr_queue_msg_route_update_t *route_update = (xrsr_queue_msg_route_update_t *)msg;
    xrsr_src_t srcs[XRSR_SRC_INVALID+1];
+   XLOGD_INFO("LLAMA-18353 start...");
    uint32_t index = 0;
    do {
       xrsr_src_t src = route_update->routes[index].src;
@@ -1514,6 +1518,7 @@ void xrsr_msg_route_update(const xrsr_thread_params_t *params, xrsr_thread_state
    if(route_update->semaphore != NULL) {
       sem_post(route_update->semaphore);
    }
+   XLOGD_INFO("LLAMA-18353 done...");
 }
 
 bool xrsr_session_request(xrsr_src_t src,  uint8_t dst_index, xrsr_audio_format_t output_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
@@ -2836,7 +2841,7 @@ void xrsr_msg_privacy_mode_get(const xrsr_thread_params_t *params, xrsr_thread_s
    xrsr_queue_msg_privacy_mode_get_t *privacy_mode_get = (xrsr_queue_msg_privacy_mode_get_t *)msg;
 
    bool result = xrsr_xraudio_privacy_mode_get(g_xrsr.xrsr_xraudio_object, privacy_mode_get->enabled);
-
+XLOGD_INFO("LLAMA-18353 result <%s>", result ? "true" : "false");
    if(privacy_mode_get->semaphore != NULL) {
       if(privacy_mode_get->result != NULL) {
          *(privacy_mode_get->result) = result;
