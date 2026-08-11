@@ -131,7 +131,7 @@ typedef struct {
    atomic_bool                   opened;
    _Atomic(xrsr_power_mode_t)    power_mode;
    atomic_bool                   privacy_mode;
-   bool                          mask_pii;
+   atomic_bool                   mask_pii;
    xrsr_thread_info_t            threads[XRSR_THREAD_QTY];
    xrsr_route_int_t              routes[XRSR_SRC_INVALID];
    xrsr_xraudio_object_t         xrsr_xraudio_object;
@@ -605,7 +605,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
 
    atomic_store(&g_xrsr.power_mode, power_mode);
    atomic_store(&g_xrsr.privacy_mode, privacy_mode);
-   g_xrsr.mask_pii = mask_pii;
+   atomic_store(&g_xrsr.mask_pii, mask_pii);
 
    // Send the route information
    sem_t semaphore;
@@ -1240,18 +1240,18 @@ bool xrsr_mask_pii_set(bool enable) {
       XLOGD_ERROR("not opened");
       return(false);
    }
-   if(g_xrsr.mask_pii == enable) {
+   if(atomic_load(&g_xrsr.mask_pii) == enable) {
       XLOGD_WARN("already %s", enable ? "enabled" : "disabled");
       return(true);
    }
 
-   g_xrsr.mask_pii = enable;
+   atomic_store(&g_xrsr.mask_pii, enable);
 
    return(true);
 }
 
 bool xrsr_mask_pii(void) {
-   return(g_xrsr.mask_pii);
+   return(atomic_load(&g_xrsr.mask_pii));
 }
 
 void *xrsr_thread_main(void *param) {
