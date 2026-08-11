@@ -22,6 +22,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <stdatomic.h>
 #include <string.h>
 #include <errno.h>
 #include <fcntl.h>
@@ -127,7 +128,7 @@ typedef struct {
 } xrsr_session_t;
 
 typedef struct {
-   bool                          opened;
+   atomic_bool                   opened;
    xrsr_power_mode_t             power_mode;
    bool                          privacy_mode;
    bool                          mask_pii;
@@ -444,7 +445,7 @@ void xrsr_config_apply(json_t *json_obj_in) {
 
 bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, json_t *json_obj_vsdk) {
    json_t *json_obj_xraudio = NULL;
-   if(g_xrsr.opened) {
+   if(atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("already open");
       return(false);
    }
@@ -629,12 +630,12 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
       g_xrsr.local_mic_tap     = true;
    }
 
-   g_xrsr.opened       = true;
+   atomic_store(&g_xrsr.opened, true);
    return(true);
 }
 
 void xrsr_close(void) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return;
    }
@@ -652,7 +653,7 @@ void xrsr_close(void) {
       g_xrsr.capture_dir_path = NULL;
    }
 
-   g_xrsr.opened = false;
+   atomic_store(&g_xrsr.opened, false);
 }
 
 bool xrsr_threads_init(bool is_prod) {
@@ -948,7 +949,7 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
 }
 
 bool xrsr_route(const xrsr_route_t routes[]) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -995,7 +996,7 @@ bool xrsr_route(const xrsr_route_t routes[]) {
 }
 
 bool xrsr_host_name_set(const char *host_name) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -1017,7 +1018,7 @@ bool xrsr_host_name_set(const char *host_name) {
 }
 
 bool xrsr_keyword_config_set(const xrsr_keyword_config_t *keyword_config) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -1043,7 +1044,7 @@ bool xrsr_keyword_config_set(const xrsr_keyword_config_t *keyword_config) {
 }
 
 bool xrsr_keyword_sensitivity_limits_get(float *sensitivity_min, float *sensitivity_max) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -1072,7 +1073,7 @@ bool xrsr_keyword_sensitivity_limits_get(float *sensitivity_min, float *sensitiv
 }
 
 bool xrsr_capture_config_set(const xrsr_capture_config_t *capture_config) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -1133,7 +1134,7 @@ bool xrsr_capture_config_apply(const xrsr_capture_config_t *capture_config) {
 }
 
 bool xrsr_power_mode_set(xrsr_power_mode_t power_mode) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -1172,7 +1173,7 @@ bool xrsr_power_mode_set(xrsr_power_mode_t power_mode) {
 }
 
 bool xrsr_privacy_mode_set(bool enable) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -1204,7 +1205,7 @@ bool xrsr_privacy_mode_set(bool enable) {
 }
 
 bool xrsr_privacy_mode_get(bool *enabled) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -1235,7 +1236,7 @@ bool xrsr_privacy_mode_get(bool *enabled) {
 }
 
 bool xrsr_mask_pii_set(bool enable) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -1570,7 +1571,7 @@ bool xrsr_session_keyword_info_set(xrsr_src_t src, uint32_t keyword_begin, uint3
 }
 
 bool xrsr_session_capture_start(xrsr_audio_container_t container, const char *file_path, bool raw_mic_enable) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
@@ -1594,7 +1595,7 @@ bool xrsr_session_capture_start(xrsr_audio_container_t container, const char *fi
 }
 
 bool xrsr_session_capture_stop(void) {
-   if(!g_xrsr.opened) {
+   if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
       return(false);
    }
