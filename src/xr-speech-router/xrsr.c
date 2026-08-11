@@ -129,7 +129,7 @@ typedef struct {
 
 typedef struct {
    atomic_bool                   opened;
-   xrsr_power_mode_t             power_mode;
+   _Atomic(xrsr_power_mode_t)    power_mode;
    atomic_bool                   privacy_mode;
    bool                          mask_pii;
    xrsr_thread_info_t            threads[XRSR_THREAD_QTY];
@@ -616,7 +616,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    sem_wait(&semaphore);
    sem_destroy(&semaphore);
 
-   g_xrsr.power_mode        = power_mode;
+   atomic_store(&g_xrsr.power_mode, power_mode);
    atomic_store(&g_xrsr.privacy_mode, privacy_mode);
    g_xrsr.mask_pii          = mask_pii;
    
@@ -900,7 +900,7 @@ void xrsr_route_update(const char *host_name, const xrsr_route_t *route, xrsr_th
             params.prot               = url_parts.prot;
             params.host_name          = host_name;
             params.timer_obj          = state->timer_obj;
-            params.dst_params         = &dst_int->dst_param_ptrs[g_xrsr.power_mode];
+            params.dst_params         = &dst_int->dst_param_ptrs[atomic_load(&g_xrsr.power_mode)];
 
             if(!xrsr_ws_init(&dst_int->conn_state.ws, &params)) {
                XLOGD_ERROR("ws init");
@@ -1142,7 +1142,7 @@ bool xrsr_power_mode_set(xrsr_power_mode_t power_mode) {
       XLOGD_ERROR("invalid power mode <%s>", xrsr_power_mode_str(power_mode));
       return(false);
    }
-   if(g_xrsr.power_mode == power_mode) {
+   if(atomic_load(&g_xrsr.power_mode) == power_mode) {
       return(true);
    }
 
@@ -1162,7 +1162,7 @@ bool xrsr_power_mode_set(xrsr_power_mode_t power_mode) {
    sem_destroy(&semaphore);
 
    if(result) {
-      g_xrsr.power_mode = power_mode;
+      atomic_store(&g_xrsr.power_mode, power_mode);
 
       #ifdef WS_ENABLED
       g_xrsr.ws_json_config = (XRSR_POWER_MODE_LOW==power_mode) ? &g_xrsr.ws_json_config_lpm : &g_xrsr.ws_json_config_fpm;
