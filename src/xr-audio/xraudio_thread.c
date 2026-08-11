@@ -4833,7 +4833,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   }
                   capture_file = &instance->capture_internal.decoded;
                }
-               bytes_read = adpcm_decode(decoders->adpcm, buffer, bytes_read, (pcm_t *)inbuf, (adpcm_frame->size_packet - adpcm_frame->size_header) * 2, adpcm_frame, false);
+               bytes_read = adpcm_decode(decoders->adpcm, buffer, (uint32_t)bytes_read, (pcm_t *)inbuf, (adpcm_frame->size_packet - adpcm_frame->size_header) * 2, adpcm_frame, false);
                if(bytes_read < 0) {
                   XLOGD_ERROR("failed to decode adpcm");
                } else {
