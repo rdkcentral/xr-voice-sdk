@@ -5590,7 +5590,7 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
    ref_chan = 0;
    uint8_t kwd_chan = 0;
    for(uint8_t chan = 0; chan < chan_qty_total; ++chan) {
-      if(chan < params->dsp_config.input_asr_max_channel_qty) {
+      if(chan < params->dsp_config.input_asr_max_channel_qty && chan < XRAUDIO_INPUT_ASR_MAX_CHANNEL_QTY) {
          pi32 = &ppasr_output_buffers[chan].samples[0];
          pi16 = &session->frame_buffer_int16[chan].frames[session->frame_group_index].samples[0];
          pf32 = &session->frame_buffer_fp32[chan].frames[session->frame_group_index].samples[0];
