@@ -130,7 +130,7 @@ typedef struct {
 typedef struct {
    atomic_bool                   opened;
    xrsr_power_mode_t             power_mode;
-   bool                          privacy_mode;
+   atomic_bool                   privacy_mode;
    bool                          mask_pii;
    xrsr_thread_info_t            threads[XRSR_THREAD_QTY];
    xrsr_route_int_t              routes[XRSR_SRC_INVALID];
@@ -617,7 +617,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    sem_destroy(&semaphore);
 
    g_xrsr.power_mode        = power_mode;
-   g_xrsr.privacy_mode      = privacy_mode;
+   atomic_store(&g_xrsr.privacy_mode, privacy_mode);
    g_xrsr.mask_pii          = mask_pii;
    
    if(!vsdk_hal_in_enabled()) {
@@ -1177,7 +1177,7 @@ bool xrsr_privacy_mode_set(bool enable) {
       XLOGD_ERROR("not opened");
       return(false);
    }
-   if(g_xrsr.privacy_mode == enable) {
+   if(atomic_load(&g_xrsr.privacy_mode) == enable) {
       XLOGD_WARN("already %s", enable ? "enabled" : "disabled");
       return(true);
    }
@@ -1198,7 +1198,7 @@ bool xrsr_privacy_mode_set(bool enable) {
    sem_destroy(&semaphore);
 
    if(result) {
-      g_xrsr.privacy_mode = enable;
+      atomic_store(&g_xrsr.privacy_mode, enable);
    }
 
    return(result);
@@ -1229,7 +1229,7 @@ bool xrsr_privacy_mode_get(bool *enabled) {
    if(!result) {
       XLOGD_ERROR("failed to get privacy mode");
    } else {
-      g_xrsr.privacy_mode = *enabled;
+      atomic_store(&g_xrsr.privacy_mode, *enabled);
    }
 
    return(result);
