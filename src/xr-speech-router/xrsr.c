@@ -603,6 +603,10 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
       return(false);
    }
 
+   atomic_store(&g_xrsr.power_mode, power_mode);
+   atomic_store(&g_xrsr.privacy_mode, privacy_mode);
+   g_xrsr.mask_pii = mask_pii;
+
    // Send the route information
    sem_t semaphore;
    sem_init(&semaphore, 0, 0);
@@ -615,10 +619,6 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    xrsr_queue_msg_push(xrsr_msgq_fd_get(), (const char *)&msg, sizeof(msg));
    sem_wait(&semaphore);
    sem_destroy(&semaphore);
-
-   atomic_store(&g_xrsr.power_mode, power_mode);
-   atomic_store(&g_xrsr.privacy_mode, privacy_mode);
-   g_xrsr.mask_pii          = mask_pii;
    
    if(!vsdk_hal_in_enabled()) {
       g_xrsr.networked_standby = false;
