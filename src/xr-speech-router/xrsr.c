@@ -665,6 +665,7 @@ void xrsr_close(void) {
    }
 
    atomic_store(&g_xrsr.opened, false);
+   pthread_mutex_unlock(&g_xrsr_open_close_mutex);
 }
 
 bool xrsr_threads_init(bool is_prod) {
