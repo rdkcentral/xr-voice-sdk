@@ -217,6 +217,7 @@ static const xrsr_msg_handler_t g_xrsr_msg_handlers[XRSR_QUEUE_MSG_TYPE_INVALID]
 };
 
 static xrsr_global_t g_xrsr;
+static pthread_mutex_t g_xrsr_open_close_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static bool xrsr_threads_init(bool is_prod);
 static void xrsr_threads_term(void);
@@ -445,16 +446,20 @@ void xrsr_config_apply(json_t *json_obj_in) {
 
 bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_keyword_config_t *keyword_config, const xrsr_capture_config_t *capture_config, xrsr_power_mode_t power_mode, bool privacy_mode, bool mask_pii, json_t *json_obj_vsdk) {
    json_t *json_obj_xraudio = NULL;
+   pthread_mutex_lock(&g_xrsr_open_close_mutex);
    if(atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("already open");
+      pthread_mutex_unlock(&g_xrsr_open_close_mutex);
       return(false);
    }
    if(routes == NULL) {
       XLOGD_ERROR("invalid parameter");
+      pthread_mutex_unlock(&g_xrsr_open_close_mutex);
       return(false);
    }
    if((uint32_t)power_mode >= XRSR_POWER_MODE_INVALID) {
       XLOGD_ERROR("invalid power mode <%s>", xrsr_power_mode_str(power_mode));
+      pthread_mutex_unlock(&g_xrsr_open_close_mutex);
       return(false);
    }
 
@@ -530,6 +535,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
          XLOGD_ERROR("unable to dump JSON object");
          json_decref(json_obj_final);
          json_obj_final = NULL;
+         pthread_mutex_unlock(&g_xrsr_open_close_mutex);
          return(false);
       } else {
          XLOGD_INFO_OPTS(XLOG_OPTS_DEFAULT, 20 * 1024, "Final configuration:\n%s", json_dump);
@@ -578,6 +584,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
             json_decref(json_obj_final);
             json_obj_final = NULL;
          }
+         pthread_mutex_unlock(&g_xrsr_open_close_mutex);
          return(false);
    }
 
@@ -600,6 +607,7 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
 
    if(!xrsr_threads_init(false)) {
       XLOGD_ERROR("thread init failed");
+      pthread_mutex_unlock(&g_xrsr_open_close_mutex);
       return(false);
    }
 
@@ -631,12 +639,15 @@ bool xrsr_open(const char *host_name, const xrsr_route_t routes[], const xrsr_ke
    }
 
    atomic_store(&g_xrsr.opened, true);
+   pthread_mutex_unlock(&g_xrsr_open_close_mutex);
    return(true);
 }
 
 void xrsr_close(void) {
+   pthread_mutex_lock(&g_xrsr_open_close_mutex);
    if(!atomic_load(&g_xrsr.opened)) {
       XLOGD_ERROR("not opened");
+      pthread_mutex_unlock(&g_xrsr_open_close_mutex);
       return;
    }
    XLOGD_INFO("");
