@@ -4833,7 +4833,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                   }
                   capture_file = &instance->capture_internal.decoded;
                }
-               bytes_read = adpcm_decode(decoders->adpcm, buffer, bytes_read, (pcm_t *)inbuf, (adpcm_frame->size_packet - adpcm_frame->size_header) * 2, adpcm_frame, false);
+               bytes_read = adpcm_decode(decoders->adpcm, buffer, (uint32_t)bytes_read, (pcm_t *)inbuf, (adpcm_frame->size_packet - adpcm_frame->size_header) * 2, adpcm_frame, false);
                if(bytes_read < 0) {
                   XLOGD_ERROR("failed to decode adpcm");
                } else {
@@ -5590,7 +5590,7 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
    ref_chan = 0;
    uint8_t kwd_chan = 0;
    for(uint8_t chan = 0; chan < chan_qty_total; ++chan) {
-      if(chan < params->dsp_config.input_asr_max_channel_qty) {
+      if(chan < params->dsp_config.input_asr_max_channel_qty && chan < XRAUDIO_INPUT_ASR_MAX_CHANNEL_QTY) {
          pi32 = &ppasr_output_buffers[chan].samples[0];
          pi16 = &session->frame_buffer_int16[chan].frames[session->frame_group_index].samples[0];
          pf32 = &session->frame_buffer_fp32[chan].frames[session->frame_group_index].samples[0];
