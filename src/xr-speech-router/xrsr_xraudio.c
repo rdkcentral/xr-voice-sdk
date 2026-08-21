@@ -568,9 +568,6 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
       return;
    }
 
-   // Stop the detector
-   xrsr_xraudio_keyword_detect_stop(obj);
-
    // Call the appropriate handler based on the source
    xrsr_keyword_detect_error(src);
 
@@ -583,11 +580,6 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
       #else
       xrsr_xraudio_device_granted(obj);
       #endif
-   }
-
-   // TODO Should the app determine what to do here?
-   if(obj->detect_active) { // Start detector again
-      xrsr_xraudio_keyword_detect_start(obj);
    }
 }
 

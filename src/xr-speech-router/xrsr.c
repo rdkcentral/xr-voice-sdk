@@ -674,7 +674,7 @@ bool xrsr_threads_init(bool is_prod) {
    // Launch threads
    xrsr_thread_info_t *info;
    info             = &g_xrsr.threads[XRSR_THREAD_MAIN];
-   info->name       = "main";
+   info->name       = "Voice SDK";
    info->msgq_id    = -1;
    info->msgsize    = XRSR_MSG_QUEUE_MSG_SIZE_MAX;
    info->func       = xrsr_thread_main;

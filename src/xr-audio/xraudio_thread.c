@@ -2095,7 +2095,8 @@ void xraudio_msg_privacy_mode(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    // Call HAL to enter the privacy mode
-   if(state->params.kwd_plugin != NULL && !state->params.hal_plugin->privacy_mode(state->params.hal_obj, privacy_mode->enable)) {
+
+   if(state->params.kwd_plugin != NULL && state->record.recording && !state->params.hal_plugin->privacy_mode(state->params.hal_obj, privacy_mode->enable)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
 
