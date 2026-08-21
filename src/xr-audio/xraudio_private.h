@@ -97,7 +97,8 @@ typedef enum {
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_PRIVACY_MODE_GET                = 22,
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_CAPTURE_PARAMS_SET              = 23,
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_INPUT_SOURCE_FD_SET             = 24,
-   XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID                         = 25,
+   XRAUDIO_MAIN_QUEUE_MSG_TYPE_STREAM_KEYWORD_INFO             = 25,
+   XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID                         = 26,
 } xraudio_main_queue_msg_type_t;
 
 #ifdef XRAUDIO_RESOURCE_MGMT
@@ -411,6 +412,17 @@ typedef struct {
    sem_t *                           semaphore;
    xraudio_result_t *                result;
 } xraudio_main_queue_msg_input_source_fd_set_t;
+
+// Wake word detection details that arrive after the stream has already started
+typedef struct {
+   xraudio_main_queue_msg_header_t   header;
+   xraudio_devices_input_t           source;
+   int32_t                           keyword_begin;
+   int32_t                           keyword_end;
+   float                             confidence;
+   sem_t *                           semaphore;
+   xraudio_result_t *                result;
+} xraudio_main_queue_msg_stream_keyword_info_t;
 
 #ifdef __cplusplus
 extern "C" {

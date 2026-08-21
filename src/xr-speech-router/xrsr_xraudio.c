@@ -868,6 +868,27 @@ bool xrsr_xraudio_input_source_fd_set(xrsr_xraudio_object_t object, xrsr_src_t s
    return(true);
 }
 
+bool xrsr_xraudio_stream_keyword_info_update(xrsr_xraudio_object_t object, xrsr_src_t src, int32_t keyword_begin, int32_t keyword_end, float confidence) {
+   xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
+
+   if(!xrsr_xraudio_object_is_valid(obj)) {
+      XLOGD_ERROR("invalid xrsr xraudio object");
+      return(false);
+   }
+   if(obj->xraudio_state != XRSR_XRAUDIO_STATE_OPENED) {
+      XLOGD_ERROR("invalid state <%s>", xrsr_xraudio_state_str(obj->xraudio_state));
+      return(false);
+   }
+
+   xraudio_result_t result = xraudio_stream_keyword_info_update(obj->xraudio_obj, xrsr_xrsr_src_to_xraudio(src), keyword_begin, keyword_end, confidence);
+   if(result != XRAUDIO_RESULT_OK) {
+      XLOGD_ERROR("src <%s> unable to update stream keyword info <%s>", xrsr_src_str(src), xraudio_result_str(result));
+      return(false);
+   }
+
+   return(true);
+}
+
 xrsr_src_t xrsr_xraudio_src_to_xrsr(xraudio_devices_input_t src) {
    switch(src) {
       case XRAUDIO_DEVICE_INPUT_PTT:     return(XRSR_SRC_RCU_PTT);
