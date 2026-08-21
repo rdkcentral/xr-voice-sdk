@@ -409,6 +409,9 @@ xraudio_result_t xraudio_stream_time_minimum(xraudio_object_t object, xraudio_de
 /// @brief Indicates information about the keyword present in the stream
 /// @details This function sets the keyword information.
 xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_devices_input_t source, uint32_t keyword_begin, uint32_t keyword_duration);
+/// @brief Updates keyword information for a stream that is already in progress
+/// @details This function supplies wake word endpoints and confidence that arrive after streaming has begun (for example BLE MFV detection data) to the active session.
+xraudio_result_t xraudio_stream_keyword_info_update(xraudio_object_t object, xraudio_devices_input_t source, int32_t keyword_begin, int32_t keyword_end, float confidence);
 /// @brief Obtains information about the keyword to be inserted into the stream - for example device DSP detected keyword and initiates a session
 //  @details This function queries the HAL for keyword information
 xraudio_result_t xraudio_stream_keyword_info_get(xraudio_object_t object, xraudio_devices_input_t source, xraudio_keyword_detector_result_t *keyword_result);

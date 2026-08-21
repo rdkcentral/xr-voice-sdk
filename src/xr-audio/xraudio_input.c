@@ -1069,6 +1069,34 @@ xraudio_result_t xraudio_input_source_fd_set(xraudio_input_object_t object, xrau
    return(result);
 }
 
+xraudio_result_t xraudio_input_stream_keyword_info_update(xraudio_input_object_t object, xraudio_devices_input_t source, int32_t keyword_begin, int32_t keyword_end, float confidence) {
+   xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
+   if(!xraudio_input_object_is_valid(obj)) {
+      XLOGD_ERROR("Invalid object.");
+      return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+
+   xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
+   sem_t semaphore;
+   sem_init(&semaphore, 0, 0);
+
+   xraudio_main_queue_msg_stream_keyword_info_t msg;
+   msg.header.type   = XRAUDIO_MAIN_QUEUE_MSG_TYPE_STREAM_KEYWORD_INFO;
+   msg.source        = source;
+   msg.keyword_begin = keyword_begin;
+   msg.keyword_end   = keyword_end;
+   msg.confidence    = confidence;
+   msg.semaphore     = &semaphore;
+   msg.result        = &result;
+
+   xraudio_input_queue_msg_push(obj, (const char *)&msg, sizeof(msg));
+
+   sem_wait(&semaphore);
+   sem_destroy(&semaphore);
+
+   return(result);
+}
+
 xraudio_result_t xraudio_input_sound_intensity_transfer(xraudio_input_object_t object, const char *fifo_name) {
    xraudio_input_obj_t *obj = (xraudio_input_obj_t *)object;
    if(!xraudio_input_object_is_valid(obj)) {

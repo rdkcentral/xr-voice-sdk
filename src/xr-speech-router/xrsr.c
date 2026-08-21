@@ -2800,6 +2800,13 @@ void xrsr_msg_session_stream_params(const xrsr_thread_params_t *params, xrsr_thr
 
    XLOGD_INFO("src <%s> stream params %s begin <%u> end <%u> confidence <%.3f>", xrsr_src_str(src), stream_params->valid ? "valid" : "invalid (release only)", stream_params->keyword_sample_begin, stream_params->keyword_sample_end, stream_params->confidence);
 
+   // Hand the wake word detection details to xraudio so the MFV plugin session gets them
+   if(stream_params->valid) {
+      if(!xrsr_xraudio_stream_keyword_info_update(g_xrsr.xrsr_xraudio_object, src, (int32_t)stream_params->keyword_sample_begin, (int32_t)stream_params->keyword_sample_end, (float)stream_params->confidence)) {
+         XLOGD_WARN("src <%s> unable to update xraudio stream keyword info", xrsr_src_str(src));
+      }
+   }
+
    // Release any connect that was held in the buffering state waiting for these parameters.
    #ifdef WS_ENABLED
    for(uint32_t index_dst = 0; index_dst < XRSR_DST_QTY_MAX; index_dst++) {

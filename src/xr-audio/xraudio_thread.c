@@ -24,6 +24,7 @@
 #include <string.h>
 #include <time.h>
 #include <sys/select.h>
+#include <poll.h>
 #include <unistd.h>
 #include <dirent.h>
 #include <errno.h>
@@ -100,6 +101,19 @@
 #define PCM_16_BIT_MIN (-32768)
 
 #define XRAUDIO_PRE_KWD_STREAM_LAG_SAMPLES (1600)
+
+// Fallback end of speech timeout for mid-field voice sessions when no MFV plugin reports EOS detection
+#ifndef XRAUDIO_MFV_EOS_TIMEOUT_MS
+#define XRAUDIO_MFV_EOS_TIMEOUT_MS (5000)
+#endif
+
+// Maximum time to wait for the MFV plugin to deliver a frame of processed audio on its output stream
+#ifndef XRAUDIO_MFV_OUTPUT_TIMEOUT_MS
+#define XRAUDIO_MFV_OUTPUT_TIMEOUT_MS (20)
+#endif
+
+// Consecutive failures on the MFV processed audio stream before it is abandoned for the session
+#define XRAUDIO_MFV_OUTPUT_FAILURE_QTY_MAX (3)
 
 struct xraudio_session_record_t;
 typedef struct xraudio_session_record_t xraudio_session_record_t;
@@ -279,6 +293,15 @@ struct xraudio_session_record_t {
    xraudio_dga_object_t           obj_dga;
    xraudio_mfv_object_t           obj_mfv;
    bool                           mfv_session_active;
+   bool                           mfv_kwd_info_valid;
+   xraudio_mfv_keyword_info_t     mfv_kwd_info;
+   bool                           mfv_eos_timeout_active;
+   rdkx_timestamp_t               mfv_eos_timeout_expiration;
+   int                            mfv_output_fd; // read side of the plugin's processed audio stream (owned by the plugin)
+   uint32_t                       mfv_output_bytes;
+   uint8_t                        mfv_output_failures;
+   uint8_t                        mfv_output_buffer[XRAUDIO_INPUT_EXTERNAL_FRAME_SAMPLE_QTY * sizeof(int16_t)];
+   bool                           mfv_keyword_invalid;
    bool                           dynamic_gain_enabled;
    xraudio_keyword_detector_t     keyword_detector;
    xraudio_eos_detector_t         eos_detector;
@@ -484,12 +507,14 @@ static void xraudio_msg_privacy_mode(xraudio_thread_state_t *state, void *msg);
 static void xraudio_msg_privacy_mode_get(xraudio_thread_state_t *state, void *msg);
 static void xraudio_msg_capture_params_set(xraudio_thread_state_t *state, void *msg);
 static void xraudio_msg_input_source_fd_set(xraudio_thread_state_t *state, void *msg);
+static void xraudio_msg_stream_keyword_info(xraudio_thread_state_t *state, void *msg);
 
 static void xraudio_encoding_parameters_get(xraudio_input_format_t *format, uint32_t frame_duration, uint32_t *frame_size, uint16_t stream_time_min_ms, uint32_t *min_audio_data_len);
 static bool xraudio_in_aop_adjust_apply(int32_t *buffer, uint32_t sample_qty_frame, int8_t input_aop_adjust_shift);
 static void xraudio_capture_file_size_max_verify(uint32_t *file_size_max);
 
 static bool xraudio_mfv_msg_callback(void *msg);
+static bool xraudio_mfv_output_frame_get(xraudio_session_record_t *session, uint8_t *frame, uint32_t byte_qty);
 
 static const xraudio_msg_handler_t g_xraudio_msg_handlers[XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID] = {
    xraudio_msg_record_idle_start,
@@ -516,7 +541,8 @@ static const xraudio_msg_handler_t g_xraudio_msg_handlers[XRAUDIO_MAIN_QUEUE_MSG
    xraudio_msg_privacy_mode,
    xraudio_msg_privacy_mode_get,
    xraudio_msg_capture_params_set,
-   xraudio_msg_input_source_fd_set
+   xraudio_msg_input_source_fd_set,
+   xraudio_msg_stream_keyword_info
 };
 
 #ifdef MASK_FIRST_WRITE_DELAY
@@ -724,6 +750,12 @@ void *xraudio_main_thread(void *param) {
    }
 
    state->record.devices_input                = XRAUDIO_DEVICE_INPUT_NONE;
+   state->record.mfv_kwd_info_valid            = false;
+   state->record.mfv_eos_timeout_active       = false;
+   state->record.mfv_output_fd                = -1;
+   state->record.mfv_output_bytes             = 0;
+   state->record.mfv_output_failures          = 0;
+   state->record.mfv_keyword_invalid          = false;
    state->record.timestamp_next               = (rdkx_timestamp_t) { .tv_sec = 0, .tv_nsec = 0 };
    memset(state->record.frame_buffer_int16, 0, sizeof(state->record.frame_buffer_int16));
    memset(state->record.frame_buffer_fp32, 0, sizeof(state->record.frame_buffer_fp32));
@@ -942,6 +974,8 @@ void *xraudio_main_thread(void *param) {
       if(state->record.mfv_session_active) {
          state->params.mfv_plugin->session_close(state->record.obj_mfv, NULL);
          state->record.mfv_session_active = false;
+         state->record.mfv_output_fd      = -1;
+         state->record.mfv_output_bytes   = 0;
       }
       state->params.mfv_plugin->object_destroy(state->record.obj_mfv);
       state->record.obj_mfv = NULL;
@@ -1288,35 +1322,70 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       }
 
       // Open MFV session for MFV source devices
-      if(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source) == XRAUDIO_DEVICE_INPUT_MFV &&
-         state->params.mfv_plugin != NULL && state->record.obj_mfv != NULL) {
-         xraudio_mfv_session_info_t mfv_info;
-         mfv_info.apply_gain           = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_AUDIO_GAIN)     ? true : false;
-         mfv_info.validate_keyword     = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_KWD_VALIDATION) ? true : false;
-         mfv_info.detect_end_of_speech = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_EOS_DETECTION)  ? true : false;
+      state->record.mfv_eos_timeout_active = false;
+      state->record.mfv_output_fd          = -1;
+      state->record.mfv_output_bytes       = 0;
+      state->record.mfv_output_failures    = 0;
+      state->record.mfv_keyword_invalid    = false;
+      if(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source) == XRAUDIO_DEVICE_INPUT_MFV) {
+         if(state->params.mfv_plugin != NULL && state->record.obj_mfv != NULL) {
+            xraudio_mfv_session_info_t mfv_info;
+            mfv_info.apply_gain           = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_AUDIO_GAIN)     ? true : false;
+            mfv_info.validate_keyword     = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_KWD_VALIDATION) ? true : false;
+            mfv_info.detect_end_of_speech = (state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_EOS_DETECTION)  ? true : false;
 
-         int mfv_output_fd = -1;
-         xraudio_mfv_result_t mfv_result = state->params.mfv_plugin->session_open(state->record.obj_mfv, &mfv_info, &mfv_output_fd, xraudio_mfv_msg_callback);
-         if(mfv_result != XRAUDIO_MFV_RESULT_SUCCESS) {
-            XLOGD_ERROR("MFV session open failed <%s>", xraudio_mfv_result_str(mfv_result));
-         } else {
-            state->record.mfv_session_active = true;
-            XLOGD_INFO("MFV session opened successfully");
+            int mfv_output_fd = -1;
+            xraudio_mfv_result_t mfv_result = state->params.mfv_plugin->session_open(state->record.obj_mfv, &mfv_info, &mfv_output_fd, xraudio_mfv_msg_callback);
+            if(mfv_result != XRAUDIO_MFV_RESULT_SUCCESS) {
+               XLOGD_ERROR("MFV session open failed <%s>", xraudio_mfv_result_str(mfv_result));
+            } else {
+               state->record.mfv_session_active = true;
+               // The processed audio stream is only consumed when the plugin was asked to apply gain
+               state->record.mfv_output_fd      = mfv_info.apply_gain ? mfv_output_fd : -1;
+               XLOGD_INFO("MFV session opened - gain <%s> kwd validation <%s> eos detection <%s> processed audio fd <%d>",
+                          mfv_info.apply_gain ? "YES" : "NO", mfv_info.validate_keyword ? "YES" : "NO", mfv_info.detect_end_of_speech ? "YES" : "NO", state->record.mfv_output_fd);
 
-            // Provide keyword detection info to MFV plugin before audio processing begins
-            if(record->stream_keyword_duration != 0 && state->params.mfv_plugin->session_info != NULL) {
-               xraudio_mfv_keyword_info_t mfv_kwd_info;
-               memset(&mfv_kwd_info, 0, sizeof(mfv_kwd_info));
-               mfv_kwd_info.keyword_start = (int32_t)record->stream_keyword_begin;
-               mfv_kwd_info.keyword_end   = (int32_t)(record->stream_keyword_begin + record->stream_keyword_duration);
-               xraudio_mfv_result_t info_result = state->params.mfv_plugin->session_info(state->record.obj_mfv, &mfv_kwd_info);
-               if(info_result != XRAUDIO_MFV_RESULT_SUCCESS) {
-                  XLOGD_WARN("MFV session_info failed <%s>", xraudio_mfv_result_str(info_result));
-               } else {
-                  XLOGD_INFO("MFV session_info set - start <%d> end <%d>",
-                             mfv_kwd_info.keyword_start, mfv_kwd_info.keyword_end);
+               if(mfv_info.apply_gain && mfv_output_fd < 0) {
+                  XLOGD_WARN("MFV gain is enabled but no processed audio stream was provided, streaming unprocessed audio");
+               }
+
+               // Keyword info is normally supplied after the stream starts, but apply it now if it is already known
+               if(state->params.mfv_plugin->session_info != NULL) {
+                  xraudio_mfv_keyword_info_t mfv_kwd_info;
+                  bool mfv_kwd_info_valid = false;
+
+                  if(state->record.mfv_kwd_info_valid) {
+                     mfv_kwd_info       = state->record.mfv_kwd_info;
+                     mfv_kwd_info_valid = true;
+                  } else if(record->stream_keyword_duration != 0) {
+                     memset(&mfv_kwd_info, 0, sizeof(mfv_kwd_info));
+                     mfv_kwd_info.detection     = XRAUDIO_MFV_DETECTION_ACTIVE;
+                     mfv_kwd_info.keyword_start = (int32_t)record->stream_keyword_begin;
+                     mfv_kwd_info.keyword_end   = (int32_t)(record->stream_keyword_begin + record->stream_keyword_duration);
+                     mfv_kwd_info.confidence    = -1.0f;
+                     mfv_kwd_info_valid         = true;
+                  }
+
+                  if(mfv_kwd_info_valid) {
+                     xraudio_mfv_result_t info_result = state->params.mfv_plugin->session_info(state->record.obj_mfv, &mfv_kwd_info);
+                     if(info_result != XRAUDIO_MFV_RESULT_SUCCESS) {
+                        XLOGD_WARN("MFV session_info failed <%s>", xraudio_mfv_result_str(info_result));
+                     } else {
+                        XLOGD_INFO("MFV session_info set - start <%d> end <%d> confidence <%.3f>",
+                                   mfv_kwd_info.keyword_start, mfv_kwd_info.keyword_end, mfv_kwd_info.confidence);
+                     }
+                  }
                }
             }
+         }
+
+         bool mfv_plugin_eos = (state->params.mfv_plugin != NULL) && state->record.mfv_session_active &&
+                               ((state->params.mfv_plugin->capabilities & XRAUDIO_MFV_CAPS_EOS_DETECTION) != 0);
+         if(!mfv_plugin_eos) { // No plugin based end of speech detection, fall back to a fixed duration timeout
+            rdkx_timestamp_get(&state->record.mfv_eos_timeout_expiration);
+            rdkx_timestamp_add_us(&state->record.mfv_eos_timeout_expiration, XRAUDIO_MFV_EOS_TIMEOUT_MS * 1000);
+            state->record.mfv_eos_timeout_active = true;
+            XLOGD_INFO("MFV end of speech timeout armed <%d ms>", XRAUDIO_MFV_EOS_TIMEOUT_MS);
          }
       }
    } else {
@@ -1426,6 +1495,19 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
    }
 
    if(!more_streams) {
+      state->record.mfv_eos_timeout_active = false;
+
+      // Close the MFV session here as well so that it can't process audio from a subsequent session
+      if(state->record.mfv_session_active && state->params.mfv_plugin != NULL && state->record.obj_mfv != NULL) {
+         state->params.mfv_plugin->session_close(state->record.obj_mfv, NULL);
+         state->record.mfv_session_active  = false;
+         state->record.mfv_kwd_info_valid  = false;
+         state->record.mfv_output_fd       = -1;
+         state->record.mfv_output_bytes    = 0;
+         state->record.mfv_output_failures = 0;
+         state->record.mfv_keyword_invalid = false;
+      }
+
       // Flush any partial data
       xraudio_in_flush(stop->source, &state->params, &state->record, instance);
 
@@ -2266,6 +2348,7 @@ void xraudio_msg_input_source_fd_set(xraudio_thread_state_t *state, void *msg) {
       state->record.external_fd        = input_source_fd_set->fd;
       state->record.external_callback  = input_source_fd_set->callback;
       state->record.external_user_data = input_source_fd_set->user_data;
+      state->record.mfv_kwd_info_valid = false;
 
       XLOGD_INFO("src <%s> fd <%d> encoding <%s>", xraudio_devices_input_str(input_source_fd_set->source), state->record.external_fd, xraudio_encoding_str(state->record.external_format.encoding.type));
    }
@@ -2275,6 +2358,37 @@ void xraudio_msg_input_source_fd_set(xraudio_thread_state_t *state, void *msg) {
          *(input_source_fd_set->result) = result;
       }
       sem_post(input_source_fd_set->semaphore);
+   }
+}
+
+void xraudio_msg_stream_keyword_info(xraudio_thread_state_t *state, void *msg) {
+   xraudio_main_queue_msg_stream_keyword_info_t *kwd_info = (xraudio_main_queue_msg_stream_keyword_info_t *)msg;
+
+   xraudio_result_t result = XRAUDIO_RESULT_OK;
+
+   XLOGD_INFO("src <%s> keyword begin <%d> end <%d> confidence <%.3f>", xraudio_devices_input_str(kwd_info->source), kwd_info->keyword_begin, kwd_info->keyword_end, kwd_info->confidence);
+
+   memset(&state->record.mfv_kwd_info, 0, sizeof(state->record.mfv_kwd_info));
+   state->record.mfv_kwd_info.detection     = XRAUDIO_MFV_DETECTION_ACTIVE;
+   state->record.mfv_kwd_info.keyword_start = kwd_info->keyword_begin;
+   state->record.mfv_kwd_info.keyword_end   = kwd_info->keyword_end;
+   state->record.mfv_kwd_info.confidence    = kwd_info->confidence;
+   state->record.mfv_kwd_info_valid         = true;
+
+   // Apply immediately when the MFV session is already open, otherwise it is applied at session open
+   if(state->record.mfv_session_active && state->params.mfv_plugin != NULL && state->params.mfv_plugin->session_info != NULL && state->record.obj_mfv != NULL) {
+      xraudio_mfv_result_t info_result = state->params.mfv_plugin->session_info(state->record.obj_mfv, &state->record.mfv_kwd_info);
+      if(info_result != XRAUDIO_MFV_RESULT_SUCCESS) {
+         XLOGD_ERROR("MFV session_info failed <%s>", xraudio_mfv_result_str(info_result));
+         result = XRAUDIO_RESULT_ERROR_INTERNAL;
+      }
+   }
+
+   if(kwd_info->semaphore != NULL) {
+      if(kwd_info->result != NULL) {
+         *(kwd_info->result) = result;
+      }
+      sem_post(kwd_info->semaphore);
    }
 }
 
@@ -4879,6 +4993,59 @@ ssize_t xraudio_external_fd_read(xraudio_session_record_t *session, void *buf, s
    return(retcode);
 }
 
+// Retrieve one frame of processed audio from the MFV plugin's output stream. Partial data is retained so that frame alignment is kept across calls.
+bool xraudio_mfv_output_frame_get(xraudio_session_record_t *session, uint8_t *frame, uint32_t byte_qty) {
+   if(session->mfv_output_fd < 0 || byte_qty == 0 || byte_qty > sizeof(session->mfv_output_buffer)) {
+      XLOGD_ERROR("invalid params - fd <%d> byte qty <%u>", session->mfv_output_fd, byte_qty);
+      return(false);
+   }
+
+   rdkx_timestamp_t timeout;
+   rdkx_timestamp_get(&timeout);
+   rdkx_timestamp_add_us(&timeout, XRAUDIO_MFV_OUTPUT_TIMEOUT_MS * 1000);
+
+   while(session->mfv_output_bytes < byte_qty) {
+      unsigned long long remaining_us = rdkx_timestamp_until_us(timeout);
+      if(remaining_us == 0) {
+         XLOGD_WARN("MFV processed audio timeout - read <%u> of <%u> bytes", session->mfv_output_bytes, byte_qty);
+         return(false);
+      }
+
+      struct pollfd pfd = { .fd = session->mfv_output_fd, .events = POLLIN, .revents = 0 };
+      errno = 0;
+      int rc = poll(&pfd, 1, (int)(remaining_us / 1000) + 1);
+      if(rc < 0) {
+         if(errno == EINTR) {
+            continue;
+         }
+         int errsv = errno;
+         XLOGD_ERROR("MFV processed audio poll error <%s>", strerror(errsv));
+         return(false);
+      } else if(rc == 0) {
+         continue;
+      }
+
+      errno = 0;
+      ssize_t bytes = read(session->mfv_output_fd, &session->mfv_output_buffer[session->mfv_output_bytes], byte_qty - session->mfv_output_bytes);
+      if(bytes < 0) {
+         if(errno == EINTR || errno == EAGAIN) {
+            continue;
+         }
+         int errsv = errno;
+         XLOGD_ERROR("MFV processed audio read error <%s>", strerror(errsv));
+         return(false);
+      } else if(bytes == 0) {
+         XLOGD_WARN("MFV processed audio stream closed");
+         return(false);
+      }
+      session->mfv_output_bytes += bytes;
+   }
+
+   memcpy(frame, session->mfv_output_buffer, byte_qty);
+   session->mfv_output_bytes = 0;
+   return(true);
+}
+
 void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, xraudio_decoders_t *decoders) {
    xraudio_session_record_inst_t *instance = &session->instances[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
    xraudio_capture_file_t *capture_file = &instance->capture_internal.native;
@@ -4921,10 +5088,25 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                      if(rc != XRAUDIO_MFV_RESULT_SUCCESS) {
                         XLOGD_ERROR("MFV process audio failed <%s>", xraudio_mfv_result_str(rc));
                      } else {
+                        // Replace the frame with the plugin's processed audio so that the gain adjusted stream is the one delivered downstream
+                        if(session->mfv_output_fd >= 0) {
+                           if(xraudio_mfv_output_frame_get(session, inbuf, (uint32_t)bytes_read)) {
+                              session->mfv_output_failures = 0;
+                           } else {
+                              session->mfv_output_failures++;
+                              XLOGD_WARN("MFV processed audio unavailable <%u>, streaming unprocessed audio", session->mfv_output_failures);
+                              if(session->mfv_output_failures >= XRAUDIO_MFV_OUTPUT_FAILURE_QTY_MAX) { // Stop reading so that the plugin's stream can't stall the audio thread
+                                 XLOGD_ERROR("MFV processed audio stream abandoned");
+                                 session->mfv_output_fd    = -1;
+                                 session->mfv_output_bytes = 0;
+                              }
+                           }
+                        }
                         if(mfv_result.is_keyword_invalid) {
                            XLOGD_WARN("MFV declared keyword invalid");
-                        }
-                        if(mfv_result.is_end_of_speech) {
+                           session->mfv_keyword_invalid = true;
+                           bytes_read = 0; // Abort the session, the keyword was not verified
+                        } else if(mfv_result.is_end_of_speech) {
                            XLOGD_INFO("MFV detected end of speech");
                            bytes_read = 0; // Signal EOS to trigger session close
                         }
@@ -5092,12 +5274,23 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
       }
    }
 
+   if(bytes_read > 0 && session->mfv_eos_timeout_active && rdkx_timestamp_until_us(session->mfv_eos_timeout_expiration) == 0) {
+      XLOGD_INFO("MFV end of speech timeout expired <%d ms>", XRAUDIO_MFV_EOS_TIMEOUT_MS);
+      bytes_read = 0; // Signal EOS to trigger session close
+   }
+
    if(bytes_read <= 0) {
+      session->mfv_eos_timeout_active = false;
+
       // Close MFV session if active
       if(session->mfv_session_active && params->mfv_plugin != NULL && session->obj_mfv != NULL) {
          xraudio_mfv_session_stats_t mfv_stats;
          params->mfv_plugin->session_close(session->obj_mfv, &mfv_stats);
          session->mfv_session_active = false;
+         session->mfv_kwd_info_valid = false;
+         session->mfv_output_fd      = -1; // The plugin owns the processed audio stream and closes it with the session
+         session->mfv_output_bytes   = 0;
+         session->mfv_output_failures = 0;
          XLOGD_INFO("MFV session closed - samples <%u> kwd <%s,%.2f> eos <%s> gain <%s,%.2f>",
                     mfv_stats.total_audio_samples,
                     mfv_stats.keyword_validated ? "true" : "false",
@@ -5139,6 +5332,8 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                instance->semaphore = NULL;
             }
          } else if(instance->callback != NULL){
+            // An unverified keyword is reported as an error so that the session is terminated rather than completed
+            audio_in_callback_event_t event = session->mfv_keyword_invalid ? AUDIO_IN_CALLBACK_EVENT_ERROR : AUDIO_IN_CALLBACK_EVENT_EOS;
             switch(enc_input) {
                case XRAUDIO_ENCODING_ADPCM_FRAME: {
                   xraudio_audio_stats_t stats;
@@ -5153,15 +5348,16 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                      stats.decoder_failures     = adpcm_stats.failed_decodes;
                      stats.samples_buffered_max = 0;
                   }
-                  (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, &stats, instance->param);
+                  (*instance->callback)(instance->source, event, &stats, instance->param);
                   break;
                }
                default: {
-                  (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_EOS, NULL, instance->param);
+                  (*instance->callback)(instance->source, event, NULL, instance->param);
                   break;
                }
             }
          }
+         session->mfv_keyword_invalid = false;
          // Clear the session so no further incoming data is processed
          instance->fd                        = -1;
          instance->audio_buf_samples         = NULL;
