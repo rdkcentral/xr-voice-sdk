@@ -152,7 +152,7 @@ bool xraudio_devices_input_local_is_valid(xraudio_devices_input_t devices) {
 bool xraudio_devices_input_external_is_valid(xraudio_devices_input_t devices) {
    bool ret = true;
    devices = XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(devices);
-   if((devices & ~(XRAUDIO_DEVICE_INPUT_PTT | XRAUDIO_DEVICE_INPUT_FF))) {
+   if((devices & ~(XRAUDIO_DEVICE_INPUT_PTT | XRAUDIO_DEVICE_INPUT_FF | XRAUDIO_DEVICE_INPUT_MFV))) {
       ret = false;
    }
    return(ret);
@@ -253,6 +253,13 @@ const char *xraudio_devices_input_str(xraudio_devices_input_t type) {
          strlcat(str, ", MIC_TAP", sizeof(str));
       } else {
          strlcat(str, "MIC_TAP", sizeof(str));
+      }
+   }
+   if(type & XRAUDIO_DEVICE_INPUT_MFV) {
+      if(str[0] != '\0') {
+         strlcat(str, ", MFV", sizeof(str));
+      } else {
+         strlcat(str, "MFV", sizeof(str));
       }
    }
 
@@ -383,6 +390,7 @@ const char *xraudio_main_queue_msg_type_str(xraudio_main_queue_msg_type_t type) 
       case XRAUDIO_MAIN_QUEUE_MSG_TYPE_PRIVACY_MODE_GET:                return("PRIVACY_MODE_GET");
       case XRAUDIO_MAIN_QUEUE_MSG_TYPE_CAPTURE_PARAMS_SET:              return("CAPTURE_PARAMS_SET");
       case XRAUDIO_MAIN_QUEUE_MSG_TYPE_INPUT_SOURCE_FD_SET:             return("INPUT_SOURCE_FD_SET");
+      case XRAUDIO_MAIN_QUEUE_MSG_TYPE_STREAM_KEYWORD_INFO:             return("STREAM_KEYWORD_INFO");
       case XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID:                         return("INVALID");
    }
    return(xraudio_invalid_return(type));
@@ -678,4 +686,35 @@ const char *xraudio_input_session_group_str(xraudio_input_session_group_t group)
       case XRAUDIO_INPUT_SESSION_GROUP_QTY:     return("INVALID");
    }
    return(xraudio_invalid_return(group));
+}
+
+const char *xraudio_mfv_event_error_str(xraudio_mfv_error_t mfv_error) {
+   switch(mfv_error) {
+      case XRAUDIO_MFV_ERROR_AUDIO_REFERENCE_READ: return("AUDIO_REF_READ");
+      case XRAUDIO_MFV_ERROR_AUDIO_OUTPUT_WRITE:   return("AUDIO_OUTPUT_WRITE");
+      case XRAUDIO_MFV_ERROR_INTERNAL:             return("INTERNAL");
+      case XRAUDIO_MFV_ERROR_INVALID:              return("INVALID");
+   }
+   return(xraudio_invalid_return(mfv_error));
+}
+
+const char *xraudio_mfv_eos_result_str(xraudio_mfv_eos_result_t result) {
+   switch(result) {
+      case XRAUDIO_MFV_EOS_RESULT_UNAVAILABLE:     return("UNAVAILABLE");
+      case XRAUDIO_MFV_EOS_RESULT_SUCCESS:         return("SUCCESS");
+      case XRAUDIO_MFV_EOS_RESULT_TIMEOUT_INITIAL: return("TIMEOUT_INITIAL");
+      case XRAUDIO_MFV_EOS_RESULT_TIMEOUT_FINAL:   return("TIMEOUT_FINAL");
+      case XRAUDIO_MFV_EOS_RESULT_INVALID:         return("INVALID");
+   }
+   return(xraudio_invalid_return(result));
+}
+
+const char *xraudio_mfv_result_str(xraudio_mfv_result_t result) {
+   switch(result) {
+      case XRAUDIO_MFV_RESULT_SUCCESS:        return("SUCCESS");
+      case XRAUDIO_MFV_RESULT_ERROR_PARAMS:   return("ERROR_PARAMS");
+      case XRAUDIO_MFV_RESULT_ERROR_INTERNAL: return("ERROR_INTERNAL");
+      case XRAUDIO_MFV_RESULT_INVALID:        return("INVALID");
+   }
+   return(xraudio_invalid_return(result));
 }

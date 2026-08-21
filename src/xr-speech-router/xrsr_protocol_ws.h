@@ -123,6 +123,7 @@ int  xrsr_ws_send_text(xrsr_state_ws_t *ws, const uint8_t *buffer, uint32_t leng
 int  xrsr_ws_read_pending(xrsr_state_ws_t *ws);
 void xrsr_ws_speech_session_end(xrsr_state_ws_t *ws, xrsr_session_end_reason_t reason);
 void xrsr_ws_handle_speech_event(xrsr_state_ws_t *ws, xrsr_speech_event_t *event);
+void xrsr_ws_stream_params_ready(xrsr_state_ws_t *ws);
 
 // State check functions
 bool xrsr_ws_is_established(xrsr_state_ws_t *ws);

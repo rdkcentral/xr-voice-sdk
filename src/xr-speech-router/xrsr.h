@@ -72,7 +72,8 @@ typedef enum {
    XRSR_SRC_RCU_FF          = 1, ///< A far field remote control
    XRSR_SRC_MICROPHONE      = 2, ///< A local microphone
    XRSR_SRC_MICROPHONE_TAP  = 3, ///< A local microphone tap
-   XRSR_SRC_INVALID         = 4  ///< An invalid source type
+   XRSR_SRC_RCU_MFV         = 4, ///< A mid field remote control
+   XRSR_SRC_INVALID         = 5  ///< An invalid source type
 } xrsr_src_t;
 
 /// @brief XRSR result types
@@ -290,6 +291,7 @@ typedef struct {
    xrsr_audio_format_t       audio_format; ///< audio format transmitted over the fd
    xrsr_input_data_read_cb_t callback;     ///< User callback to be called when input file descriptor is read (optional)
    void *                    user_data;    ///< User data to be passed to callback handler (optional)
+   bool                      stream_params_required; ///< requestor will supply wake word stream parameters after the session begins (e.g. BLE MFV detection data).  The connect/init is held in the buffering state until xrsr_session_stream_params_set() is called.
 } xrsr_request_audio_fd_t;
 
 typedef struct {
@@ -312,6 +314,17 @@ typedef struct {
 typedef struct {
    bool  update_required;
    float dynamic_gain;
+   // Wake word stream parameters supplied after the session begins (e.g. from BLE MFV detection data).
+   // When defer_connect is true, the websocket connect (and therefore the init message) is held in the
+   // buffering state until stream_params_ready is set via xrsr_session_stream_params_set(), so these
+   // parameters can be included in the init message sent to the server.
+   bool     defer_connect;         ///< hold the connect/init until the stream parameters are supplied
+   bool     stream_params_ready;   ///< the requestor has supplied (or given up on) the stream parameters
+   bool     stream_params_valid;   ///< the supplied stream parameters represent a real wake word (WUW)
+   uint32_t keyword_sample_begin;  ///< wake word start offset in samples
+   uint32_t keyword_sample_end;    ///< wake word end offset in samples
+   double   confidence;            ///< wake word confidence, normalized 0.0 - 1.0
+   double   signal_noise_ratio;    ///< signal to noise ratio in dB (optional)
 } xrsr_session_config_update_t;
 
 /// @brief XRSR HTTP session configuration structure
@@ -711,10 +724,25 @@ bool xrsr_session_audio_fd_set(xrsr_src_t src, int audio_file_fd, xrsr_audio_for
 
 /// @brief Sets keyword info for a speech router session
 /// @details Provides the keyword begin point and duration.
+/// @param[in] src              Source for the keyword info
 /// @param[in] keyword_begin    Point where keyword begins in stream (in samples)
 /// @param[in] keyword_duration Duration of keyword (in samples)
 /// @return The function returns true if successful or false otherwise.
 bool xrsr_session_keyword_info_set(xrsr_src_t src, uint32_t keyword_begin, uint32_t keyword_duration);
+
+/// @brief Supplies wake word stream parameters for an in-progress session and releases its deferred connect
+/// @details For a session requested with stream_params_required (e.g. BLE MFV), the websocket connect and
+/// init message are held in the buffering state until this is called.  This provides the wake word
+/// timing/confidence to include in the init message and releases the connect.  Passing valid=false
+/// releases the connect without wake word parameters (e.g. on a detection-data timeout).
+/// @param[in] src            Source for the session
+/// @param[in] valid          Whether the parameters represent a real wake word
+/// @param[in] keyword_begin  Wake word start offset in samples
+/// @param[in] keyword_end    Wake word end offset in samples
+/// @param[in] confidence     Wake word confidence, normalized 0.0 - 1.0
+/// @param[in] snr            Signal to noise ratio in dB (optional, pass 0 if unknown)
+/// @return The function returns true if successful or false otherwise.
+bool xrsr_session_stream_params_set(xrsr_src_t src, bool valid, uint32_t keyword_begin, uint32_t keyword_end, double confidence, double snr);
 
 /// @brief Starts the speech router capture session
 /// @details Starts capturing audio streams for local sources.

@@ -54,8 +54,9 @@ typedef enum {
    XRSR_QUEUE_MSG_TYPE_SESSION_AUDIO_STREAM_START              = 17,
    XRSR_QUEUE_MSG_TYPE_SESSION_CAPTURE_START                   = 18,
    XRSR_QUEUE_MSG_TYPE_SESSION_CAPTURE_STOP                    = 19,
-   XRSR_QUEUE_MSG_TYPE_THREAD_POLL                             = 20,
-   XRSR_QUEUE_MSG_TYPE_INVALID                                 = 21,
+   XRSR_QUEUE_MSG_TYPE_SESSION_STREAM_PARAMS                   = 20,
+   XRSR_QUEUE_MSG_TYPE_THREAD_POLL                             = 21,
+   XRSR_QUEUE_MSG_TYPE_INVALID                                 = 22,
 } xrsr_queue_msg_type_t;
 
 typedef enum {
@@ -232,6 +233,17 @@ typedef struct {
 } xrsr_queue_msg_session_audio_stream_start_t;
 
 typedef struct {
+   xrsr_queue_msg_header_t header;
+   sem_t *                 semaphore;
+   xrsr_src_t              src;
+   bool                    valid;
+   uint32_t                keyword_sample_begin;
+   uint32_t                keyword_sample_end;
+   double                  confidence;
+   double                  signal_noise_ratio;
+} xrsr_queue_msg_session_stream_params_t;
+
+typedef struct {
    xrsr_queue_msg_header_t      header;
    sem_t *                      semaphore;
    xrsr_audio_container_t       container;
@@ -340,6 +352,7 @@ bool xrsr_xraudio_stream_end(xrsr_xraudio_object_t object, xraudio_devices_input
 void xrsr_xraudio_stream_event_handler(xraudio_devices_input_t source, audio_in_callback_event_t event, xrsr_speech_event_t *speech_event);
 bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, uint8_t dst_index, xraudio_input_format_t xraudio_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util);
 bool xrsr_xraudio_input_source_fd_set(xrsr_xraudio_object_t object, xrsr_src_t src, int fd, xrsr_audio_format_t format, xraudio_input_data_read_cb_t callback, void *user_data);
+bool xrsr_xraudio_stream_keyword_info_update(xrsr_xraudio_object_t object, xrsr_src_t src, int32_t keyword_begin, int32_t keyword_end, float confidence);
 void xrsr_xraudio_session_capture_start(xrsr_xraudio_object_t object, xrsr_audio_container_t container, const char *file_path, bool raw_mic_enable);
 void xrsr_xraudio_session_capture_stop(xrsr_xraudio_object_t object);
 void xrsr_xraudio_thread_poll(xrsr_xraudio_object_t object, xrsr_thread_poll_func_t func);

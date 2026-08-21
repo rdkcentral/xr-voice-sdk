@@ -86,6 +86,7 @@ typedef struct {
    xraudio_hal_plugin_api_t *        hal_plugin;
    xraudio_dga_plugin_api_t *        dga_plugin;
    xraudio_kwd_plugin_api_t *        kwd_plugin;
+   xraudio_mfv_plugin_api_t *        mfv_plugin;
    bool                              eos_enabled;
    bool                              ppr_enabled;
    bool                              out_enabled;
@@ -186,6 +187,7 @@ xraudio_object_t xraudio_object_create(const json_t *json_obj_xraudio_config) {
    obj->hal_plugin                            = vsdk_hal_plugin_get();
    obj->dga_plugin                            = vsdk_dga_plugin_get();
    obj->kwd_plugin                            = vsdk_kwd_plugin_get();
+   obj->mfv_plugin                            = vsdk_hal_mfv_enabled() ? vsdk_mfv_plugin_get() : NULL;
    obj->eos_enabled                           = (vsdk_eos_plugin_get() == NULL) ? false : true;
    obj->ppr_enabled                           = (vsdk_ppr_plugin_get() == NULL) ? false : true;
    obj->out_enabled                           = vsdk_hal_out_enabled();
@@ -1165,6 +1167,7 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
    params.hal_plugin                     = obj->hal_plugin;
    params.kwd_plugin                     = obj->kwd_plugin;
    params.dga_plugin                     = obj->dga_plugin;
+   params.mfv_plugin                     = obj->mfv_plugin;
    if(obj->out_enabled) {
       params.obj_output                     = obj->obj_output;
       params.json_obj_output                = obj->json_obj_output;
@@ -1441,7 +1444,7 @@ xraudio_result_t xraudio_source_fd_set(xraudio_object_t object, xraudio_devices_
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   if(source != XRAUDIO_DEVICE_INPUT_PTT && source != XRAUDIO_DEVICE_INPUT_FF) {
+   if(source != XRAUDIO_DEVICE_INPUT_PTT && source != XRAUDIO_DEVICE_INPUT_FF && source != XRAUDIO_DEVICE_INPUT_MFV) {
       XLOGD_ERROR("Invalid source <%s>", xraudio_devices_input_str(source));
       return(XRAUDIO_RESULT_ERROR_INPUT);
    }
@@ -1622,6 +1625,31 @@ xraudio_result_t xraudio_stream_keyword_info(xraudio_object_t object, xraudio_de
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
       result = xraudio_input_stream_keyword_info(obj->obj_input, source, keyword_begin, keyword_duration);
+   }
+   XRAUDIO_API_MUTEX_UNLOCK();
+   return(result);
+}
+
+xraudio_result_t xraudio_stream_keyword_info_update(xraudio_object_t object, xraudio_devices_input_t source, int32_t keyword_begin, int32_t keyword_end, float confidence) {
+   xraudio_obj_t *  obj    = (xraudio_obj_t *)object;
+   xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
+   if(!xraudio_object_is_valid(obj)) {
+      XLOGD_ERROR("Invalid object.");
+      return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+
+   XRAUDIO_API_MUTEX_LOCK();
+   if(!obj->opened) {
+      XLOGD_ERROR("xraudio is not open!");
+      result = XRAUDIO_RESULT_ERROR_OPEN;
+   } else if(obj->devices_input == XRAUDIO_DEVICE_INPUT_NONE) {
+      XLOGD_ERROR("input not opened!");
+      result = XRAUDIO_RESULT_ERROR_INPUT;
+   } else if(obj->obj_input == NULL) {
+      XLOGD_ERROR("input object is NULL!");
+      result = XRAUDIO_RESULT_ERROR_OPEN;
+   } else {
+      result = xraudio_input_stream_keyword_info_update(obj->obj_input, source, keyword_begin, keyword_end, confidence);
    }
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
