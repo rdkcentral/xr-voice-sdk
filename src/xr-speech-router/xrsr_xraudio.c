@@ -465,7 +465,7 @@ static void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
    }
 }
 
-void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
+static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
    if(!stream->detecting) { // already stopped
