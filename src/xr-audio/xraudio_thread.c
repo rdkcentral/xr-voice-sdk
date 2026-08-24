@@ -1936,12 +1936,7 @@ void xraudio_msg_detect_stop(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_keyword_detector_t *detector = &state->record.keyword_detector;
 
-   bool privacy_mode = false;
-   if(!state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, &privacy_mode)) {
-      XLOGD_ERROR("failed to get privacy mode, defaulting to ON");
-      privacy_mode = true;
-   }
-   if(!xraudio_keyword_detector_session_is_armed(detector) && !privacy_mode) {
+   if(!xraudio_keyword_detector_session_is_armed(detector)) {
       XLOGD_WARN("detector is not armed");
    } else {
       xraudio_keyword_detector_session_disarm(&state->params, detector);
