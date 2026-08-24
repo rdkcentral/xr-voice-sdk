@@ -382,11 +382,9 @@ void xrsr_xraudio_device_close(xrsr_xraudio_object_t object) {
          xraudio_stream_stop(obj->xraudio_obj, device, -1);
          stream->active = false;
       }
-      if(stream->detecting) {
-         xraudio_detect_stop(obj->xraudio_obj);
-         stream->detecting = false;
-      }
    }
+
+   xrsr_xraudio_keyword_detect_stop(obj);
 
    if(obj->xraudio_state == XRSR_XRAUDIO_STATE_OPENED) {
       xraudio_close(obj->xraudio_obj);
@@ -436,13 +434,17 @@ void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
 }
 
 void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
+   xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
+
+   if(stream->detecting) { // already armed
+      return;
+   }
+
    if(obj->default_sensitivity) {
       XLOGD_INFO("sensitivity <default>");
    } else {
       XLOGD_INFO("sensitivity <%f>", obj->keyword_sensitivity);
    }
-
-   xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
    xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->default_sensitivity ? NULL : &obj->keyword_sensitivity);
    if(XRAUDIO_RESULT_OK != result) {
@@ -464,6 +466,13 @@ void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
 }
 
 void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
+   xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
+
+   if(!stream->detecting) { // already stopped
+      return;
+   }
+   stream->detecting = false;
+
    xraudio_result_t result = xraudio_detect_stop(obj->xraudio_obj);
 
    if(result != XRAUDIO_RESULT_OK) {
@@ -805,10 +814,7 @@ bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, 
    }
 
    if(src != XRSR_SRC_MICROPHONE_TAP) {
-      xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
-      if(stream->detecting) {
-         xraudio_detect_stop(obj->xraudio_obj);
-      }
+      xrsr_xraudio_keyword_detect_stop(obj);
    }
 
    if(input_format.type == XRSR_SESSION_REQUEST_TYPE_AUDIO_FD) { // Set the audio input format and file descriptor (even if not available yet)
