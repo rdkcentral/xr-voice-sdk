@@ -471,6 +471,7 @@ static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
    if(!stream->detecting) { // already stopped
       return;
    }
+   stream->detecting = false;
 
    xraudio_result_t result = xraudio_detect_stop(obj->xraudio_obj);
 
@@ -479,7 +480,6 @@ static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
        return;
    }
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
-   stream->detecting = false;
   
 }
 
