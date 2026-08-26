@@ -98,10 +98,6 @@ SAFEC_LIB_H_SRC="$SAFEC_WRAPPER_DIR/safec_lib.h"
   echo '#endif /* XR_VOICE_SDK_CI_SAFEC_LIB_H */'
 } > safec_lib.h
 
-# patching strncpy_s to avoid the wrapper's raw strncpy expansion, which triggers
-# -Wstringop-truncation in CI even though xrsr manually terminates the destination buffer.
-perl -0pi -e 's{#define strncpy_s\(dst,max,src,len\) \(src != NULL\)\?\(\(len <= max\)\?EOK:ESLEMAX\):ESNULLP; \\\n if\(\(src != NULL\) && \(len <= max\)\) strncpy\(dst,src,len\);}{#define strncpy_s(dst,max,src,len) (src != NULL)?((len <= max)?EOK:ESLEMAX):ESNULLP; \\\n if((src != NULL) && (len <= max)) { size_t copy_len = strnlen(src, len); memcpy(dst, src, copy_len); if(copy_len < (size_t)(max)) memset((char *)(dst) + copy_len, 0, (size_t)(max) - copy_len); }}s or die "failed to patch strncpy_s in safec_lib.h\n"' "$HEADERS_DIR/safec_lib.h"
-
 echo "Stub headers created successfully"
 
 cd "${GITHUB_WORKSPACE}"
