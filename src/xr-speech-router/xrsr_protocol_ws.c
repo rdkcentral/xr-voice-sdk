@@ -416,7 +416,7 @@ bool xrsr_ws_connect(xrsr_state_ws_t *ws, xrsr_url_parts_t *url_parts, xrsr_src_
    ws->xraudio_format = xraudio_format;
 
    errno_t safe_rc = -1;
-   safe_rc = strncpy_s(ws->url, sizeof(ws->url), url_parts->urle, XRSR_WS_URL_SIZE_MAX); // Copy main url
+   safe_rc = strncpy_s(ws->url, sizeof(ws->url), url_parts->urle, XRSR_WS_URL_SIZE_MAX - 1); // Copy main url
    ERR_CHK(safe_rc);
 
    if(query_strs != NULL && *query_strs != NULL) { // add attribute-value pairs to the query string
