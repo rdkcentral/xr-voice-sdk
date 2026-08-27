@@ -2680,7 +2680,7 @@ int32_t xraudio_container_header_parse_wave(int fd, const uint8_t *header, uint3
       XLOGD_ERROR("Invalid wave header - RIFF <%c%c%c%c>", header[0], header[1], header[2], header[3]);
       return(-1);
    }
-   unsigned long riff_length = (header[7] << 24) | (header[6] << 16) | (header[5] << 8) | header[4];
+   unsigned long riff_length = ((uint32_t)header[7] << 24) | ((uint32_t)header[6] << 16) | ((uint32_t)header[5] << 8) | (uint32_t)header[4];
 
    if(strncmp((const char *)&header[8], "WAVE", 4) != 0) {
       XLOGD_ERROR("Invalid wave header - WAVE <%c%c%c%c>", header[8], header[9], header[10], header[11]);
