@@ -25,6 +25,7 @@
 #include <openssl/ssl.h>
 #include <openssl/pkcs12.h>
 #include <openssl/ocsp.h>
+#include <openssl/rand.h>
 #include "xrsr_private.h"
 #include "xrsr_protocol_ws_sm.h"
 
@@ -1452,8 +1453,13 @@ void St_Ws_Connection_Retry(tStateEvent *pEvent, eStateAction eAction, BOOL *bGu
       case ACT_ENTER: {
          ws->retry_cnt++;
          // Calculate retry delay
-         uint32_t slots = 1 << ws->retry_cnt;
-         uint32_t retry_delay_ms = ws->backoff_delay * (rand() % slots);
+         uint32_t slots = 1U << ws->retry_cnt;
+         uint32_t random_value;
+         if(RAND_bytes((unsigned char *)&random_value, sizeof(random_value)) != 1) {
+            XLOGD_ERROR("src <%s> unable to generate retry delay", xrsr_src_str(ws->audio_src));
+            random_value = 0;
+         }
+         uint32_t retry_delay_ms = ws->backoff_delay * (random_value % slots);
 
          XLOGD_INFO("src <%s> retry connection - delay <%u> ms", xrsr_src_str(ws->audio_src), retry_delay_ms);
 
