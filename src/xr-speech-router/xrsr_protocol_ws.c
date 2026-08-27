@@ -132,8 +132,10 @@ bool xrsr_ws_init(xrsr_state_ws_t *ws, xrsr_ws_params_t *params) {
    ws->pending_msg   = NULL;
 
    sem_init(&ws->msg_out_semaphore, 0, 1);
+   sem_wait(&ws->msg_out_semaphore);
    ws->msg_out_count = 0;
    memset(ws->msg_out, 0, sizeof(ws->msg_out));
+   sem_post(&ws->msg_out_semaphore);
 
    xrsr_ws_update_dst_params(ws, params->dst_params);
    ws->timer_obj          = params->timer_obj;
