@@ -620,7 +620,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
             obj->obj_input = NULL;
          }
          xraudio_message_queue_main_close(obj);
-         obj->hal_plugin->close(obj);
+         xraudio_audio_hal_close(obj);
       } else {
          g_xraudio_process.power_mode   = power_mode;
          obj->opened                    = true;
