@@ -29,7 +29,8 @@
 #include "xrsr_private.h"
 #include "xrsr_protocol_ws_sm.h"
 
-#define XRSR_WS_CIPHER_LIST "AES256-SHA256:AES128-GCM-SHA256:AES128-SHA256"
+#define XRSR_WS_CIPHER_LIST     "AES256-SHA256:AES128-GCM-SHA256:AES128-SHA256"
+#define XRSR_WS_RETRY_COUNT_MAX (16)
 
 #define XRSR_HOSTNAME_VERIFY_POST_CHECK
 
@@ -1451,7 +1452,11 @@ void St_Ws_Connection_Retry(tStateEvent *pEvent, eStateAction eAction, BOOL *bGu
          break;
       }
       case ACT_ENTER: {
-         ws->retry_cnt++;
+         if(ws->retry_cnt >= XRSR_WS_RETRY_COUNT_MAX) {
+            ws->retry_cnt = XRSR_WS_RETRY_COUNT_MAX;
+         } else {
+            ws->retry_cnt++;
+         }
          // Calculate retry delay
          uint32_t slots = 1U << ws->retry_cnt;
          uint32_t random_value;
