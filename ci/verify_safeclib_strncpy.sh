@@ -37,7 +37,7 @@ git clone --depth 1 https://github.com/rurban/safeclib.git /tmp/safeclib
 cd /tmp/safeclib
 git fetch --depth 1 origin f9add9245b97c7bda6e28cceb0ee37fb7e254fd8
 git checkout f9add9245b97c7bda6e28cceb0ee37fb7e254fd8
-./autogen.sh
+autoreconf -fi
 ./configure --disable-wchar --prefix=/usr
 make -j"$(nproc)"
 make install
