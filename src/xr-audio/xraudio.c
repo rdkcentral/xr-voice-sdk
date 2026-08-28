@@ -1885,10 +1885,6 @@ xraudio_result_t xraudio_capture_to_file_start(xraudio_object_t object, xraudio_
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   if(callback == NULL) {
-      XLOGD_ERROR("Invalid callback.");
-      return(XRAUDIO_RESULT_ERROR_PARAMS);
-   }
    XRAUDIO_API_MUTEX_LOCK();
    if(obj->production_build) { // Disabled in production build
       XLOGD_INFO("disabled");
