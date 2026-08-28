@@ -371,7 +371,7 @@ xraudio_result_t xraudio_privacy_mode_update(xraudio_object_t object, xraudio_de
 /// @details Gets the privacy mode. The input parameter is a boolean with true indicating privacy mode is enabled, otherwise it is disabled
 xraudio_result_t xraudio_privacy_mode_get(xraudio_object_t object, xraudio_devices_input_t input, bool *enabled);
 
-// Recording APIs - Synchronous if callback is NULL
+// Recording APIs - Asynchronous only
 /// @brief Set keyword detection parameters
 /// @details Sets the keyword detection parameters.  The parameters will remain persistent until the xraudio object is destroyed.  The parameters will take effect on the next call to xraudio_keyword_detect.
 xraudio_result_t xraudio_detect_params(xraudio_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity);
@@ -443,7 +443,7 @@ xraudio_result_t xraudio_stream_to_user(xraudio_object_t object, xraudio_devices
 /// @details This function stops the active streaming session.
 xraudio_result_t xraudio_stream_stop(xraudio_object_t object, xraudio_devices_input_t source, int32_t index);
 
-// Playback APIs - Synchronous if callback is NULL
+// Playback APIs - Asynchronous only
 /// @brief Transfer sound intensity data to the specified fifo
 /// @details This function sets a named pipe (fifo) in which to transfer sound intensity measurements when a playback session is in process.
 xraudio_result_t xraudio_play_sound_intensity_transfer(xraudio_object_t object, const char *fifo_name);
