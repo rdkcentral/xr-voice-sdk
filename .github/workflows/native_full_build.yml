@@ -31,6 +31,6 @@ jobs:
       # TEMPORARY — diagnostic only, not meant to be merged. See
       # ci/verify_safeclib_strncpy.sh for what/why. Delete this step
       # and that script once you've read the result in the log above.
-      - name: TEMP - verify real safeclib strncpy_s(dst,dmax,src,dmax) behavior
+      - name: TEMP - verify real safeclib strncpy_s behavior (current vs proposed-fix headroom)
         run: |
           sh -x ci/verify_safeclib_strncpy.sh

@@ -12,6 +12,11 @@
 # what the REAL library actually does, as opposed to the CI-only
 # SAFEC_DUMMY_API stub, which can't tell us anything about this.
 #
+# Also runs the same over-the-limit inputs with the proposed fix
+# (slen = dmax - 1) side by side, to prove restoring the headroom
+# actually produces a safe truncation instead of just asserting it
+# from the safeclib doc comment.
+#
 # Only the two buffer sizes are reproduced here, not the real
 # xrsr_msg_session_begin() call sites themselves: strncpy_s's behavior
 # is driven entirely by dmax/slen, not by which struct field it's
@@ -49,21 +54,21 @@ cat > /tmp/test_strncpy_dmax.c << 'EOF'
 #include <stdlib.h>
 #include <safe_str_lib.h>
 
-/* Reproduces strncpy_s(dst, dmax, src, dmax) for a given dmax and a
- * source string of src_len chars (no null within the first dmax bytes
- * when src_len >= dmax), matching the no-headroom call shape now used
- * in xrsr.c. */
-static void run_case(const char *label, size_t dmax, size_t src_len) {
+/* Reproduces strncpy_s(dst, dmax, src, slen) for a given dmax/slen pair
+ * and a source string of src_len chars (no null within the first dmax
+ * bytes when src_len >= dmax). slen == dmax matches today's (broken)
+ * call shape in xrsr.c; slen == dmax - 1 matches the proposed fix. */
+static void run_case(const char *label, size_t dmax, size_t slen, size_t src_len) {
     char *dst = malloc(dmax);
     char *src = malloc(src_len + 1);
     memset(dst, 0x55, dmax);              /* poison so we can see what survives */
     memset(src, 'A', src_len);
     src[src_len] = '\0';
 
-    errno_t rc = strncpy_s(dst, dmax, src, dmax);
+    errno_t rc = strncpy_s(dst, dmax, src, slen);
 
-    printf("%-28s dmax=%3zu src_len=%3zu rc=%2d strlen(dst)=%3zu dst[0]=%02x dst[last]=%02x\n",
-           label, dmax, src_len, rc, strlen(dst),
+    printf("%-30s dmax=%3zu slen=%3zu src_len=%3zu rc=%3d %-8s strlen(dst)=%3zu dst[0]=%02x dst[last]=%02x\n",
+           label, dmax, slen, src_len, rc, (rc == EOK ? "(EOK)" : "(ESNOSPC)"), strlen(dst),
            (unsigned char)dst[0], (unsigned char)dst[dmax - 1]);
 
     free(dst);
@@ -73,15 +78,21 @@ static void run_case(const char *label, size_t dmax, size_t src_len) {
 int main(void) {
     printf("EOK=%d ESNOSPC=%d ESLEMAX=%d ESNULLP=%d\n\n", EOK, ESNOSPC, ESLEMAX, ESNULLP);
 
+    printf("-- today's call shape: slen == dmax (no headroom) --\n");
     /* audio_file_in (xrsr.c:2133 / 2074) — 256-byte buffer, WS + HTTP */
-    run_case("audio_file_in [under]", 256, 15);
-    run_case("audio_file_in [== dmax]", 256, 256);
-    run_case("audio_file_in [over]", 256, 300);
-
+    run_case("audio_file_in [under]",      256, 256, 15);
+    run_case("audio_file_in [== dmax]",    256, 256, 256);
+    run_case("audio_file_in [over]",       256, 256, 300);
     /* transcription_in (xrsr.c:2066) — 128-byte buffer, HTTP only */
-    run_case("transcription_in [under]", 128, 15);
-    run_case("transcription_in [== dmax]", 128, 128);
-    run_case("transcription_in [over]", 128, 150);
+    run_case("transcription_in [under]",   128, 128, 15);
+    run_case("transcription_in [== dmax]", 128, 128, 128);
+    run_case("transcription_in [over]",    128, 128, 150);
+
+    printf("\n-- proposed fix: slen == dmax - 1 (1 byte headroom), same inputs --\n");
+    run_case("audio_file_in [== dmax]",    256, 255, 256);
+    run_case("audio_file_in [over]",       256, 255, 300);
+    run_case("transcription_in [== dmax]", 128, 127, 128);
+    run_case("transcription_in [over]",    128, 127, 150);
 
     return 0;
 }
