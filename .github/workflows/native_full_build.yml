@@ -27,3 +27,10 @@ jobs:
       - name: cov build
         run: |
           sh -x ci/cov_build.sh
+
+      # TEMPORARY — diagnostic only, not meant to be merged. See
+      # ci/verify_safeclib_strncpy.sh for what/why. Delete this step
+      # and that script once you've read the result in the log above.
+      - name: TEMP - verify real safeclib strncpy_s(dst,dmax,src,dmax) behavior
+        run: |
+          sh -x ci/verify_safeclib_strncpy.sh
