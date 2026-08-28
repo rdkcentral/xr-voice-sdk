@@ -520,7 +520,7 @@ xraudio_result_t xraudio_bluetooth_hfp_mute(xraudio_object_t object, unsigned ch
 // Diagnostics Functions
 /// @brief Capture incoming audio and meta data to a file
 /// @details Record the incoming audio stream to the file specified in audio_file_path using the specified capture and container format.  The recording will continue until the capture is stopped by
-/// the user or an error occurs. The operation is performed asynchronously. If the callback parameter is not NULL, capture events will delivered via the callback. When enabled, raw microphone data can be captured.
+/// the user or an error occurs. The operation is performed asynchronously.  If the callback parameter is not NULL, capture events will be delivered via the callback. When enabled, raw microphone data can be captured.
 xraudio_result_t xraudio_capture_to_file_start(xraudio_object_t object, xraudio_capture_t capture, xraudio_container_t container, const char *audio_file_path, bool raw_mic_enable, audio_in_callback_t callback, void *param);
 /// @brief Stop an active capture session
 /// @details This function stops the active capture session.
