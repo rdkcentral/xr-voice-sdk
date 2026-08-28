@@ -1495,6 +1495,10 @@ xraudio_result_t xraudio_record_to_file(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1518,6 +1522,10 @@ xraudio_result_t xraudio_record_to_memory(xraudio_object_t object, xraudio_devic
    if(!xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
@@ -1768,6 +1776,10 @@ xraudio_result_t xraudio_stream_to_fifo(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1792,6 +1804,10 @@ xraudio_result_t xraudio_stream_to_pipe(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1815,6 +1831,10 @@ xraudio_result_t xraudio_stream_to_user(xraudio_object_t object, xraudio_devices
    if(!xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
@@ -1865,7 +1885,10 @@ xraudio_result_t xraudio_capture_to_file_start(xraudio_object_t object, xraudio_
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(obj->production_build) { // Disabled in production build
       XLOGD_INFO("disabled");
@@ -1946,6 +1969,10 @@ xraudio_result_t xraudio_play_from_file(xraudio_object_t object, const char *aud
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1969,6 +1996,10 @@ xraudio_result_t xraudio_play_from_memory(xraudio_object_t object, xraudio_outpu
    if(!xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
@@ -1994,6 +2025,10 @@ xraudio_result_t xraudio_play_from_pipe(xraudio_object_t object, xraudio_output_
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -2017,6 +2052,10 @@ xraudio_result_t xraudio_play_from_user(xraudio_object_t object, xraudio_output_
    if(!xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
@@ -2043,6 +2082,10 @@ xraudio_result_t xraudio_play_pause(xraudio_object_t object, audio_out_callback_
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
 
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -2067,7 +2110,10 @@ xraudio_result_t xraudio_play_resume(xraudio_object_t object, audio_out_callback
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
