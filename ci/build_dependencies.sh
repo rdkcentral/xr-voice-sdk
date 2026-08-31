@@ -87,10 +87,9 @@ cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 [ -f rdkversion.h ]
 
 # Use the Yocto safec_lib.h sysroot header for CI builds without libsafec.
-# Header guards live in the file itself now (RDK_SAFEC_LIB_H) — no need to
-# wrap it here.
 SAFEC_LIB_H_SRC="$SAFEC_WRAPPER_DIR/safec_lib.h"
 [ -f "$SAFEC_LIB_H_SRC" ]
+grep -q 'RDK_SAFEC_LIB_H' "$SAFEC_LIB_H_SRC" || { echo "ERROR: RDK_SAFEC_LIB_H guard missing from $SAFEC_LIB_H_SRC" >&2; exit 1; }
 cp "$SAFEC_LIB_H_SRC" safec_lib.h
 
 echo "Stub headers created successfully"
