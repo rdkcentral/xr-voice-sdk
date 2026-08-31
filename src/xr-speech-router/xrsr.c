@@ -2063,17 +2063,19 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
                http->transcription_ptr = NULL;
             } else {
                errno_t safec_rc = -1;
-               safec_rc = strncpy_s(http->transcription_in, sizeof(http->transcription_in), transcription_in, sizeof(http->transcription_in) - 1);
+               safec_rc = strncpy_s(http->transcription_in, sizeof(http->transcription_in), transcription_in, sizeof(http->transcription_in));
                ERR_CHK(safec_rc);
                http->transcription_in[sizeof(http->transcription_in) - 1] = '\0';
+               XLOGD_INFO("DIAG_STRNCPY_S http->transcription_in rc <%d> in_len <%zu> out_len <%zu> value <%s>", safec_rc, strlen(transcription_in), strlen(http->transcription_in), http->transcription_in);
                http->transcription_ptr = &http->transcription_in[0];
             }
 
             if(http->is_session_by_file) {
                errno_t safec_rc = -1;
-               safec_rc = strncpy_s(http->audio_file_in, sizeof(http->audio_file_in), audio_file_in, sizeof(http->audio_file_in) - 1);
+               safec_rc = strncpy_s(http->audio_file_in, sizeof(http->audio_file_in), audio_file_in, sizeof(http->audio_file_in));
                ERR_CHK(safec_rc);
                http->audio_file_in[sizeof(http->audio_file_in) - 1] = '\0';
+               XLOGD_INFO("DIAG_STRNCPY_S http->audio_file_in rc <%d> in_len <%zu> out_len <%zu> value <%s>", safec_rc, strlen(audio_file_in), strlen(http->audio_file_in), http->audio_file_in);
             }
 
             // Call session begin handler
@@ -2130,9 +2132,10 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
 
                if(ws->is_session_by_file) {
                   errno_t safec_rc = -1;
-                  safec_rc = strncpy_s(ws->audio_file_in, sizeof(ws->audio_file_in), audio_file_in, sizeof(ws->audio_file_in) - 1);
+                  safec_rc = strncpy_s(ws->audio_file_in, sizeof(ws->audio_file_in), audio_file_in, sizeof(ws->audio_file_in));
                   ERR_CHK(safec_rc);
                   ws->audio_file_in[sizeof(ws->audio_file_in) - 1] = '\0';
+                  XLOGD_INFO("DIAG_STRNCPY_S ws->audio_file_in rc <%d> in_len <%zu> out_len <%zu> value <%s>", safec_rc, strlen(audio_file_in), strlen(ws->audio_file_in), ws->audio_file_in);
                }
 
                if(!begin->retry && ws->handlers.session_begin != NULL) { // Call session begin handler
