@@ -51,7 +51,7 @@ apt install -y \
 git clone --depth 1 --filter=blob:none --sparse --branch develop https://github.com/rdkcentral/rdkversion.git
 git -C rdkversion sparse-checkout set src
 
-git clone --depth 1 --filter=blob:none --sparse https://github.com/rdkcentral/meta-rdk-oss-reference.git
+git clone --depth 1 --filter=blob:none --sparse --branch feature/RDKEMW-18167 https://github.com/rdkcentral/meta-rdk-oss-reference.git
 git -C meta-rdk-oss-reference sparse-checkout set recipes-common/safec-common-wrapper/files
 
 RDKVERSION_DIR="$GITHUB_WORKSPACE/rdkversion"
@@ -87,16 +87,11 @@ cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 [ -f rdkversion.h ]
 
 # Use the Yocto safec_lib.h sysroot header for CI builds without libsafec.
-# Add include guards because the upstream header does not provide them.
+# Header guards live in the file itself now (RDK_SAFEC_LIB_H) — no need to
+# wrap it here.
 SAFEC_LIB_H_SRC="$SAFEC_WRAPPER_DIR/safec_lib.h"
 [ -f "$SAFEC_LIB_H_SRC" ]
-{
-  echo '#ifndef XR_VOICE_SDK_CI_SAFEC_LIB_H'
-  echo '#define XR_VOICE_SDK_CI_SAFEC_LIB_H'
-  cat "$SAFEC_LIB_H_SRC"
-  echo
-  echo '#endif /* XR_VOICE_SDK_CI_SAFEC_LIB_H */'
-} > safec_lib.h
+cp "$SAFEC_LIB_H_SRC" safec_lib.h
 
 echo "Stub headers created successfully"
 
