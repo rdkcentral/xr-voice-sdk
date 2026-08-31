@@ -51,11 +51,7 @@ apt install -y \
 git clone --depth 1 --filter=blob:none --sparse --branch develop https://github.com/rdkcentral/rdkversion.git
 git -C rdkversion sparse-checkout set src
 
-git clone --depth 1 --filter=blob:none --sparse --branch feature/RDKEMW-18167 https://github.com/rdkcentral/meta-rdk-oss-reference.git
-git -C meta-rdk-oss-reference sparse-checkout set recipes-common/safec-common-wrapper/files
-
 RDKVERSION_DIR="$GITHUB_WORKSPACE/rdkversion"
-SAFEC_WRAPPER_DIR="$GITHUB_WORKSPACE/meta-rdk-oss-reference/recipes-common/safec-common-wrapper/files"
 
 ###########################################
 # 3. Clone and build nopoll from source
@@ -72,8 +68,29 @@ make -j$(nproc)
 make install
 cd "${GITHUB_WORKSPACE}"
 
+###########################################
+# 4. Clone and build real safeclib from source
+# (matches the DISTRO_FEATURES=safec path production builds take —
+# see meta-openembedded/meta-oe/recipes-core/safec/safec_3.7.1.bb,
+# SRCREV f9add9245b97c7bda6e28cceb0ee37fb7e254fd8)
+
+git clone --depth 1 https://github.com/rurban/safeclib.git
+git -C safeclib fetch --depth 1 origin f9add9245b97c7bda6e28cceb0ee37fb7e254fd8
+git -C safeclib checkout f9add9245b97c7bda6e28cceb0ee37fb7e254fd8
+
+echo "======================================================================================"
+echo "building safeclib"
+
+cd safeclib
+autoreconf -fi
+./configure --disable-wchar --prefix=/usr
+make -j$(nproc)
+make install
+ldconfig
+cd "${GITHUB_WORKSPACE}"
+
 ############################
-# 4. Create stub headers for external dependencies
+# 5. Create stub headers for external dependencies
 echo "======================================================================================"
 echo "Creating stub headers"
 
@@ -85,11 +102,6 @@ cd "${HEADERS_DIR}"
 # rdkversion.h — real header from upstream
 cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 [ -f rdkversion.h ]
-
-# Use the Yocto safec_lib.h sysroot header for CI builds without libsafec.
-SAFEC_LIB_H_SRC="$SAFEC_WRAPPER_DIR/safec_lib.h"
-[ -f "$SAFEC_LIB_H_SRC" ]
-cp "$SAFEC_LIB_H_SRC" safec_lib.h
 
 echo "Stub headers created successfully"
 

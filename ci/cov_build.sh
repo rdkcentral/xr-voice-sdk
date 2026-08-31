@@ -41,9 +41,10 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DWS_ENABLED=ON \
     -DWS_NOPOLL_PATCHES=OFF \
     -DCMAKE_C_FLAGS=" \
-    -DSAFEC_DUMMY_API \
+    $(pkg-config --cflags libsafec) \
     -I ${HEADERS_DIR} \
-    -Wall"
+    -Wall" \
+    -DCMAKE_SHARED_LINKER_FLAGS="$(pkg-config --libs libsafec)"
 
 cmake --build build/xr-voice-sdk -j$(nproc) 2>&1
 echo "======================================================================================"
