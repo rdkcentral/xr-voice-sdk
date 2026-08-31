@@ -51,7 +51,11 @@ apt install -y \
 git clone --depth 1 --filter=blob:none --sparse --branch develop https://github.com/rdkcentral/rdkversion.git
 git -C rdkversion sparse-checkout set src
 
+git clone --depth 1 --filter=blob:none --sparse https://github.com/rdkcentral/meta-rdk-oss-reference.git
+git -C meta-rdk-oss-reference sparse-checkout set recipes-common/safec-common-wrapper/files
+
 RDKVERSION_DIR="$GITHUB_WORKSPACE/rdkversion"
+SAFEC_WRAPPER_DIR="$GITHUB_WORKSPACE/meta-rdk-oss-reference/recipes-common/safec-common-wrapper/files"
 
 ###########################################
 # 3. Clone and build nopoll from source
@@ -102,6 +106,13 @@ cd "${HEADERS_DIR}"
 # rdkversion.h — real header from upstream
 cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 [ -f rdkversion.h ]
+
+# safec_lib.h — xrsr_private.h includes this unconditionally. With real
+# safeclib built above (no SAFEC_DUMMY_API define), its own #ifndef
+# SAFEC_DUMMY_API branch pulls in safe_str_lib.h/safe_mem_lib.h for us.
+SAFEC_LIB_H_SRC="$SAFEC_WRAPPER_DIR/safec_lib.h"
+[ -f "$SAFEC_LIB_H_SRC" ]
+cp "$SAFEC_LIB_H_SRC" safec_lib.h
 
 echo "Stub headers created successfully"
 
