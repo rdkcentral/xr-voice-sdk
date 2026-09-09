@@ -514,7 +514,9 @@ static bool xraudio_in_aop_adjust_apply(int32_t *buffer, uint32_t sample_qty_fra
 static void xraudio_capture_file_size_max_verify(uint32_t *file_size_max);
 
 static bool xraudio_mfv_msg_callback(void *msg);
-static bool xraudio_mfv_output_frame_get(xraudio_session_record_t *session, uint8_t *frame, uint32_t byte_qty);
+static bool xraudio_mfv_output_frame_get(xraudio_session_record_t *session, uint8_t *frame, uint32_t byte_qty, int timeout_ms);
+static void xraudio_external_frame_deliver(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, xraudio_session_record_inst_t *instance, int32_t bytes_read, xraudio_capture_file_t *capture_file);
+static void xraudio_mfv_deliver_gained(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, xraudio_session_record_inst_t *instance, xraudio_capture_file_t *capture_file, bool drain_all);
 
 static const xraudio_msg_handler_t g_xraudio_msg_handlers[XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID] = {
    xraudio_msg_record_idle_start,
@@ -4993,8 +4995,8 @@ ssize_t xraudio_external_fd_read(xraudio_session_record_t *session, void *buf, s
    return(retcode);
 }
 
-// Retrieve one frame of processed audio from the MFV plugin's output stream. Partial data is retained so that frame alignment is kept across calls.
-bool xraudio_mfv_output_frame_get(xraudio_session_record_t *session, uint8_t *frame, uint32_t byte_qty) {
+// Retrieve one frame of processed audio from the MFV plugin's output stream. Partial data is retained so that frame alignment is kept across calls. timeout_ms of 0 polls without blocking.
+bool xraudio_mfv_output_frame_get(xraudio_session_record_t *session, uint8_t *frame, uint32_t byte_qty, int timeout_ms) {
    if(session->mfv_output_fd < 0 || byte_qty == 0 || byte_qty > sizeof(session->mfv_output_buffer)) {
       XLOGD_ERROR("invalid params - fd <%d> byte qty <%u>", session->mfv_output_fd, byte_qty);
       return(false);
@@ -5002,18 +5004,15 @@ bool xraudio_mfv_output_frame_get(xraudio_session_record_t *session, uint8_t *fr
 
    rdkx_timestamp_t timeout;
    rdkx_timestamp_get(&timeout);
-   rdkx_timestamp_add_us(&timeout, XRAUDIO_MFV_OUTPUT_TIMEOUT_MS * 1000);
+   rdkx_timestamp_add_us(&timeout, (unsigned long long)timeout_ms * 1000);
 
    while(session->mfv_output_bytes < byte_qty) {
       unsigned long long remaining_us = rdkx_timestamp_until_us(timeout);
-      if(remaining_us == 0) {
-         XLOGD_WARN("MFV processed audio timeout - read <%u> of <%u> bytes", session->mfv_output_bytes, byte_qty);
-         return(false);
-      }
+      int poll_ms = (remaining_us > 0) ? (int)(remaining_us / 1000) + 1 : 0;
 
       struct pollfd pfd = { .fd = session->mfv_output_fd, .events = POLLIN, .revents = 0 };
       errno = 0;
-      int rc = poll(&pfd, 1, (int)(remaining_us / 1000) + 1);
+      int rc = poll(&pfd, 1, poll_ms);
       if(rc < 0) {
          if(errno == EINTR) {
             continue;
@@ -5022,6 +5021,12 @@ bool xraudio_mfv_output_frame_get(xraudio_session_record_t *session, uint8_t *fr
          XLOGD_ERROR("MFV processed audio poll error <%s>", strerror(errsv));
          return(false);
       } else if(rc == 0) {
+         if(rdkx_timestamp_until_us(timeout) == 0) {
+            if(timeout_ms > 0) {
+               XLOGD_WARN("MFV processed audio timeout - read <%u> of <%u> bytes", session->mfv_output_bytes, byte_qty);
+            }
+            return(false);
+         }
          continue;
       }
 
@@ -5044,6 +5049,71 @@ bool xraudio_mfv_output_frame_get(xraudio_session_record_t *session, uint8_t *fr
    memcpy(frame, session->mfv_output_buffer, byte_qty);
    session->mfv_output_bytes = 0;
    return(true);
+}
+
+// Deliver one external frame (already placed at the current group slot) downstream: fire stream events, group it, and invoke the record callback.
+static void xraudio_external_frame_deliver(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, xraudio_session_record_inst_t *instance, int32_t bytes_read, xraudio_capture_file_t *capture_file) {
+   if(session->external_frame_size_out != (uint32_t)bytes_read) {
+      XLOGD_ERROR("external data read wrong size (expected %u, received %d)", session->external_frame_size_out, bytes_read);
+      return;
+   }
+
+   if(instance->stream_time_min_value          > 0                               &&
+      session->external_data_len               < instance->stream_time_min_value &&
+      session->external_data_len + bytes_read >= instance->stream_time_min_value &&
+      instance->callback) {
+         (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_TIME_MINIMUM, NULL, instance->param);
+   }
+
+   session->external_data_len += bytes_read;
+
+   if(instance->keyword_end_samples > 0 && session->external_data_len >= (instance->keyword_end_samples * sizeof(int16_t))) {
+      if(instance->callback != NULL) {
+         xraudio_stream_keyword_info_t kwd_info;
+         kwd_info.byte_qty = (instance->keyword_end_samples * sizeof(int16_t)); // 16-bit pcm
+         (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_KWD_INFO, &kwd_info, instance->param);
+      }
+      instance->keyword_end_samples = 0;
+      instance->keyword_flush       = true;
+   }
+
+   session->external_frame_group_index++;
+
+   int rc = -1;
+   if(instance->record_callback) {
+      rc = instance->record_callback(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source), params, session, instance);
+   }
+
+   if(instance->capture_internal.active) {
+      int rc_cap = xraudio_in_capture_internal_to_file(session, &session->external_frame_buffer[(session->external_frame_group_index - 1) * session->external_frame_size_out], (uint32_t)bytes_read, capture_file); // Subtract 1 from frame group index because we added one for record callback
+      if(rc_cap < 0) {
+         xraudio_in_capture_internal_end(&instance->capture_internal);
+      }
+   }
+
+   if(session->external_frame_group_index >= session->external_frame_group_qty || (rc > 0)) {
+      session->external_frame_group_index = 0;
+      memset(session->external_frame_buffer, 0, sizeof(session->external_frame_buffer));
+   }
+}
+
+// Deliver the MFV plugin's gain-processed audio downstream. The plugin buffers the utterance and only writes
+// to its output stream once it has verified the keyword, so nothing is delivered until gain is actually being
+// applied. Frames are drained without blocking while streaming and to completion (drain_all) when the session
+// is ending, before the plugin closes and frees its output stream.
+static void xraudio_mfv_deliver_gained(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, xraudio_session_record_inst_t *instance, xraudio_capture_file_t *capture_file, bool drain_all) {
+   if(session->mfv_output_fd < 0) {
+      return;
+   }
+   uint32_t frame_bytes = session->external_frame_size_out;
+   int      timeout_ms  = drain_all ? XRAUDIO_MFV_OUTPUT_TIMEOUT_MS : 0;
+   while(true) {
+      uint8_t *frame = &session->external_frame_buffer[session->external_frame_group_index * session->external_frame_size_out];
+      if(!xraudio_mfv_output_frame_get(session, frame, frame_bytes, timeout_ms)) {
+         break;
+      }
+      xraudio_external_frame_deliver(params, session, instance, (int32_t)frame_bytes, capture_file);
+   }
 }
 
 void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, xraudio_decoders_t *decoders) {
@@ -5088,20 +5158,6 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                      if(rc != XRAUDIO_MFV_RESULT_SUCCESS) {
                         XLOGD_ERROR("MFV process audio failed <%s>", xraudio_mfv_result_str(rc));
                      } else {
-                        // Replace the frame with the plugin's processed audio so that the gain adjusted stream is the one delivered downstream
-                        if(session->mfv_output_fd >= 0) {
-                           if(xraudio_mfv_output_frame_get(session, inbuf, (uint32_t)bytes_read)) {
-                              session->mfv_output_failures = 0;
-                           } else {
-                              session->mfv_output_failures++;
-                              XLOGD_WARN("MFV processed audio unavailable <%u>, streaming unprocessed audio", session->mfv_output_failures);
-                              if(session->mfv_output_failures >= XRAUDIO_MFV_OUTPUT_FAILURE_QTY_MAX) { // Stop reading so that the plugin's stream can't stall the audio thread
-                                 XLOGD_ERROR("MFV processed audio stream abandoned");
-                                 session->mfv_output_fd    = -1;
-                                 session->mfv_output_bytes = 0;
-                              }
-                           }
-                        }
                         if(mfv_result.is_keyword_invalid) {
                            XLOGD_WARN("MFV declared keyword invalid");
                            session->mfv_keyword_invalid = true;
@@ -5109,6 +5165,21 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                         } else if(mfv_result.is_end_of_speech) {
                            XLOGD_INFO("MFV detected end of speech");
                            bytes_read = 0; // Signal EOS to trigger session close
+                        }
+
+                        // When gain is applied the plugin buffers the utterance and only emits it after keyword
+                        // verification. Deliver whatever it has produced and hold the raw frame back so downstream
+                        // only ever receives the gain-adjusted audio; any remainder is drained from the close path.
+                        if(session->mfv_output_fd >= 0) {
+                           xraudio_mfv_deliver_gained(params, session, instance, capture_file, false);
+                           // Honor the fallback EOS timeout (armed only when the plugin lacks EOS detection) before holding the frame back.
+                           if(bytes_read > 0 && session->mfv_eos_timeout_active && rdkx_timestamp_until_us(session->mfv_eos_timeout_expiration) == 0) {
+                              XLOGD_INFO("MFV end of speech timeout expired <%d ms>", XRAUDIO_MFV_EOS_TIMEOUT_MS);
+                              bytes_read = 0; // Signal EOS to trigger session close
+                           }
+                           if(bytes_read > 0) {
+                              return; // raw frame is held inside the plugin, nothing to send downstream yet
+                           }
                         }
                      }
                   }
@@ -5282,6 +5353,12 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
    if(bytes_read <= 0) {
       session->mfv_eos_timeout_active = false;
 
+      // Deliver any remaining gain-processed audio before the plugin (and its output stream) is closed. Skipped
+      // when the keyword was never verified since the plugin produces no output in that case.
+      if(session->mfv_session_active && session->mfv_output_fd >= 0 && !session->mfv_keyword_invalid) {
+         xraudio_mfv_deliver_gained(params, session, instance, capture_file, true);
+      }
+
       // Close MFV session if active
       if(session->mfv_session_active && params->mfv_plugin != NULL && session->obj_mfv != NULL) {
          xraudio_mfv_session_stats_t mfv_stats;
@@ -5374,48 +5451,7 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
       return;
    }
 
-   if(session->external_frame_size_out != bytes_read) {
-      XLOGD_ERROR("external data read wrong size (expected %u, received %d)", session->external_frame_size_out, bytes_read);
-      return;
-   }
-
-   if(instance->stream_time_min_value          > 0                               &&
-      session->external_data_len               < instance->stream_time_min_value &&
-      session->external_data_len + bytes_read >= instance->stream_time_min_value &&
-      instance->callback) {
-         (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_TIME_MINIMUM, NULL, instance->param);
-   }
-
-   session->external_data_len += bytes_read;
-
-   if(instance->keyword_end_samples > 0 && session->external_data_len >= (instance->keyword_end_samples * sizeof(int16_t))) {
-      if(instance->callback != NULL) {
-         xraudio_stream_keyword_info_t kwd_info;
-         kwd_info.byte_qty = (instance->keyword_end_samples * sizeof(int16_t)); // 16-bit pcm
-         (*instance->callback)(instance->source, AUDIO_IN_CALLBACK_EVENT_STREAM_KWD_INFO, &kwd_info, instance->param);
-      }
-      instance->keyword_end_samples = 0;
-      instance->keyword_flush       = true;
-   }
-
-   session->external_frame_group_index++;
-
-   int rc = -1;
-   if(instance->record_callback) {
-      rc = instance->record_callback(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source), params, session, instance);
-   }
-
-   if(instance->capture_internal.active) {
-      int rc_cap = xraudio_in_capture_internal_to_file(session, &session->external_frame_buffer[(session->external_frame_group_index - 1) * session->external_frame_size_out], (uint32_t)bytes_read, capture_file); // Subtract 1 from frame group index because we added one for record callback
-      if(rc_cap < 0) {
-         xraudio_in_capture_internal_end(&instance->capture_internal);
-      }
-   }
-
-   if(session->external_frame_group_index >= session->external_frame_group_qty || (rc > 0)) {
-      session->external_frame_group_index = 0;
-      memset(session->external_frame_buffer, 0, sizeof(session->external_frame_buffer));
-   }
+   xraudio_external_frame_deliver(params, session, instance, bytes_read, capture_file);
 }
 
 bool xraudio_thread_create(xraudio_thread_t *thread, const char *name, void *(*start_routine) (void *), void *arg) {
