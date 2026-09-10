@@ -112,9 +112,6 @@
 #define XRAUDIO_MFV_OUTPUT_TIMEOUT_MS (20)
 #endif
 
-// Consecutive failures on the MFV processed audio stream before it is abandoned for the session
-#define XRAUDIO_MFV_OUTPUT_FAILURE_QTY_MAX (3)
-
 struct xraudio_session_record_t;
 typedef struct xraudio_session_record_t xraudio_session_record_t;
 struct xraudio_session_record_inst_t;
@@ -299,7 +296,6 @@ struct xraudio_session_record_t {
    rdkx_timestamp_t               mfv_eos_timeout_expiration;
    int                            mfv_output_fd; // read side of the plugin's processed audio stream (owned by the plugin)
    uint32_t                       mfv_output_bytes;
-   uint8_t                        mfv_output_failures;
    uint8_t                        mfv_output_buffer[XRAUDIO_INPUT_EXTERNAL_FRAME_SAMPLE_QTY * sizeof(int16_t)];
    bool                           mfv_keyword_invalid;
    bool                           dynamic_gain_enabled;
@@ -756,7 +752,6 @@ void *xraudio_main_thread(void *param) {
    state->record.mfv_eos_timeout_active       = false;
    state->record.mfv_output_fd                = -1;
    state->record.mfv_output_bytes             = 0;
-   state->record.mfv_output_failures          = 0;
    state->record.mfv_keyword_invalid          = false;
    state->record.timestamp_next               = (rdkx_timestamp_t) { .tv_sec = 0, .tv_nsec = 0 };
    memset(state->record.frame_buffer_int16, 0, sizeof(state->record.frame_buffer_int16));
@@ -1327,7 +1322,6 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       state->record.mfv_eos_timeout_active = false;
       state->record.mfv_output_fd          = -1;
       state->record.mfv_output_bytes       = 0;
-      state->record.mfv_output_failures    = 0;
       state->record.mfv_keyword_invalid    = false;
       if(XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source) == XRAUDIO_DEVICE_INPUT_MFV) {
          if(state->params.mfv_plugin != NULL && state->record.obj_mfv != NULL) {
@@ -1506,7 +1500,6 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
          state->record.mfv_kwd_info_valid  = false;
          state->record.mfv_output_fd       = -1;
          state->record.mfv_output_bytes    = 0;
-         state->record.mfv_output_failures = 0;
          state->record.mfv_keyword_invalid = false;
       }
 
@@ -5367,7 +5360,6 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
          session->mfv_kwd_info_valid = false;
          session->mfv_output_fd      = -1; // The plugin owns the processed audio stream and closes it with the session
          session->mfv_output_bytes   = 0;
-         session->mfv_output_failures = 0;
          XLOGD_INFO("MFV session closed - samples <%u> kwd <%s,%.2f> eos <%s> gain <%s,%.2f>",
                     mfv_stats.total_audio_samples,
                     mfv_stats.keyword_validated ? "true" : "false",
