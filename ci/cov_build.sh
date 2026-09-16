@@ -41,12 +41,10 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DWS_ENABLED=ON \
     -DWS_NOPOLL_PATCHES=OFF \
     -DCMAKE_C_FLAGS=" \
-    -DSAFEC_DUMMY_API \
+    $(pkg-config --cflags libsafec) \
     -I ${HEADERS_DIR} \
-    -Wall -Wno-error"
-
-# We should remove this hack to disable -Werror once the warnings are fixed in the codebase.
-find "${GITHUB_WORKSPACE}/build/xr-voice-sdk" \( -name "*.ninja" -o -name "flags.make" \) -exec sed -i 's/\(^\|[[:space:]]\)-Werror\([[:space:]]\|$\)/\1\2/g' {} \;
+    -Wall" \
+    -DCMAKE_SHARED_LINKER_FLAGS="$(pkg-config --libs libsafec)"
 
 cmake --build build/xr-voice-sdk -j$(nproc) 2>&1
 echo "======================================================================================"
