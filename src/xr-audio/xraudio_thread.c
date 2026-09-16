@@ -4824,21 +4824,28 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                return;
             }
             adpcm_t buffer[XRAUDIO_INPUT_ADPCM_BUFFER_SIZE] = {'\0'};
-            bytes_read = xraudio_external_fd_read(session, buffer, adpcm_frame->size_packet);
-            if(bytes_read > 0) {
+            ssize_t read_result = xraudio_external_fd_read(session, buffer, adpcm_frame->size_packet);
+            if(read_result > adpcm_frame->size_packet) {
+               XLOGD_ERROR("ADPCM data read is too big <%zd>", read_result);
+               return;
+            }
+            if(read_result > 0) {
+               uint32_t encoded_bytes_read = (uint32_t)read_result;
                if(instance->capture_internal.active) {
-                  int rc_cap = xraudio_in_capture_internal_to_file(session, buffer, (uint32_t)bytes_read, capture_file);
+                  int rc_cap = xraudio_in_capture_internal_to_file(session, buffer, encoded_bytes_read, capture_file);
                   if(rc_cap < 0) {
                      xraudio_in_capture_internal_end(&instance->capture_internal);
                   }
                   capture_file = &instance->capture_internal.decoded;
                }
-               bytes_read = adpcm_decode(decoders->adpcm, buffer, (uint32_t)bytes_read, (pcm_t *)inbuf, (adpcm_frame->size_packet - adpcm_frame->size_header) * 2, adpcm_frame, false);
+               bytes_read = adpcm_decode(decoders->adpcm, buffer, encoded_bytes_read, (pcm_t *)inbuf, (adpcm_frame->size_packet - adpcm_frame->size_header) * 2, adpcm_frame, false);
                if(bytes_read < 0) {
                   XLOGD_ERROR("failed to decode adpcm");
                } else {
                   bytes_read *= sizeof(pcm_t);
                }
+            } else {
+               bytes_read = read_result == 0 ? 0 : -1;
             }
          } else if(enc_output == XRAUDIO_ENCODING_ADPCM_FRAME) {
             bytes_read = xraudio_external_fd_read(session, inbuf, inlen);

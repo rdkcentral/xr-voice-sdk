@@ -620,7 +620,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
             obj->obj_input = NULL;
          }
          xraudio_message_queue_main_close(obj);
-         obj->hal_plugin->close(obj);
+         xraudio_audio_hal_close(obj);
       } else {
          g_xraudio_process.power_mode   = power_mode;
          obj->opened                    = true;
@@ -1495,8 +1495,10 @@ xraudio_result_t xraudio_record_to_file(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   bool has_mutex = true;
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1508,15 +1510,9 @@ xraudio_result_t xraudio_record_to_file(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("input object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      if(callback == NULL) { // Synchronous
-         XRAUDIO_API_MUTEX_UNLOCK();
-         has_mutex = false;
-      }
       result = xraudio_input_record_to_file(obj->obj_input, source, container, audio_file_path, from, offset, until, callback, param);
    }
-   if(has_mutex) {
-      XRAUDIO_API_MUTEX_UNLOCK();
-   }
+   XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
 
@@ -1527,8 +1523,10 @@ xraudio_result_t xraudio_record_to_memory(xraudio_object_t object, xraudio_devic
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   bool has_mutex = true;
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1540,15 +1538,9 @@ xraudio_result_t xraudio_record_to_memory(xraudio_object_t object, xraudio_devic
       XLOGD_ERROR("input object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      if(callback == NULL) { // Synchronous
-         XRAUDIO_API_MUTEX_UNLOCK();
-         has_mutex = false;
-      }
       result = xraudio_input_record_to_memory(obj->obj_input, source, buf_samples, sample_qty, from, offset, until, callback, param);
    }
-   if(has_mutex) {
-      XRAUDIO_API_MUTEX_UNLOCK();
-   }
+   XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
 
@@ -1784,8 +1776,10 @@ xraudio_result_t xraudio_stream_to_fifo(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   bool has_mutex = true;
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1797,15 +1791,9 @@ xraudio_result_t xraudio_stream_to_fifo(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("microphone object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      if(callback == NULL) { // Synchronous
-         XRAUDIO_API_MUTEX_UNLOCK();
-         has_mutex = false;
-      }
       result = xraudio_input_stream_to_fifo(obj->obj_input, source, fifo_name, from, offset, until, format_decoded, callback, param);
    }
-   if(has_mutex) {
-      XRAUDIO_API_MUTEX_UNLOCK();
-   }
+   XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
 
@@ -1816,8 +1804,10 @@ xraudio_result_t xraudio_stream_to_pipe(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   bool has_mutex = true;
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1829,15 +1819,9 @@ xraudio_result_t xraudio_stream_to_pipe(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("input object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      if(callback == NULL) { // Synchronous
-         XRAUDIO_API_MUTEX_UNLOCK();
-         has_mutex = false;
-      }
       result = xraudio_input_stream_to_pipe(obj->obj_input, source, dsts, format_decoded, subsequent, callback, param);
    }
-   if(has_mutex) {
-      XRAUDIO_API_MUTEX_UNLOCK();
-   }
+   XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
 
@@ -1848,8 +1832,10 @@ xraudio_result_t xraudio_stream_to_user(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   bool has_mutex = true;
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1861,15 +1847,9 @@ xraudio_result_t xraudio_stream_to_user(xraudio_object_t object, xraudio_devices
       XLOGD_ERROR("input object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      if(callback == NULL) { // Synchronous
-         XRAUDIO_API_MUTEX_UNLOCK();
-         has_mutex = false;
-      }
       result = xraudio_input_stream_to_user(obj->obj_input, source, data, from, offset, until, format_decoded, callback, param);
    }
-   if(has_mutex) {
-      XRAUDIO_API_MUTEX_UNLOCK();
-   }
+   XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
 
@@ -1905,7 +1885,6 @@ xraudio_result_t xraudio_capture_to_file_start(xraudio_object_t object, xraudio_
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-
    XRAUDIO_API_MUTEX_LOCK();
    if(obj->production_build) { // Disabled in production build
       XLOGD_INFO("disabled");
@@ -1986,8 +1965,10 @@ xraudio_result_t xraudio_play_from_file(xraudio_object_t object, const char *aud
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   bool has_mutex = true;
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -1999,15 +1980,9 @@ xraudio_result_t xraudio_play_from_file(xraudio_object_t object, const char *aud
       XLOGD_ERROR("speaker object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      if(callback == NULL) { // Synchronous
-         XRAUDIO_API_MUTEX_UNLOCK();
-         has_mutex = false;
-      }
       result = xraudio_output_play_from_file(obj->obj_output, audio_file_path, callback, param);
    }
-   if(has_mutex) {
-      XRAUDIO_API_MUTEX_UNLOCK();
-   }
+   XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
 
@@ -2018,8 +1993,10 @@ xraudio_result_t xraudio_play_from_memory(xraudio_object_t object, xraudio_outpu
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   bool has_mutex = true;
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -2031,15 +2008,9 @@ xraudio_result_t xraudio_play_from_memory(xraudio_object_t object, xraudio_outpu
       XLOGD_ERROR("speaker object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      if(callback == NULL) { // Synchronous
-         XRAUDIO_API_MUTEX_UNLOCK();
-         has_mutex = false;
-      }
       result = xraudio_output_play_from_memory(obj->obj_output, format, audio_buf, size, callback, param);
    }
-   if(has_mutex) {
-      XRAUDIO_API_MUTEX_UNLOCK();
-   }
+   XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
 
@@ -2050,8 +2021,10 @@ xraudio_result_t xraudio_play_from_pipe(xraudio_object_t object, xraudio_output_
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   bool has_mutex = true;
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -2063,15 +2036,9 @@ xraudio_result_t xraudio_play_from_pipe(xraudio_object_t object, xraudio_output_
       XLOGD_ERROR("speaker object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      if(callback == NULL) { // Synchronous
-         XRAUDIO_API_MUTEX_UNLOCK();
-         has_mutex = false;
-      }
       result = xraudio_output_play_from_pipe(obj->obj_output, format, pipe, callback, param);
    }
-   if(has_mutex) {
-      XRAUDIO_API_MUTEX_UNLOCK();
-   }
+   XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
 
@@ -2082,8 +2049,10 @@ xraudio_result_t xraudio_play_from_user(xraudio_object_t object, xraudio_output_
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-   bool has_mutex = true;
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -2095,15 +2064,9 @@ xraudio_result_t xraudio_play_from_user(xraudio_object_t object, xraudio_output_
       XLOGD_ERROR("speaker object is NULL!");
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
-      if(callback == NULL) { // Synchronous
-         XRAUDIO_API_MUTEX_UNLOCK();
-         has_mutex = false;
-      }
       result = xraudio_output_play_from_user(obj->obj_output, format, data, callback, param);
    }
-   if(has_mutex) {
-      XRAUDIO_API_MUTEX_UNLOCK();
-   }
+   XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
 }
 
@@ -2115,6 +2078,10 @@ xraudio_result_t xraudio_play_pause(xraudio_object_t object, audio_out_callback_
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
 
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -2139,7 +2106,10 @@ xraudio_result_t xraudio_play_resume(xraudio_object_t object, audio_out_callback
       XLOGD_ERROR("Invalid object.");
       return(XRAUDIO_RESULT_ERROR_OBJECT);
    }
-
+   if(callback == NULL) {
+      XLOGD_ERROR("Invalid callback.");
+      return(XRAUDIO_RESULT_ERROR_PARAMS);
+   }
    XRAUDIO_API_MUTEX_LOCK();
    if(!obj->opened) {
       XLOGD_ERROR("xraudio is not open!");
@@ -2680,7 +2650,7 @@ int32_t xraudio_container_header_parse_wave(int fd, const uint8_t *header, uint3
       XLOGD_ERROR("Invalid wave header - RIFF <%c%c%c%c>", header[0], header[1], header[2], header[3]);
       return(-1);
    }
-   unsigned long riff_length = (header[7] << 24) | (header[6] << 16) | (header[5] << 8) | header[4];
+   unsigned long riff_length = ((uint32_t)header[7] << 24) | ((uint32_t)header[6] << 16) | ((uint32_t)header[5] << 8) | (uint32_t)header[4];
 
    if(strncmp((const char *)&header[8], "WAVE", 4) != 0) {
       XLOGD_ERROR("Invalid wave header - WAVE <%c%c%c%c>", header[8], header[9], header[10], header[11]);
