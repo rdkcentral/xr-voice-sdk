@@ -953,6 +953,31 @@ void xrsv_ws_nextgen_msg_init(xrsv_ws_nextgen_obj_t *obj, uint8_t **buffer, uint
       rc |= json_object_set_new_nocheck(obj->obj_init_stb_audio, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_DYNAMIC_GAIN, json_real(obj->session_config_update->dynamic_gain));
    }
 
+   // Inject wake word stream parameters that were supplied after the session began (e.g. BLE MFV
+   // detection data).  The wake-up-word block was created (with placeholder values) at session config
+   // time; here we fill in the real wake word timing and confidence before the init message is sent.
+   if( (obj->session_config_update != NULL) && (obj->session_config_update->stream_params_valid == true) ) {
+      json_t *obj_wuw = json_object_get(obj->obj_init_stb_audio, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW);
+      if(obj_wuw == NULL) {
+         XLOGD_WARN("no wake-up-word block present to update with wake word stream parameters");
+      } else {
+         XLOGD_INFO("Updating wake word params: begin <%u> end <%u> confidence <%.3f> snr <%.2f>",
+            obj->session_config_update->keyword_sample_begin, obj->session_config_update->keyword_sample_end,
+            obj->session_config_update->confidence, obj->session_config_update->signal_noise_ratio);
+         rc |= json_object_set_new_nocheck(obj_wuw, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_START, json_integer(obj->session_config_update->keyword_sample_begin));
+         rc |= json_object_set_new_nocheck(obj_wuw, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_END,   json_integer(obj->session_config_update->keyword_sample_end));
+         json_t *obj_detector = json_object_get(obj_wuw, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR);
+         if(obj_detector != NULL) {
+            if(obj->session_config_update->confidence > 0) {
+               rc |= json_object_set_new_nocheck(obj_detector, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_LINEAR, json_real(obj->session_config_update->confidence));
+            }
+            if(obj->session_config_update->signal_noise_ratio != 0) {
+               rc |= json_object_set_new_nocheck(obj_detector, XRSV_WS_NEXTGEN_JSON_KEY_ELEMENT_AUDIO_WUW_DETECTOR_SNR, json_real(obj->session_config_update->signal_noise_ratio));
+            }
+         }
+      }
+   }
+
    
    if(rc != 0) {
       XLOGD_ERROR("object set failed");

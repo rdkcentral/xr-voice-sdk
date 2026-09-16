@@ -38,6 +38,7 @@
 #include "xraudio_sdf.h"
 #include "xraudio_ovc.h"
 #include "xraudio_ppr.h"
+#include "xraudio_mfv.h"
 #include "xraudio_output.h"
 #include "xraudio_input.h"
 
@@ -96,7 +97,8 @@ typedef enum {
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_PRIVACY_MODE_GET                = 22,
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_CAPTURE_PARAMS_SET              = 23,
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_INPUT_SOURCE_FD_SET             = 24,
-   XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID                         = 25,
+   XRAUDIO_MAIN_QUEUE_MSG_TYPE_STREAM_KEYWORD_INFO             = 25,
+   XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID                         = 26,
 } xraudio_main_queue_msg_type_t;
 
 #ifdef XRAUDIO_RESOURCE_MGMT
@@ -149,6 +151,7 @@ typedef struct {
    xraudio_hal_plugin_api_t *        hal_plugin;
    xraudio_kwd_plugin_api_t *        kwd_plugin;
    xraudio_dga_plugin_api_t *        dga_plugin;
+   xraudio_mfv_plugin_api_t *        mfv_plugin;
    xraudio_input_object_t            obj_input;
    xraudio_output_object_t           obj_output;
    json_t*                           json_obj_output;
@@ -410,6 +413,17 @@ typedef struct {
    xraudio_result_t *                result;
 } xraudio_main_queue_msg_input_source_fd_set_t;
 
+// Wake word detection details that arrive after the stream has already started
+typedef struct {
+   xraudio_main_queue_msg_header_t   header;
+   xraudio_devices_input_t           source;
+   int32_t                           keyword_begin;
+   int32_t                           keyword_end;
+   float                             confidence;
+   sem_t *                           semaphore;
+   xraudio_result_t *                result;
+} xraudio_main_queue_msg_stream_keyword_info_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -422,6 +436,9 @@ bool xraudio_thread_join(xraudio_thread_t *thread);
 
 const char *xraudio_main_queue_msg_type_str(xraudio_main_queue_msg_type_t type);
 const char *xraudio_input_session_group_str(xraudio_input_session_group_t group);
+const char *xraudio_mfv_event_error_str(xraudio_mfv_error_t mfv_error);
+const char *xraudio_mfv_eos_result_str(xraudio_mfv_eos_result_t result);
+const char *xraudio_mfv_result_str(xraudio_mfv_result_t result);
 
 void queue_msg_push(xr_mq_t xrmq, const char *msg, xr_mq_msg_size_t msg_len);
 
