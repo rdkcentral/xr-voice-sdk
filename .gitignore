@@ -6,3 +6,12 @@ CMakeUserPresets.json
 
 # documentation output files
 src/doxygen/output/
+
+# object files
+*.o
+
+.cproject
+.project
+.settings/
+.externalToolBuilders
+.clangd
