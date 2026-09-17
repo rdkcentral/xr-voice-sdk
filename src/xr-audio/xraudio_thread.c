@@ -3045,8 +3045,13 @@ int xraudio_in_write_to_keyword_detector(xraudio_devices_input_t source, xraudio
 
    // include AOP adjustment in the reported keyword detector gain
    detector->result.endpoints.kwd_gain -= session->input_aop_adjust_dB;
+   detector->result.sensitivity         = 0.0;
 
-   detector->result.sensitivity = detector->sensitivity;
+   if(params->kwd_plugin->sensitivity_lut_check != NULL) {
+      if(!params->kwd_plugin->sensitivity_lut_check(detector->kwd_object, &detector->result.sensitivity, 1)) {
+         XLOGD_ERROR("kwd sensitivity get fail");
+      }
+   }
 
    xraudio_keyword_detector_session_event(params, detector, source, NULL, KEYWORD_CALLBACK_EVENT_DETECTED, &detector->result, session->format_in);
 
