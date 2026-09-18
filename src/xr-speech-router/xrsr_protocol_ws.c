@@ -1366,6 +1366,11 @@ void St_Ws_Streaming(tStateEvent *pEvent, eStateAction eAction, BOOL *bGuardResp
                ws->session_end_reason = (ws->close_status != 1000) ? XRSR_SESSION_END_REASON_ERROR_DISCONNECT_REMOTE : XRSR_SESSION_END_REASON_DISCONNECT_REMOTE;
                break;
             }
+            case SM_EVENT_APP_CLOSE: {
+               ws->stream_end_reason  = XRSR_STREAM_END_REASON_DISCONNECT_REMOTE;
+               ws->session_end_reason = (ws->close_status != 1000) ? XRSR_SESSION_END_REASON_ERROR_DISCONNECT_REMOTE : XRSR_SESSION_END_REASON_DISCONNECT_REMOTE;
+               break;
+            }
             case SM_EVENT_TEXT_SESSION_SUCCESS: {
                XLOGD_INFO("src <%s> SM_EVENT_TEXT_SESSION_SUCCESS - text-only session init message sent successfully.", xrsr_src_str(ws->audio_src));
                break;
