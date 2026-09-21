@@ -1089,7 +1089,7 @@ bool xrsv_ws_nextgen_msgtype_conn_close(xrsv_ws_nextgen_obj_t *obj, json_t *obj_
       }
    }
 
-   int code         = 0;
+   int code         = -1;
    json_t *obj_code = NULL;
    if(obj_json) {
       obj_code = json_object_get(obj_json, XRSV_WS_NEXTGEN_JSON_KEY_RETURN_CODE);
