@@ -183,7 +183,7 @@ void xrsr_xraudio_resource_notification(xraudio_resource_event_t event, void *pa
 #endif
 
 void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t *uuid, keyword_callback_event_t event, void *param, xraudio_keyword_detector_result_t *detector_result, xraudio_input_format_t format) {
-   xrsr_queue_msg_keyword_detected_t msg = { 0 };
+   xrsr_queue_msg_keyword_detected_t msg;
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)param;
    if(!xrsr_xraudio_object_is_valid(obj)) {
       XLOGD_INFO("invalid object");
@@ -538,7 +538,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
 
    XLOGD_INFO("Keyword detected for source <%s>", xrsr_src_str(src));
 
-   xrsr_session_request_t input_format = { 0 };
+   xrsr_session_request_t input_format;
    input_format.type = XRSR_SESSION_REQUEST_TYPE_AUDIO_MIC;
 
    // Call the appropriate handler based on the source
@@ -798,7 +798,6 @@ void xrsr_xraudio_stream_event(xraudio_devices_input_t source, audio_in_callback
 bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, uint8_t dst_index, xraudio_input_format_t xraudio_format, xrsr_session_request_t input_format, const uuid_t *uuid, bool low_latency, bool low_cpu_util) {
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
    xraudio_keyword_detector_result_t *detector_result = NULL;
-   xraudio_keyword_detector_result_t keyword_result_hal = {0};
 
    if(!xrsr_xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("invalid xrsr xraudio object");
@@ -824,7 +823,8 @@ bool xrsr_xraudio_session_request(xrsr_xraudio_object_t object, xrsr_src_t src, 
    }
 
    if(input_format.type == XRSR_SESSION_REQUEST_TYPE_AUDIO_MIC) {
-      if(input_format.value.audio_mic.stream_params_required == true) {         
+      if(input_format.value.audio_mic.stream_params_required == true) {
+         xraudio_keyword_detector_result_t keyword_result_hal = {0};
          keyword_result_hal.dynamic_gain_update = input_format.value.audio_mic.dynamic_gain_update;
          xraudio_result_t result = xraudio_stream_keyword_info_get(obj->xraudio_obj, src, &keyword_result_hal);
          if(result != XRAUDIO_RESULT_OK) {
@@ -1141,7 +1141,7 @@ xrsr_audio_format_t xrsr_xraudio_format_to_xrsr(xraudio_input_format_t format) {
 }
 
 xraudio_input_format_t xrsr_xrsr_format_to_xraudio(xrsr_audio_format_t format) {
-   xraudio_input_format_t xraudio_format = { 0 };
+   xraudio_input_format_t xraudio_format;
    xraudio_format.container     = XRAUDIO_CONTAINER_NONE;
    xraudio_format.encoding.type = XRAUDIO_ENCODING_PCM;
    xraudio_format.sample_rate   = 16000;

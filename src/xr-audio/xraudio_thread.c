@@ -885,8 +885,8 @@ void *xraudio_main_thread(void *param) {
       // Process message queue if it is ready
       if(FD_ISSET(state->params.msgq, &rfds)) {
          xr_mq_msg_size_t bytes_read = xr_mq_pop(state->params.msgq, msg, sizeof(msg));
-         if(bytes_read == 0) {
-            XLOGD_ERROR("xr_mq_pop failed <%zu>", bytes_read);
+         if(bytes_read <= 0) {
+            XLOGD_ERROR("xr_mq_pop failed <%d>", bytes_read);
             continue;
          }
          xraudio_main_queue_msg_header_t *header = (xraudio_main_queue_msg_header_t *)msg;
@@ -1481,7 +1481,7 @@ void xraudio_msg_capture_start(xraudio_thread_state_t *state, void *msg) {
    xraudio_capture_file_t *capture_file = NULL;
    xraudio_pcm_range_t    *pcm_range    = NULL;
 
-   xraudio_input_format_t format_16k_16bit_mono = { 0 };
+   xraudio_input_format_t format_16k_16bit_mono;
    format_16k_16bit_mono.container     = capture->container;
    format_16k_16bit_mono.encoding.type = XRAUDIO_ENCODING_PCM;
    format_16k_16bit_mono.sample_rate   = 16000;
@@ -4824,28 +4824,21 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                return;
             }
             adpcm_t buffer[XRAUDIO_INPUT_ADPCM_BUFFER_SIZE] = {'\0'};
-            ssize_t read_result = xraudio_external_fd_read(session, buffer, adpcm_frame->size_packet);
-            if(read_result > adpcm_frame->size_packet) {
-               XLOGD_ERROR("ADPCM data read is too big <%zd>", read_result);
-               return;
-            }
-            if(read_result > 0) {
-               uint32_t encoded_bytes_read = (uint32_t)read_result;
+            bytes_read = xraudio_external_fd_read(session, buffer, adpcm_frame->size_packet);
+            if(bytes_read > 0) {
                if(instance->capture_internal.active) {
-                  int rc_cap = xraudio_in_capture_internal_to_file(session, buffer, encoded_bytes_read, capture_file);
+                  int rc_cap = xraudio_in_capture_internal_to_file(session, buffer, (uint32_t)bytes_read, capture_file);
                   if(rc_cap < 0) {
                      xraudio_in_capture_internal_end(&instance->capture_internal);
                   }
                   capture_file = &instance->capture_internal.decoded;
                }
-               bytes_read = adpcm_decode(decoders->adpcm, buffer, encoded_bytes_read, (pcm_t *)inbuf, (adpcm_frame->size_packet - adpcm_frame->size_header) * 2, adpcm_frame, false);
+               bytes_read = adpcm_decode(decoders->adpcm, buffer, bytes_read, (pcm_t *)inbuf, (adpcm_frame->size_packet - adpcm_frame->size_header) * 2, adpcm_frame, false);
                if(bytes_read < 0) {
                   XLOGD_ERROR("failed to decode adpcm");
                } else {
                   bytes_read *= sizeof(pcm_t);
                }
-            } else {
-               bytes_read = read_result == 0 ? 0 : -1;
             }
          } else if(enc_output == XRAUDIO_ENCODING_ADPCM_FRAME) {
             bytes_read = xraudio_external_fd_read(session, inbuf, inlen);
@@ -5597,7 +5590,7 @@ void xraudio_preprocess_mic_data(xraudio_main_thread_params_t *params, xraudio_s
    ref_chan = 0;
    uint8_t kwd_chan = 0;
    for(uint8_t chan = 0; chan < chan_qty_total; ++chan) {
-      if(chan < params->dsp_config.input_asr_max_channel_qty && chan < XRAUDIO_INPUT_ASR_MAX_CHANNEL_QTY) {
+      if(chan < params->dsp_config.input_asr_max_channel_qty) {
          pi32 = &ppasr_output_buffers[chan].samples[0];
          pi16 = &session->frame_buffer_int16[chan].frames[session->frame_group_index].samples[0];
          pf32 = &session->frame_buffer_fp32[chan].frames[session->frame_group_index].samples[0];
