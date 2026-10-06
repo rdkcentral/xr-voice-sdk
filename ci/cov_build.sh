@@ -48,9 +48,13 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     ${SAFEC_CFLAGS} \
     -I ${HEADERS_DIR} \
     -Wall" \
-    -DCMAKE_SHARED_LINKER_FLAGS="${SAFEC_LIBS}"
+    -DCMAKE_C_STANDARD_LIBRARIES="${SAFEC_LIBS}"
 
 cmake --build build/xr-voice-sdk -j$(nproc) 2>&1
+
+# Fail if the linker dropped safeclib (e.g. due to --as-needed)
+SDK_LIB="$(find build/xr-voice-sdk -name 'libxr-voice-sdk.so*' -type f | head -n1)"
+readelf -d "${SDK_LIB}" | grep -q 'NEEDED.*libsafec'
 echo "======================================================================================"
 echo "xr-voice-sdk build complete"
 exit 0
