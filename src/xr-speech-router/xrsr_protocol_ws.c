@@ -25,10 +25,12 @@
 #include <openssl/ssl.h>
 #include <openssl/pkcs12.h>
 #include <openssl/ocsp.h>
+#include <openssl/rand.h>
 #include "xrsr_private.h"
 #include "xrsr_protocol_ws_sm.h"
 
-#define XRSR_WS_CIPHER_LIST "AES256-SHA256:AES128-GCM-SHA256:AES128-SHA256"
+#define XRSR_WS_CIPHER_LIST     "AES256-SHA256:AES128-GCM-SHA256:AES128-SHA256"
+#define XRSR_WS_RETRY_COUNT_MAX (16)
 
 #define XRSR_HOSTNAME_VERIFY_POST_CHECK
 
@@ -132,8 +134,10 @@ bool xrsr_ws_init(xrsr_state_ws_t *ws, xrsr_ws_params_t *params) {
    ws->pending_msg   = NULL;
 
    sem_init(&ws->msg_out_semaphore, 0, 1);
+   sem_wait(&ws->msg_out_semaphore);
    ws->msg_out_count = 0;
    memset(ws->msg_out, 0, sizeof(ws->msg_out));
+   sem_post(&ws->msg_out_semaphore);
 
    xrsr_ws_update_dst_params(ws, params->dst_params);
    ws->timer_obj          = params->timer_obj;
@@ -1448,10 +1452,19 @@ void St_Ws_Connection_Retry(tStateEvent *pEvent, eStateAction eAction, BOOL *bGu
          break;
       }
       case ACT_ENTER: {
-         ws->retry_cnt++;
+         if(ws->retry_cnt >= XRSR_WS_RETRY_COUNT_MAX) {
+            ws->retry_cnt = XRSR_WS_RETRY_COUNT_MAX;
+         } else {
+            ws->retry_cnt++;
+         }
          // Calculate retry delay
-         uint32_t slots = 1 << ws->retry_cnt;
-         uint32_t retry_delay_ms = ws->backoff_delay * (rand() % slots);
+         uint32_t slots = 1U << ws->retry_cnt;
+         uint32_t random_value;
+         if(RAND_bytes((unsigned char *)&random_value, sizeof(random_value)) != 1) {
+            XLOGD_ERROR("src <%s> unable to generate retry delay", xrsr_src_str(ws->audio_src));
+            random_value = 0;
+         }
+         uint32_t retry_delay_ms = ws->backoff_delay * (random_value % slots);
 
          XLOGD_INFO("src <%s> retry connection - delay <%u> ms", xrsr_src_str(ws->audio_src), retry_delay_ms);
 

@@ -194,6 +194,11 @@ bool adpcm_analyze(adpcm_dec_t *decoder, adpcm_t *inbuf, uint32_t inlen, xraudio
         return(false);
     }
     step_size_index   = inbuf[adpcm_frame->offset_step_size_index];
+    if(step_size_index >= (sizeof(table_step_size) / sizeof(table_step_size[0]))) {
+        XLOGD_ERROR("step size index <%u> is out of bounds", step_size_index);
+        decoder->stats.failed_decodes += 1;
+        return(false);
+    }
     predicted_sample  = inbuf[adpcm_frame->offset_predicted_sample_lsb] + (inbuf[adpcm_frame->offset_predicted_sample_msb] << 8);
 
     // Check if this is first packet
