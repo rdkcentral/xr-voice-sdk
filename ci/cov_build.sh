@@ -31,6 +31,10 @@ echo "building xr-voice-sdk"
 
 HEADERS_DIR="$GITHUB_WORKSPACE/ci/headers"
 
+# Standalone assignments so set -e aborts if pkg-config can't find libsafec
+SAFEC_CFLAGS="$(pkg-config --cflags libsafec)"
+SAFEC_LIBS="$(pkg-config --libs libsafec)"
+
 cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/install/usr" \
     -DCMAKE_INSTALL_SYSCONFDIR="${GITHUB_WORKSPACE}/install/etc" \
@@ -41,10 +45,10 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DWS_ENABLED=ON \
     -DWS_NOPOLL_PATCHES=OFF \
     -DCMAKE_C_FLAGS=" \
-    $(pkg-config --cflags libsafec) \
+    ${SAFEC_CFLAGS} \
     -I ${HEADERS_DIR} \
     -Wall" \
-    -DCMAKE_SHARED_LINKER_FLAGS="$(pkg-config --libs libsafec)"
+    -DCMAKE_SHARED_LINKER_FLAGS="${SAFEC_LIBS}"
 
 cmake --build build/xr-voice-sdk -j$(nproc) 2>&1
 echo "======================================================================================"
