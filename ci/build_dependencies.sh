@@ -72,8 +72,29 @@ make -j$(nproc)
 make install
 cd "${GITHUB_WORKSPACE}"
 
+###########################################
+# 4. Clone and build real safeclib from source
+# (matches the DISTRO_FEATURES=safec path production builds take —
+# see meta-openembedded/meta-oe/recipes-core/safec/safec_3.7.1.bb,
+# SRCREV f9add9245b97c7bda6e28cceb0ee37fb7e254fd8)
+
+git clone --depth 1 https://github.com/rurban/safeclib.git
+git -C safeclib fetch --depth 1 origin f9add9245b97c7bda6e28cceb0ee37fb7e254fd8
+git -C safeclib checkout f9add9245b97c7bda6e28cceb0ee37fb7e254fd8
+
+echo "======================================================================================"
+echo "building safeclib"
+
+cd safeclib
+autoreconf -fi
+./configure --disable-wchar --prefix=/usr
+make -j$(nproc)
+make install
+ldconfig
+cd "${GITHUB_WORKSPACE}"
+
 ############################
-# 4. Create stub headers for external dependencies
+# 5. Create stub headers for external dependencies
 echo "======================================================================================"
 echo "Creating stub headers"
 
@@ -86,17 +107,12 @@ cd "${HEADERS_DIR}"
 cp "$RDKVERSION_DIR/src/rdkversion.h" rdkversion.h
 [ -f rdkversion.h ]
 
-# Use the Yocto safec_lib.h sysroot header for CI builds without libsafec.
-# Add include guards because the upstream header does not provide them.
+# safec_lib.h — xrsr_private.h includes this unconditionally. With real
+# safeclib built above (no SAFEC_DUMMY_API define), its own #ifndef
+# SAFEC_DUMMY_API branch pulls in safe_str_lib.h/safe_mem_lib.h for us.
 SAFEC_LIB_H_SRC="$SAFEC_WRAPPER_DIR/safec_lib.h"
 [ -f "$SAFEC_LIB_H_SRC" ]
-{
-  echo '#ifndef XR_VOICE_SDK_CI_SAFEC_LIB_H'
-  echo '#define XR_VOICE_SDK_CI_SAFEC_LIB_H'
-  cat "$SAFEC_LIB_H_SRC"
-  echo
-  echo '#endif /* XR_VOICE_SDK_CI_SAFEC_LIB_H */'
-} > safec_lib.h
+cp "$SAFEC_LIB_H_SRC" safec_lib.h
 
 echo "Stub headers created successfully"
 

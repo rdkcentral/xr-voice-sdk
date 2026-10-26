@@ -72,7 +72,7 @@ int32_t xr_fdc_fd_iterate(bool print) {
          XLOGD_ERROR("readdir failed <%s>", strerror(errsv));
          fd_qty = -1;
       }
-      if(direntp == NULL || direntp->d_name == NULL) {
+      if(direntp == NULL) {
          continue;
       } else if(direntp->d_name[0] == '.') { // Skip . and ..
          fd_qty--;

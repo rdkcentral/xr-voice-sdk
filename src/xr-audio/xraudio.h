@@ -371,7 +371,7 @@ xraudio_result_t xraudio_privacy_mode_update(xraudio_object_t object, xraudio_de
 /// @details Gets the privacy mode. The input parameter is a boolean with true indicating privacy mode is enabled, otherwise it is disabled
 xraudio_result_t xraudio_privacy_mode_get(xraudio_object_t object, xraudio_devices_input_t input, bool *enabled);
 
-// Recording APIs - Synchronous if callback is NULL
+// Recording APIs - Asynchronous only
 /// @brief Set keyword detection parameters
 /// @details Sets the keyword detection parameters.  The parameters will remain persistent until the xraudio object is destroyed.  The parameters will take effect on the next call to xraudio_keyword_detect.
 xraudio_result_t xraudio_detect_params(xraudio_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity);
@@ -392,12 +392,12 @@ xraudio_result_t xraudio_source_fd_set(xraudio_object_t object, xraudio_devices_
 xraudio_result_t xraudio_record_sound_intensity_transfer(xraudio_object_t object, const char *fifo_name);
 /// @brief Record incoming audio data to a file
 /// @details Record the incoming audio stream to the file specified in audio_file_path using the specified container format.  The recording will continue until the condition in the until parameter is reached or an error occurs.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with recording events delivered via the callback.
+/// The operation is performed asynchronously with recording events delivered via the callback.
 xraudio_result_t xraudio_record_to_file(xraudio_object_t object, xraudio_devices_input_t source, xraudio_container_t container, const char *audio_file_path, xraudio_input_record_from_t from, int32_t offset, xraudio_input_record_until_t until, audio_in_callback_t callback, void *param);
 /// @brief Record incoming audio data to memory
 /// @details Record the incoming audio stream to the memory location specified in the buf_samples parameter.  The number of samples that can be stored in the buffer is specified by the sample_qty parameter.
 /// The recording will continue until the condition in the until parameter is reached or an error occurs.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with recording events delivered via the callback.
+/// The operation is performed asynchronously with recording events delivered via the callback.
 xraudio_result_t xraudio_record_to_memory(xraudio_object_t object, xraudio_devices_input_t source, xraudio_sample_t *buf_samples, uint32_t sample_qty, xraudio_input_record_from_t from, int32_t offset, xraudio_input_record_until_t until, audio_in_callback_t callback, void *param);
 /// @brief Stop an active recording session
 /// @details This function stops the active recording session.
@@ -429,48 +429,48 @@ xraudio_result_t xraudio_stream_frame_group_quantity_set(xraudio_object_t object
 xraudio_result_t xraudio_stream_identifier_set(xraudio_object_t object, xraudio_devices_input_t source, const char *identifier);
 /// @brief Stream incoming audio data to a fifo
 /// @details Stream the incoming audio stream to the named pipe (fifo).  The recording will continue until the condition in the until parameter is reached or an error occurs.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with recording events delivered via the callback.
+/// The operation is performed asynchronously with recording events delivered via the callback.
 xraudio_result_t xraudio_stream_to_fifo(xraudio_object_t object, xraudio_devices_input_t source, const char *fifo_name, xraudio_input_record_from_t from, int32_t offset, xraudio_input_record_until_t until, xraudio_input_format_t *format_decoded, audio_in_callback_t callback, void *param);
 /// @brief Stream incoming audio data to a pipe
 /// @details Stream the incoming audio stream to the specified array of pipes.  The recording will continue until the condition in the until parameter is reached or an error occurs.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with recording events delivered via the callback.
+/// The operation is performed asynchronously with recording events delivered via the callback.
 xraudio_result_t xraudio_stream_to_pipe(xraudio_object_t object, xraudio_devices_input_t source, xraudio_dst_pipe_t dsts[], xraudio_input_format_t *format_decoded, bool subsequent, audio_in_callback_t callback, void *param);
 /// @brief Stream incoming audio data to a user-defined handler
 /// @details Stream the incoming audio stream to the user-defined handler in the data parameter.  The streaming will continue until the condition in the until parameter is reached or an error occurs.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with recording events delivered via the callback.
+/// The operation is performed asynchronously with recording events delivered via the callback.
 xraudio_result_t xraudio_stream_to_user(xraudio_object_t object, xraudio_devices_input_t source, audio_in_data_callback_t data, xraudio_input_record_from_t from, int32_t offset, xraudio_input_record_until_t until, xraudio_input_format_t *format_decoded, audio_in_callback_t callback, void *param);
 /// @brief Stop an active streaming session
 /// @details This function stops the active streaming session.
 xraudio_result_t xraudio_stream_stop(xraudio_object_t object, xraudio_devices_input_t source, int32_t index);
 
-// Playback APIs - Synchronous if callback is NULL
+// Playback APIs - Asynchronous only
 /// @brief Transfer sound intensity data to the specified fifo
 /// @details This function sets a named pipe (fifo) in which to transfer sound intensity measurements when a playback session is in process.
 xraudio_result_t xraudio_play_sound_intensity_transfer(xraudio_object_t object, const char *fifo_name);
 /// @brief Play audio data from a file
 /// @details Play the audio from the file specified in the audio_file_path parameter.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with playback events delivered via the callback.
+/// The operation is performed asynchronously with playback events delivered via the callback.
 xraudio_result_t xraudio_play_from_file(xraudio_object_t object, const char *audio_file_path, audio_out_callback_t callback, void *param);
 /// @brief Play audio data from memory
 /// @details Play the audio from the memory location specified in the audio_buf parameter.  The size of the audio data (in bytes) is specified in the size parameter.  The format parameter is used
 /// to specify additional details about the audio format.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with playback events delivered via the callback.
+/// The operation is performed asynchronously with playback events delivered via the callback.
 xraudio_result_t xraudio_play_from_memory(xraudio_object_t object, xraudio_output_format_t *format, const uint8_t *audio_buf, uint32_t size, audio_out_callback_t callback, void *param);
 /// @brief Play audio data from a pipe
 /// @details Play the audio from the pipe specified in the pipe parameter.  The format parameter is used to specify additional details about the audio format.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with playback events delivered via the callback.
+/// The operation is performed asynchronously with playback events delivered via the callback.
 xraudio_result_t xraudio_play_from_pipe(xraudio_object_t object, xraudio_output_format_t *format, int pipe, audio_out_callback_t callback, void *param);
 /// @brief Play audio data from a user-defined handler
 /// @details Play the audio using a user-defined data callback.  The format parameter is used to specify additional details about the audio format.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with playback events delivered via the callback.
+/// The operation is performed asynchronously with playback events delivered via the callback.
 xraudio_result_t xraudio_play_from_user(xraudio_object_t object, xraudio_output_format_t *format, audio_out_data_callback_t data, audio_out_callback_t callback, void *param);
 /// @brief Pause an active playback session
 /// @details Pause an active playback session.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with playback events delivered via the callback.
+/// The operation is performed asynchronously with playback events delivered via the callback.
 xraudio_result_t xraudio_play_pause(xraudio_object_t object, audio_out_callback_t callback, void *param);
 /// @brief Resume a paused playback session
 /// @details Resumes a paused playback session.
-/// The operation is performed synchronously if the callback parameter is NULL.  Otherwise the operation is performed asynchronously with playback events delivered via the callback.
+/// The operation is performed asynchronously with playback events delivered via the callback.
 xraudio_result_t xraudio_play_resume(xraudio_object_t object, audio_out_callback_t callback, void *param);
 /// @brief Stop an active playback session
 /// @details This function stops an active playback session.
@@ -520,7 +520,7 @@ xraudio_result_t xraudio_bluetooth_hfp_mute(xraudio_object_t object, unsigned ch
 // Diagnostics Functions
 /// @brief Capture incoming audio and meta data to a file
 /// @details Record the incoming audio stream to the file specified in audio_file_path using the specified capture and container format.  The recording will continue until the capture is stopped by
-/// the user or an error occurs. The operation is performed asynchronously.  If the callback parameter is not NULL, capture events will delivered via the callback. When enabled, raw microphone data can be captured.
+/// the user or an error occurs. The operation is performed asynchronously.  If the callback parameter is not NULL, capture events will be delivered via the callback. When enabled, raw microphone data can be captured.
 xraudio_result_t xraudio_capture_to_file_start(xraudio_object_t object, xraudio_capture_t capture, xraudio_container_t container, const char *audio_file_path, bool raw_mic_enable, audio_in_callback_t callback, void *param);
 /// @brief Stop an active capture session
 /// @details This function stops the active capture session.

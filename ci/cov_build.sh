@@ -31,6 +31,10 @@ echo "building xr-voice-sdk"
 
 HEADERS_DIR="$GITHUB_WORKSPACE/ci/headers"
 
+# Standalone assignments so set -e aborts if pkg-config can't find libsafec
+SAFEC_CFLAGS="$(pkg-config --cflags libsafec)"
+SAFEC_LIBS="$(pkg-config --libs libsafec)"
+
 cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/install/usr" \
     -DCMAKE_INSTALL_SYSCONFDIR="${GITHUB_WORKSPACE}/install/etc" \
@@ -41,14 +45,16 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B build/xr-voice-sdk \
     -DWS_ENABLED=ON \
     -DWS_NOPOLL_PATCHES=OFF \
     -DCMAKE_C_FLAGS=" \
-    -DSAFEC_DUMMY_API \
+    ${SAFEC_CFLAGS} \
     -I ${HEADERS_DIR} \
-    -Wall -Wno-error"
-
-# We should remove this hack to disable -Werror once the warnings are fixed in the codebase.
-find "${GITHUB_WORKSPACE}/build/xr-voice-sdk" \( -name "*.ninja" -o -name "flags.make" \) -exec sed -i 's/\(^\|[[:space:]]\)-Werror\([[:space:]]\|$\)/\1\2/g' {} \;
+    -Wall" \
+    -DCMAKE_C_STANDARD_LIBRARIES="${SAFEC_LIBS}"
 
 cmake --build build/xr-voice-sdk -j$(nproc) 2>&1
+
+# Fail if the linker dropped safeclib (e.g. due to --as-needed)
+SDK_LIB="$(find build/xr-voice-sdk -name 'libxr-voice-sdk.so*' -type f | head -n1)"
+readelf -d "${SDK_LIB}" | grep -q 'NEEDED.*libsafec'
 echo "======================================================================================"
 echo "xr-voice-sdk build complete"
 exit 0
