@@ -149,6 +149,14 @@ if(INSTALL_INTERNAL_HEADERS)
    install(FILES xr-audio/xraudio_version.h  TYPE INCLUDE COMPONENT internal-headers)
    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.h         TYPE INCLUDE COMPONENT internal-headers)
    install(FILES ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_modules.h TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES ${CMAKE_SOURCE_DIR}/scripts/vsdk_json_combine.py   TYPE INCLUDE COMPONENT internal-headers)
+   install(FILES ${CMAKE_SOURCE_DIR}/scripts/vsdk_json_to_header.py TYPE INCLUDE COMPONENT internal-headers)
+
+   # Generates the logger headers and installs only the internal-headers component, without building xr-voice-sdk
+   add_custom_target(install_internal_headers
+      COMMAND ${CMAKE_COMMAND} --install ${CMAKE_BINARY_DIR} --component internal-headers
+      DEPENDS ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger.h ${CMAKE_CURRENT_BINARY_DIR}/rdkx_logger_modules.h
+      VERBATIM)
 endif()
 
 # LIBRARY FILES
