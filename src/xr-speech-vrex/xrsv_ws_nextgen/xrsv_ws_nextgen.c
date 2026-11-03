@@ -1079,29 +1079,34 @@ bool xrsv_ws_nextgen_msgtype_listening(xrsv_ws_nextgen_obj_t *obj, json_t *obj_j
 
 bool xrsv_ws_nextgen_msgtype_conn_close(xrsv_ws_nextgen_obj_t *obj, json_t *obj_json) {
    XLOGD_INFO("");
+
+   json_t *obj_reason     = NULL;
+   const char *str_reason = NULL;
+   if(obj_json) {
+      obj_reason = json_object_get(obj_json, XRSV_WS_NEXTGEN_JSON_KEY_REASON);
+      if(obj_reason && json_is_string(obj_reason)) {
+         str_reason = json_string_value(obj_reason);
+      }
+   }
+
+   int code         = -1;
+   json_t *obj_code = NULL;
+   if(obj_json) {
+      obj_code = json_object_get(obj_json, XRSV_WS_NEXTGEN_JSON_KEY_RETURN_CODE);
+      if(obj_code && json_is_integer(obj_code)) {
+         code = json_integer_value(obj_code);
+      }
+   }
+
    if(obj->handlers.conn_close != NULL) {
-      // Get Reason
-      json_t *obj_reason     = NULL;
-      const char *str_reason = NULL;
-      if(obj_json) {
-         obj_reason = json_object_get(obj_json, XRSV_WS_NEXTGEN_JSON_KEY_REASON);
-         if(obj_reason && json_is_string(obj_reason)) {
-            str_reason = json_string_value(obj_reason);
-         }
-      }
-
-      // Get Return Code
-      int code         = 0;
-      json_t *obj_code = NULL;
-      if(obj_json) {
-         obj_code = json_object_get(obj_json, XRSV_WS_NEXTGEN_JSON_KEY_RETURN_CODE);
-         if(obj_code && json_is_integer(obj_code)) {
-            code = json_integer_value(obj_code);
-         }
-      }
-
       obj->handlers.conn_close(str_reason, code, obj->user_data);
    }
+
+   if(code == 0) { //The server closed the websocket after EOS, return false to indicate not to close the same socket
+      obj->recv_event = XRSR_RECV_EVENT_EOS_SERVER;
+      return(false);
+   }
+
    return(true);
 }
 
