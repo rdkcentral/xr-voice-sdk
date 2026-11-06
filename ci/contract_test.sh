@@ -34,7 +34,7 @@ HEADERS_DIR="${GITHUB_WORKSPACE}/ci/headers"
 PRISM_LOG="${BUILD_DIR}/prism.log"
 
 ############################
-# 1. Build xr-voice-sdk with the HTTP protocol enabled (cov_build.sh leaves it off)
+# 1. Build xr-voice-sdk with HTTP enabled (cov_build.sh leaves it off); WS is also required since HTTP-only builds don't compile
 SAFEC_CFLAGS="$(pkg-config --cflags libsafec)"
 SAFEC_LIBS="$(pkg-config --libs libsafec)"
 
@@ -45,6 +45,8 @@ cmake -G Ninja -S "$GITHUB_WORKSPACE" -B "$BUILD_DIR" \
     -DCMAKE_PROJECT_VERSION="1.0.0" \
     -DVSDK_VENDOR_XLOG=OFF \
     -DHTTP_ENABLED=ON \
+    -DWS_ENABLED=ON \
+    -DWS_NOPOLL_PATCHES=OFF \
     -DCMAKE_C_FLAGS="${SAFEC_CFLAGS} -I ${HEADERS_DIR} -Wall" \
     -DCMAKE_C_STANDARD_LIBRARIES="${SAFEC_LIBS}"
 

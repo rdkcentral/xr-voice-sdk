@@ -1,8 +1,6 @@
 name: Contract test xr-voice-sdk HTTP protocol (Prism)
 
 on:
-  push:
-    branches: [ main, 'sprint/**', 'release/**', develop, prism-spike ]
   pull_request:
     branches: [ main, 'sprint/**', 'release/**', topic/RDK*, 'feature/**', develop ]
 
