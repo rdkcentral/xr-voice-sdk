@@ -2404,11 +2404,14 @@ void xrsr_msg_session_config_in(const xrsr_thread_params_t *params, xrsr_thread_
 
                if(!http->is_session_by_text && !xrsr_speech_stream_begin(http->uuid, session->src, dst_index, http->input_format, http->xraudio_format, http->session_config_out.user_initiated, http->low_latency, http->low_cpu_util, create_stream, false, audio_file_in, &pipe_fd_read)) {
                   XLOGD_ERROR("xrsr_speech_stream_begin failed");
-               } else if(!xrsr_http_connect(http, &dst->url_parts, session->src, http->xraudio_format, state->timer_obj, deferred, session_config_in_http->query_strs, http->transcription_ptr)) {
-                  XLOGD_ERROR("http connect failed");
                } else {
-                  create_stream = false;
+                  // Set before connecting since curl may call the read function during xrsr_http_connect (e.g. fast local server)
                   http->audio_pipe_fd_read = pipe_fd_read;
+                  if(!xrsr_http_connect(http, &dst->url_parts, session->src, http->xraudio_format, state->timer_obj, deferred, session_config_in_http->query_strs, http->transcription_ptr)) {
+                     XLOGD_ERROR("http connect failed");
+                  } else {
+                     create_stream = false;
+                  }
                }
 
             }
