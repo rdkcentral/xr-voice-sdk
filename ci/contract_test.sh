@@ -64,6 +64,7 @@ gcc -std=gnu11 -Wall -Werror -D_REENTRANT -D_GNU_SOURCE \
     -I "$SRC" -I "$SRC/xr-logger" -I "$SRC/xr-timestamp" -I "$SRC/xr-speech-router" \
     -I "$SRC/xr-speech-vrex" -I "$SRC/xr-speech-vrex/xrsv_http" -I "$GEN_DIR" \
     "${GITHUB_WORKSPACE}/tests/contract/vrex_http_harness.c" \
+    "${GITHUB_WORKSPACE}/tests/contract/rdkversion_stub.c" \
     -L "$SDK_LIB_DIR" -lxr-voice-sdk -ljansson -luuid -lpthread \
     -o "$BUILD_DIR/vrex_http_harness"
 
