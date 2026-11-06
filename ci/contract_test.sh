@@ -39,6 +39,8 @@ SAFEC_CFLAGS="$(pkg-config --cflags libsafec)"
 SAFEC_LIBS="$(pkg-config --libs libsafec)"
 
 cmake -G Ninja -S "$GITHUB_WORKSPACE" -B "$BUILD_DIR" \
+    -DCMAKE_INSTALL_PREFIX="${GITHUB_WORKSPACE}/install/usr" \
+    -DCMAKE_INSTALL_SYSCONFDIR="${GITHUB_WORKSPACE}/install/etc" \
     -DSTAGING_BINDIR_NATIVE=/usr/bin \
     -DCMAKE_PROJECT_VERSION="1.0.0" \
     -DVSDK_VENDOR_XLOG=OFF \
