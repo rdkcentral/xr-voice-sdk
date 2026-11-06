@@ -17,7 +17,7 @@
  * limitations under the License.
  */
 
-// Drives one text-only HTTP session through xrsr + xrsv_http against a contract mock (Prism).
+// Drives one HTTP session (text-only, or audio from a 16 kHz mono 16-bit WAV) through xrsr + xrsv_http against a contract mock (Prism).
 // Exit code 0 only if the mock returns the expected HTTP status (a contract violation yields 422).
 
 #include <errno.h>
@@ -82,28 +82,31 @@ static void harness_session_end(const uuid_t uuid, xrsr_session_stats_t *stats, 
 }
 
 static void usage(const char *name) {
-   fprintf(stderr, "usage: %s --url <http://host:port/speech> [--sat <token>] [--text <transcription>] [--expect-status <code>]\n", name);
+   fprintf(stderr, "usage: %s --url <http://host:port/speech> [--sat <token>] [--text <transcription> | --audio-file <wav>] [--expect-status <code>]\n", name);
 }
 
 int main(int argc, char *argv[]) {
    const char *url             = NULL;
    const char *text            = "watch the news";
+   const char *audio_file      = NULL;
    long        expected_status = 200;
 
    static const struct option long_opts[] = {
       { "url",           required_argument, NULL, 'u' },
       { "sat",           required_argument, NULL, 's' },
       { "text",          required_argument, NULL, 't' },
+      { "audio-file",    required_argument, NULL, 'a' },
       { "expect-status", required_argument, NULL, 'e' },
       { NULL, 0, NULL, 0 }
    };
 
    int opt;
-   while((opt = getopt_long(argc, argv, "u:s:t:e:", long_opts, NULL)) != -1) {
+   while((opt = getopt_long(argc, argv, "u:s:t:a:e:", long_opts, NULL)) != -1) {
       switch(opt) {
          case 'u': url             = optarg; break;
          case 's': g_state.sat_token = optarg; break;
          case 't': text            = optarg; break;
+         case 'a': audio_file      = optarg; break;
          case 'e': expected_status = strtol(optarg, NULL, 10); break;
          default:  usage(argv[0]); return(2);
       }
@@ -168,9 +171,21 @@ int main(int argc, char *argv[]) {
       return(1);
    }
 
-   xrsr_session_request_t request = { .type = XRSR_SESSION_REQUEST_TYPE_TEXT };
-   request.value.text.text        = text;
-   xrsr_audio_format_t    format  = { .type = XRSR_AUDIO_FORMAT_NONE };
+   // Same request shapes ctrlm_voice_obj.cpp uses for text-only and audio-file sessions
+   xrsr_session_request_t request;
+   xrsr_audio_format_t    format;
+   memset(&request, 0, sizeof(request));
+   memset(&format, 0, sizeof(format));
+   if(audio_file != NULL) {
+      request.type                  = XRSR_SESSION_REQUEST_TYPE_AUDIO_FILE;
+      request.value.audio_file.path = audio_file;
+      format.type                   = XRSR_AUDIO_FORMAT_PCM;
+   } else {
+      request.type                  = XRSR_SESSION_REQUEST_TYPE_TEXT;
+      request.value.text.text       = text;
+      format.type                   = XRSR_AUDIO_FORMAT_NONE;
+   }
+   printf("harness: %s session\n", (audio_file != NULL) ? "audio file" : "text-only");
 
    bool requested = false;
    for(int i = 0; i < HARNESS_REQUEST_RETRY_MAX && !requested; i++) {

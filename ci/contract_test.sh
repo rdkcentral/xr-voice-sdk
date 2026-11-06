@@ -91,6 +91,11 @@ URL="http://127.0.0.1:${PRISM_PORT}/speech"
 # Positive: SDK request must satisfy the contract and SDK must parse the contract's example response
 "$HARNESS" --url "$URL" --sat "contract-test-sat" --expect-status 200
 
+# Positive: audio-file session exercises the chunked application/octet-stream upload path
+TONE_WAV="$BUILD_DIR/tone.wav"
+python3 "${GITHUB_WORKSPACE}/tests/contract/make_tone_wav.py" "$TONE_WAV"
+"$HARNESS" --url "$URL" --sat "contract-test-sat" --audio-file "$TONE_WAV" --expect-status 200
+
 # Negative control: no SAT token must be rejected, proving the mock is actually enforcing the contract
 "$HARNESS" --url "$URL" --expect-status 401
 
