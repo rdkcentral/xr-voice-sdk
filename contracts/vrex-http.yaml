@@ -1,0 +1,140 @@
+openapi: 3.0.3
+info:
+  title: VREX HTTP speech API (as used by xr-voice-sdk)
+  version: 0.1.0
+  description: |
+    Client-side contract for the HTTP voice protocol implemented by
+    src/xr-speech-vrex/xrsv_http/xrsv_http.c (query string, response parsing) and
+    src/xr-speech-router/xrsr_protocol_http.c (method, headers, body).
+
+    Derived from the SDK code, not from the server team's documentation. Items marked
+    "ASSUMPTION" need confirming with the voice server owners before this is treated as
+    the source of truth.
+
+    Applications (e.g. ctrlm) may append extra query string pairs from device config; those
+    are intentionally not listed here and are ignored by the mock.
+servers:
+  - url: http://127.0.0.1:4010
+    description: Local Prism mock
+security:
+  - satToken: []
+paths:
+  /speech:
+    post:
+      operationId: speechSession
+      summary: Start a voice session (streamed audio or text-only)
+      parameters:
+        - name: appId
+          in: query
+          required: true # ASSUMPTION: always provided by ctrlm
+          schema: { type: string, minLength: 1, maxLength: 57 }
+        - name: xboDeviceId
+          in: query
+          required: true # ASSUMPTION
+          schema: { type: string, minLength: 1, maxLength: 51 }
+        - name: partnerId
+          in: query
+          required: true # ASSUMPTION
+          schema: { type: string, minLength: 1, maxLength: 21 }
+        - name: language
+          in: query
+          required: true # ASSUMPTION
+          schema: { type: string, minLength: 1, maxLength: 22 }
+        - name: aspectRatio
+          in: query
+          required: true
+          schema: { type: string, enum: [HD] }
+        - name: trx
+          in: query
+          required: true
+          description: Session UUID, lower-case (uuid_unparse_lower).
+          schema:
+            type: string
+            pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+        - name: codec
+          in: query
+          required: true
+          schema: { type: string, enum: [ADPCM, PCM_16_16K, OPUS] }
+        - name: vrexFilters
+          in: query
+          required: false
+          description: Only sent for text-only sessions (removes SR from the pipeline).
+          schema:
+            type: string
+            pattern: '^[A-Z]+(,[A-Z]+)*$'
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            description: Audio stream, sent with Transfer-Encoding chunked.
+            schema: { type: string, format: binary }
+          text/plain:
+            description: Transcription for a text-only session (XRSR_SESSION_BY_TEXT_MAX_LENGTH - 1).
+            schema: { type: string, minLength: 1, maxLength: 127 }
+            example: watch the news
+      responses:
+        '200':
+          description: Session processed.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VrexResponse' }
+              examples:
+                textSession:
+                  value:
+                    code: 0
+                    message: success
+                    trx: 3f2b8c4e-1a2b-4c3d-8e9f-0a1b2c3d4e5f
+                    nlp:
+                      response:
+                        text: watch the news
+        '401':
+          description: Missing or invalid SAT token.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VrexResponse' }
+              examples:
+                unauthorized:
+                  value:
+                    code: 401
+                    message: unauthorized
+        '503':
+          description: Voice service unavailable. ASSUMPTION - body shape on server errors needs confirming with the server team.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VrexResponse' }
+              examples:
+                unavailable:
+                  value:
+                    code: 503
+                    message: service unavailable
+components:
+  securitySchemes:
+    satToken:
+      type: http
+      scheme: bearer
+      description: SAT token from the device, sent as "Authorization Bearer".
+  schemas:
+    VrexResponse:
+      type: object
+      description: Only the fields xrsv_http_handler_recv_msg reads; servers may send more.
+      additionalProperties: true
+      properties:
+        code:
+          type: integer
+          description: Server return code (stored as ret_code).
+        message:
+          type: string
+        trx:
+          type: string
+          description: Session identifier echoed by the server (stored as session_id).
+        nlp:
+          type: object
+          additionalProperties: true
+          properties:
+            response:
+              type: object
+              additionalProperties: true
+              properties:
+                text:
+                  type: string
+                  description: Transcription text.
