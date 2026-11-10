@@ -97,6 +97,16 @@ paths:
                   value:
                     code: 401
                     message: unauthorized
+        '503':
+          description: Voice service unavailable. ASSUMPTION - body shape on server errors needs confirming with the server team.
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/VrexResponse' }
+              examples:
+                unavailable:
+                  value:
+                    code: 503
+                    message: service unavailable
 components:
   securitySchemes:
     satToken:

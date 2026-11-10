@@ -3,6 +3,7 @@ name: Contract test xr-voice-sdk HTTP protocol (Prism)
 on:
   pull_request:
     branches: [ main, 'sprint/**', 'release/**', topic/RDK*, 'feature/**', develop ]
+  workflow_dispatch:
 
 permissions:
   contents: read

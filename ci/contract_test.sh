@@ -99,5 +99,8 @@ python3 "${GITHUB_WORKSPACE}/tests/contract/make_tone_wav.py" "$TONE_WAV"
 # Negative control: no SAT token must be rejected, proving the mock is actually enforcing the contract
 "$HARNESS" --url "$URL" --expect-status 401
 
+# Server error: Prism's __code override returns the contract's 503; the SDK must end the session and report the status, not hang
+"$HARNESS" --url "${URL}?__code=503" --sat "contract-test-sat" --expect-status 503
+
 echo "======================================================================================"
 echo "contract tests passed"
