@@ -68,6 +68,28 @@ The **xr-voice-sdk** is engineered for delivering efficient voice interaction ca
 - Allows swapping or augmenting speech recognition engines without changing core SDK flow.
 - Supports both native and cloud-based integration.
 
+#### FFV HAL function table
+
+With `USE_RDKV_HAL`, the SDK loads `libxraudio-ffv-hal.so` and obtains
+`xraudio_hal_plugin_api_get()`, as provided by vsdk-xraudio-hal-llama.
+Without that define, it loads `/vendor/lib/libxr-ffv-hal.so`. It first checks
+for the existing xraudio getter, then resolves `xr_ffv_hal_plugin_func_get()`
+for the native FFV HAL supplied by xr-ffv-hal-sky-llama.
+
+The native C ABI and its 16-entry function table are defined by the standalone
+`xr-ffv-hal-interface` package's `xr_ffv_hal_plugin.h` header. Both the middleware
+and vendor builds must stage version 1.x of that package in their own sysroots.
+Neither build requires the other component's headers or libraries. CMake resolves
+the package with `find_package(xr-ffv-hal-interface 1 CONFIG REQUIRED)`.
+The interface package owns header installation; neither consumer keeps a copy.
+
+The SDK validates every native table entry before passing the table to
+[vsdk_ffv_adapter.c](src/vsdk_ffv_adapter.c), which exposes xraudio operations
+to the existing audio pipeline. The native HAL owns keyword detection and DSP
+algorithms, so separate KWD/ALG plugins are not required in this configuration.
+Native FFV output is disabled. The table remains valid while its shared library
+is loaded.
+
 ---
 
 ## Build & Deployment Model

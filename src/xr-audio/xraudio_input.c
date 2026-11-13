@@ -228,10 +228,17 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
    obj->hal_input_obj            = NULL;
    obj->statistics               = (xraudio_input_statistics_t) { .frames_lost = 0 };
 
+   XLOGD_INFO("dsp_config is %p", dsp_config);
    if(dsp_config != NULL) {
+      obj->hal_plugin            = vsdk_hal_plugin_get();
       obj->dsp_config            = *dsp_config;
+      #ifdef USE_RDKV_HAL
       obj->kwd_enabled           = (vsdk_kwd_plugin_get() == NULL) ? false : true;
       obj->dga_enabled           = (vsdk_dga_plugin_get() == NULL) ? false : true;
+      #else
+      obj->kwd_enabled           = true;
+      obj->dga_enabled           = false;
+      #endif
       obj->hal_plugin            = vsdk_hal_plugin_get();
       obj->eos_plugin            = vsdk_eos_plugin_get();
       obj->sdf_plugin            = vsdk_sdf_plugin_get();
@@ -245,6 +252,8 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       obj->ppr_plugin            = NULL;
    }
 
+   XLOGD_INFO("obj->hal_plugin is %p", obj->hal_plugin);
+
    if(NULL == json_obj_input) {
       XLOGD_INFO("json_obj_input is null, using defaults");
    } else {
@@ -257,6 +266,7 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
             jeos_config = NULL;
          }
       }
+
       if(obj->ppr_plugin != NULL) {
          jppr_config = json_object_get(json_obj_input, JSON_OBJ_NAME_INPUT_PPR);
          if(NULL == jppr_config) {
@@ -413,6 +423,7 @@ xraudio_result_t xraudio_input_open(xraudio_input_object_t object, xraudio_devic
    int     fd          = -1;
 
    if(obj->kwd_enabled) {
+      XLOGD_INFO("Opening FFV HAL");
       xraudio_devices_input_t device_input_local = XRAUDIO_DEVICE_INPUT_LOCAL_GET(device);
       if(device_input_local != XRAUDIO_DEVICE_INPUT_NONE) {
 
@@ -1208,7 +1219,8 @@ xraudio_result_t xraudio_input_keyword_detect(xraudio_input_object_t object, key
    XRAUDIO_RECORD_MUTEX_LOCK();
 
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
-
+XLOGD_INFO("keyword detect <%s> callback %p param %p", (synchronous) ? "sync" : "async", callback, param);
+   #ifdef USE_RDKV_HAL
    // Ensure that the microphone is not already open
    if(session->state != XRAUDIO_INPUT_STATE_IDLING) {
       XLOGD_ERROR("invalid state <%s>.", xraudio_input_state_str(session->state));
@@ -1222,6 +1234,7 @@ xraudio_result_t xraudio_input_keyword_detect(xraudio_input_object_t object, key
       XRAUDIO_RECORD_MUTEX_UNLOCK();
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
+   #endif
    
    session->state = XRAUDIO_INPUT_STATE_DETECTING;
    xraudio_result_t result = xraudio_input_dispatch_detect(obj, callback, param, synchronous);
@@ -1576,6 +1589,7 @@ xraudio_result_t xraudio_input_capture_stop_locked(xraudio_input_obj_t *obj) {
 }
 
 void xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj) {
+#ifdef USE_RDKV_HAL
    xraudio_queue_msg_idle_start_t msg;
    msg.header.type         = XRAUDIO_MAIN_QUEUE_MSG_TYPE_RECORD_IDLE_START;
    msg.fd                  = obj->fd;
@@ -1585,9 +1599,11 @@ void xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj) {
    msg.capabilities        = obj->capabilities;
 
    xraudio_input_queue_msg_push(obj, (const char *)&msg, sizeof(msg));
+#endif
 }
 
 void xraudio_input_dispatch_idle_stop(xraudio_input_obj_t *obj) {
+#ifdef USE_RDKV_HAL
    xraudio_queue_msg_record_idle_stop_t msg;
    msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_RECORD_IDLE_STOP;
 
@@ -1599,7 +1615,9 @@ void xraudio_input_dispatch_idle_stop(xraudio_input_obj_t *obj) {
 
    // Block until operation is complete
    sem_wait(&semaphore);
+#endif 
 }
+
 
 xraudio_result_t xraudio_input_dispatch_record(xraudio_input_obj_t *obj, xraudio_devices_input_t source, xraudio_input_format_t *format_decoded, bool subsequent, audio_in_callback_t callback, void *param) {
    bool synchronous = (callback == NULL) ? true : false;
@@ -1696,16 +1714,19 @@ xraudio_result_t xraudio_input_dispatch_detect(xraudio_input_obj_t *obj, keyword
 }
 
 xraudio_result_t xraudio_input_dispatch_detect_params(xraudio_input_obj_t *obj) {
+   #ifdef USE_RDKV_HAL
    xraudio_queue_msg_detect_params_t msg;
    msg.header.type            = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_PARAMS;
    msg.default_sensitivity    = obj->detect_params.default_sensitivity;
    msg.sensitivity            = obj->detect_params.sensitivity;
 
    xraudio_input_queue_msg_push(obj, (const char *)&msg, sizeof(msg));
+   #endif
    return(XRAUDIO_RESULT_OK);
 }
 
 xraudio_result_t xraudio_input_dispatch_detect_stop(xraudio_input_obj_t *obj, xraudio_devices_input_t source, audio_in_callback_t callback, void *param) {
+   #ifdef USE_RDKV_HAL
    bool synchronous = (callback == NULL) ? true : false;
    xraudio_queue_msg_detect_stop_t msg;
    msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_STOP;
@@ -1729,6 +1750,7 @@ xraudio_result_t xraudio_input_dispatch_detect_stop(xraudio_input_obj_t *obj, xr
 
    // asynchronous
    xraudio_input_queue_msg_push(obj, (const char *)&msg, sizeof(msg));
+   #endif
    return(XRAUDIO_RESULT_OK);
 }
 
@@ -1814,7 +1836,7 @@ bool xraudio_input_audio_hal_open(xraudio_input_obj_t *obj, xraudio_devices_inpu
    // Get the bit qty back from the hal object
    *pcm_bit_qty = configuration.pcm_bit_qty;
    *fd          = configuration.fd;
-   
+   XLOGD_INFO("hal_input_obj %p fd %d pcm_bit_qty %u", obj->hal_input_obj, *fd, *pcm_bit_qty);
    #ifdef INPUT_TIMING_DATA
    rdkx_timestamp_get(&obj->timing_data_input_open.end);
    #endif

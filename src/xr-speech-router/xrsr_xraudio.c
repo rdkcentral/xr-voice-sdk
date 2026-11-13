@@ -189,10 +189,12 @@ void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t 
       XLOGD_INFO("invalid object");
       return;
    }
+   #ifdef USE_RDKV_HAL
    if(!obj->detect_active) {
       XLOGD_INFO("ignore keyword detect event");
       return;
    }
+   #endif
    if(uuid != NULL) {
       uuid_copy(msg.uuid, *uuid);
    } else {
@@ -358,12 +360,14 @@ void xrsr_xraudio_device_granted(xrsr_xraudio_object_t object) {
    }
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
    
+   #ifdef USE_RDKV_HAL
    if(!obj->detect_active) {
       XLOGD_INFO("don't start keyword detection");
       return;
    }
-
+   #endif
    xrsr_xraudio_keyword_detect_start(obj);
+
 }
 
 void xrsr_xraudio_device_close(xrsr_xraudio_object_t object) {
@@ -424,6 +428,7 @@ void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_k
 }
 
 void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
+#ifdef USE_RDKV_HAL
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
 
    if(!xrsr_xraudio_object_is_valid(obj)) {
@@ -431,7 +436,9 @@ void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
       return;
    }
    xrsr_xraudio_keyword_detect_start(obj);
+#endif
 }
+
 
 static void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
@@ -446,7 +453,8 @@ static void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
       XLOGD_INFO("sensitivity <%f>", obj->keyword_sensitivity);
    }
 
-   xraudio_result_t result = xraudio_detect_params(obj->xraudio_obj, obj->default_sensitivity ? NULL : &obj->keyword_sensitivity);
+   xraudio_result_t result;
+   result = xraudio_detect_params(obj->xraudio_obj, obj->default_sensitivity ? NULL : &obj->keyword_sensitivity);
    if(XRAUDIO_RESULT_OK != result) {
       XLOGD_ERROR("xraudio_detect_params <%s>", xraudio_result_str(result));
    }
@@ -466,6 +474,8 @@ static void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
 }
 
 static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
+#ifdef USE_RDKV_HAL
+
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
    if(!stream->detecting) { // already stopped
@@ -480,7 +490,7 @@ static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
        return;
    }
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
-  
+#endif
 }
 
 void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_keyword_detected_t *msg, xrsr_src_t current_session_src, bool requested_more_audio, bool *audio_stream_start) {
@@ -493,7 +503,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
    }
 
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
-
+   XLOGD_INFO("xrsr_xraudio_keyword_detected called for source <%s> current_session_src <%s> requested_more_audio <%d>", xraudio_devices_input_str(msg->source), xrsr_src_str(current_session_src), requested_more_audio);
    if(!stream->detecting) {
       XLOGD_ERROR("state <%s> not detecting", xrsr_xraudio_state_str(obj->xraudio_state));
       return;
@@ -516,7 +526,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
 
    // Stop the detector
    xrsr_xraudio_keyword_detect_stop(obj);
-
+   
    if((uint32_t)current_session_src < XRSR_SRC_INVALID) {
       if(src == current_session_src && requested_more_audio) { // TODO add in boolean indicating more audio was requested
          XLOGD_WARN("Allowing keyword detected from source <%s>, sending more audio.", xrsr_src_str(src));
@@ -527,7 +537,10 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
       } else {
          XLOGD_WARN("Rejecting keyword detected from source <%s>, session in progress on source <%s>.  Restarting keyword detector...", xrsr_src_str(src), xrsr_src_str(current_session_src));
          obj->session_rejected = true;
+         #ifdef USE_RDKV_HAL
          xrsr_xraudio_keyword_detect_restart(obj);
+         //TODO inform new HAL to restart detection? The HAL might do that automatically after some time or after reading mic data, check on this
+         #endif
          return;
       }
    }
@@ -580,7 +593,7 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
 
    // Stop the detector
    xrsr_xraudio_keyword_detect_stop(obj);
-
+   
    // Call the appropriate handler based on the source
    xrsr_keyword_detect_error(src);
 
@@ -595,10 +608,12 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
       #endif
    }
 
+   #ifdef USE_RDKV_HAL
    // TODO Should the app determine what to do here?
    if(obj->detect_active) { // Start detector again
       xrsr_xraudio_keyword_detect_start(obj);
    }
+   #endif
 }
 
 bool xrsr_xraudio_stream_begin(xrsr_xraudio_object_t object, const char *stream_id, xraudio_devices_input_t source, bool user_initiated, xraudio_input_format_t *format_decoded, xraudio_dst_pipe_t dsts[], uint16_t stream_time_min, uint32_t keyword_begin, uint32_t keyword_duration, uint32_t frame_duration, bool low_latency, bool low_cpu_util, bool subsequent) {
@@ -726,6 +741,7 @@ bool xrsr_xraudio_stream_end(xrsr_xraudio_object_t object, xraudio_devices_input
    if(!more_streams) { // no more streams open
       obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
 
+      #ifdef USE_RDKV_HAL
       if(source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
          obj->detect_active = detect_resume;
 
@@ -733,6 +749,7 @@ bool xrsr_xraudio_stream_end(xrsr_xraudio_object_t object, xraudio_devices_input
             xrsr_xraudio_keyword_detect_start(obj);
          }
       }
+      #endif
       xrsr_audio_stats_clear(stream);
    }
 
