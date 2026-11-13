@@ -37,6 +37,9 @@
 #include "xraudio_private.h"
 #include "xraudio_atomic.h"
 #include "xr_ffv_hal_interface.h"
+#ifndef USE_RDKV_HAL
+#include "vsdk_ffv_adapter.h"
+#endif
 #include "adpcm.h"
 #ifdef XRAUDIO_DECODE_OPUS
 #include "xraudio_opus.h"
@@ -808,17 +811,19 @@ void *xraudio_main_thread(void *param) {
       fd_set rfds;
       FD_ZERO(&rfds);
       FD_SET(state->params.msgq, &rfds);
+      xraudio_session_record_inst_t *instance = &state->record.instances[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
       #ifdef USE_RDKV_HAL
-      if(state->params.kwd_plugin != NULL && state->record.fd >= 0) {
+      bool record_fd_enabled = (state->params.kwd_plugin != NULL && state->record.fd >= 0);
       #else
-      if(state->record.fd >= 0) {
+      bool native_ffv = (state->params.hal_plugin == vsdk_ffv_adapter_api_get());
+      bool record_fd_enabled = (state->record.fd >= 0 && (!native_ffv || instance->record_callback != NULL));
       #endif
+      if(record_fd_enabled) {
          if(state->record.fd > state->params.msgq) {
             nfds = state->record.fd + 1;
          }
          FD_SET(state->record.fd, &rfds);
       }
-      xraudio_session_record_inst_t *instance = &state->record.instances[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
       xraudio_devices_input_t ext_source = XRAUDIO_DEVICE_INPUT_EXTERNAL_GET(instance->source);
       if(ext_source != XRAUDIO_DEVICE_INPUT_NONE && state->record.external_fd >= 0 && ext_source == xraudio_in_session_group_source_get(XRAUDIO_INPUT_SESSION_GROUP_DEFAULT)) {
          if(state->record.external_fd > state->params.msgq) {
@@ -861,28 +866,31 @@ void *xraudio_main_thread(void *param) {
          continue;
       }
 
-      #ifdef USE_RDKV_HAL
-      if(state->params.kwd_plugin != NULL && state->record.fd >= 0) {
-      #else
-
-      if(state->record.fd >= 0) {
-      #endif
+      if(record_fd_enabled) {
          if(FD_ISSET(state->record.fd, &rfds)) {
-            uint64_t val;
-            errno = 0;
-            ssize_t rc = read(state->record.fd, &val, sizeof(val));
-            if(rc != sizeof(val)) {
-               if(rc < 0) {
-                  int errsv = errno;
-                  XLOGD_ERROR("record fd read error <%s>", strerror(errsv));
+            #ifndef USE_RDKV_HAL
+            if(native_ffv) {
+               unsigned long timeout;
+               xraudio_process_mic_data(&state->params, &state->record, &timeout);
+            } else
+            #endif
+            {
+               uint64_t val;
+               errno = 0;
+               ssize_t rc = read(state->record.fd, &val, sizeof(val));
+               if(rc != sizeof(val)) {
+                  if(rc < 0) {
+                     int errsv = errno;
+                     XLOGD_ERROR("record fd read error <%s>", strerror(errsv));
+                  } else {
+                     XLOGD_ERROR("record fd read error <%ld>", rc);
+                  }
                } else {
-                  XLOGD_ERROR("record fd read error <%ld>", rc);
-               }
-            } else {
-               XLOGD_DEBUG("val <%llu>", val);
-               if(val > 0) {
-                  unsigned long timeout;
-                  xraudio_process_mic_data(&state->params, &state->record, &timeout);
+                  XLOGD_DEBUG("val <%llu>", val);
+                  if(val > 0) {
+                     unsigned long timeout;
+                     xraudio_process_mic_data(&state->params, &state->record, &timeout);
+                  }
                }
             }
          }
@@ -1279,7 +1287,11 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
       instance->keyword_end_samples   = (record->stream_keyword_duration != 0) ? record->stream_keyword_begin + record->stream_keyword_duration : 0;
       instance->keyword_triggered     = (record->stream_keyword_duration != 0) ? true : false;
 
-      if(state->params.kwd_plugin != NULL && record->stream_until[0] == XRAUDIO_INPUT_RECORD_UNTIL_END_OF_SPEECH && instance->use_hal_eos) {
+      bool hal_eos_available = (state->params.kwd_plugin != NULL);
+      #ifndef USE_RDKV_HAL
+      hal_eos_available = hal_eos_available || (state->params.hal_plugin == vsdk_ffv_adapter_api_get());
+      #endif
+      if(hal_eos_available && record->stream_until[0] == XRAUDIO_INPUT_RECORD_UNTIL_END_OF_SPEECH && instance->use_hal_eos) {
          if(!state->params.hal_plugin->input_eos_cmd(state->params.hal_input_obj, XRAUDIO_EOS_CMD_SESSION_BEGIN, state->record.keyword_detector.active_chan)) {
             XLOGD_ERROR("unable to begin hal eos session");
          } else {
@@ -1456,6 +1468,28 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
       }
 
       xraudio_in_session_group_semaphore_unlock(state, stop->source);
+      #ifndef USE_RDKV_HAL
+      if(state->params.hal_plugin == vsdk_ffv_adapter_api_get() &&
+         XRAUDIO_DEVICE_INPUT_LOCAL_GET(stop->source) != XRAUDIO_DEVICE_INPUT_NONE &&
+         stop->source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
+         state->record.fd = -1;
+         state->record.recording = false;
+         instance->eos_hal_cmd_pending = false;
+         if(!state->params.hal_plugin->input_keyword_detector_reset(state->params.hal_input_obj)) {
+            XLOGD_ERROR("Unable to rearm FFV keyword detection after capture stop");
+         } else {
+            xraudio_device_input_configuration_t configuration = { .fd = -1 };
+            xraudio_hal_input_obj_t input = state->params.hal_plugin->input_open(
+               state->params.hal_input_obj, stop->source, state->record.format_in, &configuration);
+            if(input == NULL) {
+               XLOGD_ERROR("Unable to obtain rearmed FFV keyword input");
+            } else {
+               state->params.hal_input_obj = input;
+               state->record.fd = configuration.fd;
+            }
+         }
+      }
+      #endif
    }
 }
 
@@ -2017,11 +2051,26 @@ void xraudio_msg_async_session_begin(xraudio_thread_state_t *state, void *msg) {
    if(!xraudio_devices_input_local_is_valid(begin->source)) {
       XLOGD_ERROR("not a valid local device");
    } else {
-      if(state->params.hal_input_obj != NULL) {
-         state->params.hal_plugin->input_close(state->params.hal_input_obj);
-         state->params.hal_input_obj = NULL;
+      #ifndef USE_RDKV_HAL
+      if(state->params.hal_plugin == vsdk_ffv_adapter_api_get()) {
+         // Reuse the keyword pipe: reopening would discard the detected command's buffered audio.
+         xraudio_hal_obj_t input = (state->params.hal_input_obj != NULL) ? state->params.hal_input_obj : state->params.hal_obj;
+         xraudio_hal_input_obj_t opened = state->params.hal_plugin->input_open(input, begin->source, begin->format, &configuration);
+         if(opened == NULL) {
+            XLOGD_ERROR("Unable to open or reuse FFV keyword input");
+            event = KEYWORD_CALLBACK_EVENT_ERROR_FD;
+         } else {
+            state->params.hal_input_obj = opened;
+         }
+      } else
+      #endif
+      {
+         if(state->params.hal_input_obj != NULL) {
+            state->params.hal_plugin->input_close(state->params.hal_input_obj);
+            state->params.hal_input_obj = NULL;
+         }
+         state->params.hal_input_obj = state->params.hal_plugin->input_open(state->params.hal_obj, begin->source, begin->format, &configuration);
       }
-      state->params.hal_input_obj = state->params.hal_plugin->input_open(state->params.hal_obj, begin->source, begin->format, &configuration);
    }
    
    state->record.fd = configuration.fd;
@@ -2285,8 +2334,9 @@ void timer_frame_process(void *data) {
          xraudio_process_mic_data(&state->params, &state->record, &timeout_mic);
       }
    #else
-   // Process microphone data when either recording or fd is ready (fd acts as bootstrap trigger)
-   if(state->params.obj_input != NULL && (state->record.recording || state->record.fd >= 0)) {
+   // Native FFV PCM is consumed only through pipe readiness, after a capture consumer is installed.
+   if(state->params.hal_plugin != vsdk_ffv_adapter_api_get() &&
+      state->params.obj_input != NULL && (state->record.recording || state->record.fd >= 0)) {
       state->record.handler_unpack = xraudio_unpack_multi_int16;
       xraudio_process_mic_data(&state->params, &state->record, &timeout_mic);
    #endif
@@ -2325,6 +2375,13 @@ void timer_frame_process(void *data) {
 }
 
 void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, unsigned long *timeout) {
+   #ifndef USE_RDKV_HAL
+   if(params->hal_plugin == vsdk_ffv_adapter_api_get() &&
+      session->instances[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT].record_callback == NULL) {
+      *timeout = 0;
+      return;
+   }
+   #endif
    int rc = -1;
    audio_in_callback_event_t event = AUDIO_IN_CALLBACK_EVENT_OK;
 
@@ -2615,6 +2672,11 @@ void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_sess
       instance->audio_buf_samples        = NULL;
       instance->audio_buf_sample_qty     = 0;
       instance->audio_buf_index          = 0;
+      #ifndef USE_RDKV_HAL
+      if(params->hal_plugin == vsdk_ffv_adapter_api_get()) {
+         instance->record_callback = NULL;
+      }
+      #endif
    }
 }
 

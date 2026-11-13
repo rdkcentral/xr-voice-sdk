@@ -90,6 +90,37 @@ algorithms, so separate KWD/ALG plugins are not required in this configuration.
 Native FFV output is disabled. The table remains valid while its shared library
 is loaded.
 
+The native adapter exposes the `KEYWORD` channel as 16 kHz, signed 16-bit
+mono PCM; it does not expose the raw 32-bit `MICROPHONES` channel. Session
+start reuses the existing keyword input object and pipe so that audio buffered
+at detection is preserved. The audio thread waits until the recording consumer
+is installed before monitoring the native pipe, and reads its PCM directly on
+readability without treating it as an event counter or consuming it on a frame
+timer. This preserves the HAL's leading and keyword audio during session setup.
+Reads accumulate a complete requested PCM frame,
+retry interrupted reads, and wait for readability if the pipe is nonblocking.
+The HAL owns both pipe descriptors and closes them through `close_channel`.
+The `USE_RDKV_HAL` session-start reopen behavior is unchanged.
+
+The adapter reads `wuw.sowuw` and `wuw.eowuw` from the HAL's keyword metadata.
+These are sample offsets from the start of the pipe audio. The native consumer's
+endpoints are relative to the start of the delivered audio. The adapter discards
+`sowuw - 1600` leading samples
+so the output begins exactly 1600 samples (100 ms at 16 kHz) before the keyword.
+It reports `pre = 0`, `begin = 1600`, and `end = eowuw - (sowuw - 1600)`.
+Missing, malformed, out-of-range endpoints or fewer than 1600 available leading
+samples are logged and reported as invalid session parameters.
+
+The HAL's end-of-command callback records the final sample offset and timeout
+status; it does not close the pipe while command audio is still buffered.
+The adapter reports HAL EOS once reads reach that offset, rounding up to the
+complete PCM frame required by xraudio. The HAL-relative byte count includes
+discarded leading audio, so trimming does not delay EOS. After EOS, native reads
+pause until the capture is stopped. Stopping the final local capture closes and
+reopens the `KEYWORD` channel to rearm HAL detection, resets the byte count and
+trim offset, and updates xraudio's pipe descriptor. Explicit early capture stops
+also rearm detection.
+
 ---
 
 ## Build & Deployment Model

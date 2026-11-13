@@ -26,6 +26,9 @@
 #include <stdbool.h>
 #include <unistd.h>
 #include <errno.h>
+#include <poll.h>
+#include <jansson.h>
+#include <pthread.h>
 
 #include <xr_voice_sdk.h>
 
@@ -33,6 +36,7 @@
 
 #define VSDK_FFV_HAL_OBJ_MAGIC   (0x7668646f) // "vhdo"
 #define VSDK_FFV_INPUT_OBJ_MAGIC (0x7668696f) // "vhio"
+#define VSDK_FFV_KEYWORD_PREROLL_SAMPLES (4000)
 
 typedef struct {
    uint32_t                    magic;
@@ -43,6 +47,10 @@ typedef struct {
    xraudio_power_mode_t        power_mode;
    bool                        privacy_mode;
    xraudio_devices_input_t     source;
+   uint32_t                   stream_start_sample;
+   int32_t                    end_of_command_sample;
+   bool                       end_of_command_pending;
+   bool                       end_of_command_timed_out;
 } vsdk_ffv_hal_obj_t;
 
 typedef struct {
@@ -51,6 +59,7 @@ typedef struct {
    FFVhalFileDescriptor     fd;
    const char              *channel_type;
    xraudio_devices_input_t  source;
+   uint64_t                 bytes_read_total;
 } vsdk_ffv_input_obj_t;
 
 typedef struct {
@@ -60,6 +69,7 @@ typedef struct {
 } vsdk_ffv_adapter_t;
 
 static vsdk_ffv_adapter_t g_vsdk_ffv_adapter = {0};
+static pthread_mutex_t g_vsdk_ffv_session_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static FFVhalPowerMode_t vsdk_ffv_power_mode_from_xraudio(xraudio_power_mode_t power_mode) {
    switch(power_mode) {
@@ -68,17 +78,6 @@ static FFVhalPowerMode_t vsdk_ffv_power_mode_from_xraudio(xraudio_power_mode_t p
       case XRAUDIO_POWER_MODE_SLEEP: return(DEEP_SLEEP);
       default:                       return(NONE);
    }
-}
-
-//This function decides whether we're requesting keyword or microphone channel, needs updating
-static bool vsdk_ffv_channel_is_keyword(xraudio_input_format_t format) {
-   XLOGD_INFO("format.container=%d, format.encoding.type=%d, format.sample_rate=%d, format.sample_size=%d, format.channel_qty=%d", format.container, format.encoding.type, format.sample_rate, format.sample_size, format.channel_qty);
-   //This is not a good test but will do for the moment
-   if(format.sample_size == 2) {
-      XLOGD_INFO("sample_size is %d, not a keyword channel", format.sample_size);
-      return(false);
-   }
-   return(true);
 }
 
 static bool vsdk_ffv_source_is_local(xraudio_devices_input_t source) {
@@ -97,6 +96,63 @@ static void vsdk_ffv_emit_session_request(vsdk_ffv_hal_obj_t *obj) {
    obj->callback(&msg);
 }
 
+static bool vsdk_ffv_keyword_endpoints_get(vsdk_ffv_hal_obj_t *obj, xraudio_hal_stream_params_t *stream_params) {
+   if((obj->ffv_api == NULL) || (obj->ffv_api->get_keyword_meta_data == NULL)) {
+      XLOGD_ERROR("FFV HAL keyword metadata API unavailable");
+      return(false);
+   }
+
+   unsigned char *metadata = NULL;
+   FFVhalApiStatus_t status = obj->ffv_api->get_keyword_meta_data(obj->ffv_handle, &metadata);
+   if((status != EX_NONE) || (metadata == NULL)) {
+      XLOGD_ERROR("FFV HAL keyword metadata unavailable, status %d", status);
+      return(false);
+   }
+
+   json_error_t error;
+   json_t *root = json_loads((const char *)metadata, 0, &error);
+   if(root == NULL) {
+      XLOGD_ERROR("Invalid FFV HAL keyword metadata at line %d: %s", error.line, error.text);
+      return(false);
+   }
+   json_t *wuw = json_object_get(root, "wuw");
+   json_t *sowuw = json_object_get(wuw, "sowuw");
+   json_t *eowuw = json_object_get(wuw, "eowuw");
+   if(!json_is_integer(sowuw) || !json_is_integer(eowuw)) {
+      XLOGD_ERROR("FFV HAL keyword metadata requires integer wuw.sowuw and wuw.eowuw");
+      json_decref(root);
+      return(false);
+   }
+
+   json_int_t begin = json_integer_value(sowuw);
+   json_int_t end = json_integer_value(eowuw);
+   if((begin < 0) || (end <= begin) || (end > INT32_MAX)) {
+      XLOGD_ERROR("FFV HAL keyword sample offsets are invalid or out of range");
+      json_decref(root);
+      return(false);
+   }
+   if(begin < VSDK_FFV_KEYWORD_PREROLL_SAMPLES) {
+      XLOGD_ERROR("FFV HAL keyword audio has fewer than %d leading samples",
+                 VSDK_FFV_KEYWORD_PREROLL_SAMPLES);
+      json_decref(root);
+      return(false);
+   }
+
+   XLOGD_INFO("FFV keyword metadata begin %d end %d", (int)begin, (int)end);
+   uint32_t start_sample = (uint32_t)begin - VSDK_FFV_KEYWORD_PREROLL_SAMPLES;
+   pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
+   obj->stream_start_sample = start_sample;
+   pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
+
+   stream_params->kwd_pre   = 0;
+   stream_params->kwd_begin = VSDK_FFV_KEYWORD_PREROLL_SAMPLES;
+   stream_params->kwd_end   = (int32_t)end - (int32_t)start_sample;
+   json_decref(root);
+   XLOGD_INFO("FFV keyword endpoints pre %d begin %d end %d",
+              stream_params->kwd_pre, stream_params->kwd_begin, stream_params->kwd_end);
+   return(true);
+}
+
 static void vsdk_ffv_emit_session_begin(vsdk_ffv_hal_obj_t *obj) {
    if((obj == NULL) || (obj->callback == NULL)) {
       return;
@@ -111,10 +167,7 @@ static void vsdk_ffv_emit_session_begin(vsdk_ffv_hal_obj_t *obj) {
    msg.format.sample_rate     = 16000;
    msg.format.sample_size     = 2;
    msg.format.channel_qty     = 1;
-   msg.stream_params.valid    = true;
-   msg.stream_params.kwd_pre  = 0;
-   msg.stream_params.kwd_begin= 0;
-   msg.stream_params.kwd_end  = 0;
+   msg.stream_params.valid    = vsdk_ffv_keyword_endpoints_get(obj, &msg.stream_params);
    msg.stream_params.keyword_detector = "ffv-hal";
    msg.stream_params.dsp_name = "ffv-hal";
    msg.stream_params.sensitivity = 0.0f;
@@ -183,14 +236,20 @@ static void vsdk_ffv_on_keyword_detected_cb(void) {
 }
 
 static void vsdk_ffv_on_end_of_command_cb(int32_t sampleOffset, bool timedOut) {
-   (void)sampleOffset;
-   (void)timedOut;
    XLOGD_INFO("end of command detected at sample offset %d, timed out=%d", sampleOffset, timedOut);
    if(g_vsdk_ffv_adapter.active_hal_obj == NULL) {
       XLOGD_ERROR("FFV HAL end of command detected but no active HAL object");
       return;
    }
-   vsdk_ffv_emit_session_end(g_vsdk_ffv_adapter.active_hal_obj);
+   if(sampleOffset < 0) {
+      XLOGD_ERROR("FFV HAL reported invalid end-of-command sample offset %d", sampleOffset);
+      return;
+   }
+   pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
+   g_vsdk_ffv_adapter.active_hal_obj->end_of_command_sample = sampleOffset;
+   g_vsdk_ffv_adapter.active_hal_obj->end_of_command_timed_out = timedOut;
+   g_vsdk_ffv_adapter.active_hal_obj->end_of_command_pending = true;
+   pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
 }
 
 //This function is currently unused
@@ -244,9 +303,6 @@ static void vsdk_ffv_adapter_capabilities_get(xraudio_hal_capabilities *caps) {
       caps->input_caps[0]  = XRAUDIO_CAPS_INPUT_LOCAL | XRAUDIO_CAPS_INPUT_SELECT;
       if(ffv_caps.channelTypes[0] != NULL || ffv_caps.channelTypes[1] != NULL) {
          caps->input_caps[0] |= XRAUDIO_CAPS_INPUT_EOS_DETECTION;
-      }
-      if(ffv_caps.microphoneChannelCount > 1) {
-         caps->input_caps[0] |= XRAUDIO_CAPS_INPUT_LOCAL_32_BIT;
       }
       caps->output_qty = 0;
    }
@@ -444,11 +500,23 @@ static bool vsdk_ffv_adapter_thread_poll(void) {
 }
 
 static xraudio_hal_input_obj_t vsdk_ffv_adapter_input_open(xraudio_hal_obj_t hal_obj, xraudio_devices_input_t device, xraudio_input_format_t format, xraudio_device_input_configuration_t *configuration) {
+   if((configuration == NULL) || !vsdk_ffv_source_is_local(device) ||
+      (format.container != XRAUDIO_CONTAINER_NONE) || (format.encoding.type != XRAUDIO_ENCODING_PCM) ||
+      (format.sample_rate != 16000) || (format.sample_size != 2) || (format.channel_qty != 1)) {
+      XLOGD_ERROR("FFV keyword input requires local 16 kHz, 16-bit mono PCM without a container");
+      return(NULL);
+   }
+
    vsdk_ffv_hal_obj_t *obj = NULL;
    vsdk_ffv_input_obj_t *existing = (vsdk_ffv_input_obj_t *)hal_obj;
    if((existing != NULL) && (existing->magic == VSDK_FFV_INPUT_OBJ_MAGIC)) {
+      if((existing->source != device) || (existing->fd < 0)) {
+         XLOGD_ERROR("Cannot reuse FFV input for device 0x%x", device);
+         return(NULL);
+      }
       obj = existing->hal_obj;
       configuration->fd = existing->fd;
+      configuration->pcm_bit_qty = 16;
       XLOGD_INFO("called with existing input object, reusing HAL object %p and fd %d", obj, configuration->fd);
       return((xraudio_hal_input_obj_t)existing);
    } else {
@@ -456,13 +524,11 @@ static xraudio_hal_input_obj_t vsdk_ffv_adapter_input_open(xraudio_hal_obj_t hal
    }
 
    if((obj == NULL) || (obj->magic != VSDK_FFV_HAL_OBJ_MAGIC) || (obj->ffv_api == NULL) || (obj->ffv_api->open_channel == NULL)) {
-      return(NULL);
-   }
-   if(!vsdk_ffv_source_is_local(device)) {
+      XLOGD_ERROR("Invalid FFV HAL input object or channel API");
       return(NULL);
    }
 
-   const char *channel = vsdk_ffv_channel_is_keyword(format) ? "KEYWORD" : "MICROPHONES";
+   const char *channel = "KEYWORD";
    FFVhalFileDescriptor fd = -1;
    XLOGD_INFO("channel %s, device 0x%x", channel, device);
    if(obj->ffv_api->open_channel(obj->ffv_controller, channel, &fd) != EX_NONE) {
@@ -483,6 +549,7 @@ static xraudio_hal_input_obj_t vsdk_ffv_adapter_input_open(xraudio_hal_obj_t hal
    input->source      = device;
    obj->source        = device;
    configuration->fd = fd;
+   configuration->pcm_bit_qty = 16;
    XLOGD_INFO("channel %s, fd %d", channel, fd);
 
    return((xraudio_hal_input_obj_t)input);
@@ -496,10 +563,11 @@ static void vsdk_ffv_adapter_input_close(xraudio_hal_input_obj_t input_obj) {
    }
 
    if((obj->hal_obj->ffv_api != NULL) && (obj->hal_obj->ffv_api->close_channel != NULL) && (obj->channel_type != NULL)) {
-      (void)obj->hal_obj->ffv_api->close_channel(obj->hal_obj->ffv_controller, obj->channel_type);
-   }
-   if(obj->fd >= 0) {
-      (void)close(obj->fd);
+      if(obj->hal_obj->ffv_api->close_channel(obj->hal_obj->ffv_controller, obj->channel_type) != EX_NONE) {
+         XLOGD_ERROR("FFVhal_close_channel failed for channel %s", obj->channel_type);
+      }
+   } else {
+      XLOGD_ERROR("FFV HAL channel close API unavailable");
    }
 
    obj->magic = 0;
@@ -514,29 +582,74 @@ static uint32_t vsdk_ffv_adapter_input_buffer_size_get(xraudio_hal_input_obj_t o
 
 static int32_t vsdk_ffv_adapter_input_read(xraudio_hal_input_obj_t input_obj, uint8_t *data, uint32_t size, xraudio_eos_event_t *eos_event) {
    vsdk_ffv_input_obj_t *obj = (vsdk_ffv_input_obj_t *)input_obj;
-   if((obj == NULL) || (obj->magic != VSDK_FFV_INPUT_OBJ_MAGIC) || (data == NULL) || (size == 0) || (obj->fd < 0)) {
+   if((obj == NULL) || (obj->magic != VSDK_FFV_INPUT_OBJ_MAGIC) || (obj->hal_obj == NULL) || (data == NULL) ||
+      (size == 0) || (size > INT32_MAX) || ((size % sizeof(int16_t)) != 0) || (obj->fd < 0)) {
+      XLOGD_ERROR("Invalid FFV input read parameters");
       return(-1);
    }
-   static int doit = 1;
 
    if(eos_event != NULL) {
       memset(eos_event, 0, sizeof(*eos_event));
    }
 
-   ssize_t rc = read(obj->fd, data, size);
-   if(rc < 0) {
-      if((errno == EAGAIN) || (errno == EINTR)) {
-         return(0);
+   pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
+   uint64_t stream_start_bytes = (uint64_t)obj->hal_obj->stream_start_sample * sizeof(int16_t);
+   pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
+
+   uint32_t bytes_read = 0;
+   while(bytes_read < size) {
+      bool skipping = (obj->bytes_read_total < stream_start_bytes);
+      uint32_t read_size = size - bytes_read;
+      if(skipping && (stream_start_bytes - obj->bytes_read_total < read_size)) {
+         read_size = (uint32_t)(stream_start_bytes - obj->bytes_read_total);
       }
+      ssize_t rc = read(obj->fd, data + bytes_read, read_size);
+      if(rc > 0) {
+         obj->bytes_read_total += (uint32_t)rc;
+         if(!skipping) {
+            bytes_read += (uint32_t)rc;
+         }
+         continue;
+      }
+      if(rc == 0) {
+         XLOGD_ERROR("FFV audio pipe closed after %u of %u bytes", bytes_read, size);
+         return(-1);
+      }
+      if(errno == EINTR) {
+         continue;
+      }
+      if((errno == EAGAIN) || (errno == EWOULDBLOCK)) {
+         struct pollfd pfd = { .fd = obj->fd, .events = POLLIN };
+         int poll_rc;
+         do {
+            poll_rc = poll(&pfd, 1, -1);
+         } while((poll_rc < 0) && (errno == EINTR));
+         if((poll_rc > 0) && (pfd.revents & POLLIN)) {
+            continue;
+         }
+         if(poll_rc < 0) {
+            XLOGD_ERROR("FFV audio pipe poll failed: %s", strerror(errno));
+         } else {
+            XLOGD_ERROR("FFV audio pipe unavailable, poll events 0x%x", pfd.revents);
+         }
+         return(-1);
+      }
+      XLOGD_ERROR("FFV audio pipe read failed: %s", strerror(errno));
       return(-1);
    }
-   if(doit) {
-      for(uint32_t i = 0; i < (uint32_t)rc; i+=8) {
-         XLOGD_INFO("data[%d]: 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x 0x%02x", i, data[i], data[i+1], data[i+2], data[i+3], data[i+4], data[i+5], data[i+6], data[i+7]);
-      }
-      doit = 0;
+   bool session_ended = false;
+   pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
+   if((eos_event != NULL) && obj->hal_obj->end_of_command_pending &&
+      (obj->bytes_read_total >= (uint64_t)obj->hal_obj->end_of_command_sample * sizeof(int16_t))) {
+      *eos_event = obj->hal_obj->end_of_command_timed_out ? XRAUDIO_EOS_EVENT_TIMEOUT_END : XRAUDIO_EOS_EVENT_ENDOFSPEECH;
+      obj->hal_obj->end_of_command_pending = false;
+      session_ended = true;
    }
-   return((int32_t)rc);
+   pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
+   if(session_ended) {
+      vsdk_ffv_emit_session_end(obj->hal_obj);
+   }
+   return((int32_t)bytes_read);
 }
 
 static bool vsdk_ffv_adapter_input_mute(xraudio_hal_input_obj_t obj, xraudio_devices_input_t device, bool enable) {
@@ -595,8 +708,34 @@ static bool vsdk_ffv_adapter_input_stream_start_set(xraudio_hal_input_obj_t obj,
    return(true);
 }
 
-static bool vsdk_ffv_adapter_input_keyword_detector_reset(xraudio_hal_input_obj_t obj) {
-   (void)obj;
+static bool vsdk_ffv_adapter_input_keyword_detector_reset(xraudio_hal_input_obj_t input_obj) {
+   vsdk_ffv_input_obj_t *obj = (vsdk_ffv_input_obj_t *)input_obj;
+   if((obj == NULL) || (obj->magic != VSDK_FFV_INPUT_OBJ_MAGIC) || (obj->hal_obj == NULL) ||
+      (obj->hal_obj->ffv_api == NULL) || (obj->hal_obj->ffv_api->close_channel == NULL) ||
+      (obj->hal_obj->ffv_api->open_channel == NULL) || (obj->fd < 0)) {
+      XLOGD_ERROR("Invalid FFV input object or keyword channel API");
+      return(false);
+   }
+
+   xr_ffv_hal_plugin_func_t *api = obj->hal_obj->ffv_api;
+   if(api->close_channel(obj->hal_obj->ffv_controller, obj->channel_type) != EX_NONE) {
+      XLOGD_ERROR("FFV HAL keyword channel close failed while rearming detection");
+      return(false);
+   }
+   obj->fd = -1;
+   obj->bytes_read_total = 0;
+   pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
+   obj->hal_obj->stream_start_sample = 0;
+   obj->hal_obj->end_of_command_pending = false;
+   pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
+
+   FFVhalFileDescriptor fd = -1;
+   if((api->open_channel(obj->hal_obj->ffv_controller, obj->channel_type, &fd) != EX_NONE) || (fd < 0)) {
+      XLOGD_ERROR("FFV HAL keyword channel reopen failed while rearming detection");
+      return(false);
+   }
+   obj->fd = fd;
+   XLOGD_INFO("FFV keyword detection rearmed, fd %d", fd);
    return(true);
 }
 
@@ -654,7 +793,9 @@ void vsdk_ffv_adapter_set_interface_plugin(xr_ffv_hal_plugin_func_t *plugin) {
 }
 
 xraudio_hal_plugin_api_t *vsdk_ffv_adapter_api_get(void) {
-   vsdk_ffv_adapter_plugin_api_init(&g_vsdk_ffv_adapter);
+   if(g_vsdk_ffv_adapter.plugin_api.input_open == NULL) {
+      vsdk_ffv_adapter_plugin_api_init(&g_vsdk_ffv_adapter);
+   }
    return(&g_vsdk_ffv_adapter.plugin_api);
 }
 
