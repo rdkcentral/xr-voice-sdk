@@ -304,7 +304,7 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       }
    }
 
-   #ifndef USE_RDKV_HAL
+   #ifdef USE_RDKE_HAL
    obj->devices_input |= *inputs;
    XLOGD_INFO("obtained additional input devices from HAL plugin: <%s>", xraudio_devices_input_str(obj->devices_input));
    #endif
@@ -1178,7 +1178,7 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
       params.obj_output                     = NULL;
       params.json_obj_output                = NULL;
    }
-   #ifdef USE_RDKV_HAL
+   #ifndef USE_RDKE_HAL
    if(obj->kwd_plugin != NULL && obj->obj_input != NULL) {
       params.hal_obj                        = g_xraudio_process.hal_obj;
       params.dsp_config                     = g_xraudio_process.dsp_config;
@@ -1410,7 +1410,7 @@ xraudio_result_t xraudio_detect_stop(xraudio_object_t object) {
 }
 
 xraudio_result_t xraudio_detect_sensitivity_limits_get(xraudio_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity_min, xraudio_keyword_sensitivity_t *keyword_sensitivity_max) {
-   #ifdef USE_RDKV_HAL
+   #ifndef USE_RDKE_HAL
    xraudio_obj_t *obj = (xraudio_obj_t *)object;
    if(!xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");

@@ -232,7 +232,7 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
    if(dsp_config != NULL) {
       obj->hal_plugin            = vsdk_hal_plugin_get();
       obj->dsp_config            = *dsp_config;
-      #ifdef USE_RDKV_HAL
+      #ifndef USE_RDKE_HAL
       obj->kwd_enabled           = (vsdk_kwd_plugin_get() == NULL) ? false : true;
       obj->dga_enabled           = (vsdk_dga_plugin_get() == NULL) ? false : true;
       #else
@@ -1220,7 +1220,7 @@ xraudio_result_t xraudio_input_keyword_detect(xraudio_input_object_t object, key
 
    xraudio_input_session_t *session = &obj->sessions[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
 XLOGD_INFO("keyword detect <%s> callback %p param %p", (synchronous) ? "sync" : "async", callback, param);
-   #ifdef USE_RDKV_HAL
+   #ifndef USE_RDKE_HAL
    // Ensure that the microphone is not already open
    if(session->state != XRAUDIO_INPUT_STATE_IDLING) {
       XLOGD_ERROR("invalid state <%s>.", xraudio_input_state_str(session->state));
@@ -1589,7 +1589,7 @@ xraudio_result_t xraudio_input_capture_stop_locked(xraudio_input_obj_t *obj) {
 }
 
 void xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj) {
-#ifdef USE_RDKV_HAL
+#ifndef USE_RDKE_HAL
    xraudio_queue_msg_idle_start_t msg;
    msg.header.type         = XRAUDIO_MAIN_QUEUE_MSG_TYPE_RECORD_IDLE_START;
    msg.fd                  = obj->fd;
@@ -1603,7 +1603,7 @@ void xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj) {
 }
 
 void xraudio_input_dispatch_idle_stop(xraudio_input_obj_t *obj) {
-#ifdef USE_RDKV_HAL
+#ifndef USE_RDKE_HAL
    xraudio_queue_msg_record_idle_stop_t msg;
    msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_RECORD_IDLE_STOP;
 
@@ -1714,7 +1714,7 @@ xraudio_result_t xraudio_input_dispatch_detect(xraudio_input_obj_t *obj, keyword
 }
 
 xraudio_result_t xraudio_input_dispatch_detect_params(xraudio_input_obj_t *obj) {
-   #ifdef USE_RDKV_HAL
+   #ifndef USE_RDKE_HAL
    xraudio_queue_msg_detect_params_t msg;
    msg.header.type            = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_PARAMS;
    msg.default_sensitivity    = obj->detect_params.default_sensitivity;
@@ -1726,7 +1726,7 @@ xraudio_result_t xraudio_input_dispatch_detect_params(xraudio_input_obj_t *obj) 
 }
 
 xraudio_result_t xraudio_input_dispatch_detect_stop(xraudio_input_obj_t *obj, xraudio_devices_input_t source, audio_in_callback_t callback, void *param) {
-   #ifdef USE_RDKV_HAL
+   #ifndef USE_RDKE_HAL
    bool synchronous = (callback == NULL) ? true : false;
    xraudio_queue_msg_detect_stop_t msg;
    msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_STOP;

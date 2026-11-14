@@ -18,7 +18,7 @@
 # limitations under the License.
 ##########################################################################
 */
-#ifndef USE_RDKV_HAL
+#ifdef USE_RDKE_HAL
 
 #include <stdint.h>
 #include <stdlib.h>

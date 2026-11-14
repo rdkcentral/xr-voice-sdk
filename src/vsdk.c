@@ -28,7 +28,7 @@
 #include <xr_voice_sdk.h>
 #include <vsdk_version.h>
 #include <vsdk_private.h>
-#ifndef USE_RDKV_HAL
+#ifdef USE_RDKE_HAL
 #include "xr_ffv_hal_interface.h"
 #include "vsdk_ffv_adapter.h"
 #endif
@@ -361,7 +361,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
       handles->handle_ffv_kwd  = vsdk_load_plugin_ffv_kwd();
 
-      #ifdef USE_RDKV_HAL
+      #ifndef USE_RDKE_HAL
       if(handles->handle_ffv_kwd == NULL) {
          break;
       }
@@ -369,7 +369,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
       handles->handle_ffv_alg = vsdk_load_plugin_ffv_alg(&handles->handle_ffv_ppr);
 
-      #ifdef USE_RDKV_HAL
+      #ifndef USE_RDKE_HAL
       if(handles->handle_ffv_alg == NULL) {
          break;
       }
@@ -384,7 +384,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
       if(handles->handle_ffv_hal != NULL) {
          g_vsdk.hal_plugin = NULL;
          g_vsdk.hal_out_enabled = false;
-         #ifndef USE_RDKV_HAL
+         #ifdef USE_RDKE_HAL
          vsdk_ffv_adapter_set_interface_plugin(NULL);
          #endif
          if(dlclose(handles->handle_ffv_hal) != 0) {
@@ -436,7 +436,7 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 }
 
 void *vsdk_load_plugin_ffv_kwd(void) {
-#ifndef USE_RDKV_HAL
+#ifdef USE_RDKE_HAL
    return(NULL);
 #else
    void *handle = NULL;
@@ -508,7 +508,7 @@ void *vsdk_load_plugin_ffv_kwd(void) {
 }
 
 void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
-#ifndef USE_RDKV_HAL
+#ifdef USE_RDKE_HAL
    g_vsdk.dga_plugin = NULL;
    g_vsdk.eos_plugin = NULL;
    return(NULL);
@@ -672,7 +672,7 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
       *out_enabled = false;
    }
 
-   #ifdef USE_RDKV_HAL
+   #ifndef USE_RDKE_HAL
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-hal.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-hal.so";
    #else
@@ -699,7 +699,7 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
    xraudio_hal_plugin_api_get_t plugin_api_get = (xraudio_hal_plugin_api_get_t)dlsym(handle, "xraudio_hal_plugin_api_get");
    char *error = dlerror();
 
-   #ifndef USE_RDKV_HAL
+   #ifdef USE_RDKE_HAL
    if(error != NULL) {
       dlerror();  // Clear any existing error
       xr_ffv_hal_plugin_func_get_t ffv_plugin_func_get = (xr_ffv_hal_plugin_func_get_t)dlsym(handle, "xr_ffv_hal_plugin_func_get");

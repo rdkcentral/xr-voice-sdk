@@ -63,7 +63,7 @@ target_sources(xr-voice-sdk PUBLIC
 
 target_compile_options(xr-voice-sdk PUBLIC -fPIC -rdynamic -Wall -Werror -g)
 
-target_compile_definitions(xr-voice-sdk PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE)
+target_compile_definitions(xr-voice-sdk PUBLIC _REENTRANT _POSIX_C_SOURCE=200809L _GNU_SOURCE USE_RDKE_HAL)
 
 target_link_libraries(xr-voice-sdk c bsd m pthread anl uuid jansson)
 

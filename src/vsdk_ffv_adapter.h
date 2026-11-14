@@ -21,7 +21,7 @@
 #ifndef __VSDK_FFV_ADAPTER_H__
 #define __VSDK_FFV_ADAPTER_H__
 
-#ifndef USE_RDKV_HAL
+#ifdef USE_RDKE_HAL
 #include "xraudio_hal.h"
 #include "xr_ffv_hal_interface.h"
 

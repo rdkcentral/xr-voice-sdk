@@ -189,7 +189,7 @@ void xrsr_xraudio_keyword_callback(xraudio_devices_input_t source, const uuid_t 
       XLOGD_INFO("invalid object");
       return;
    }
-   #ifdef USE_RDKV_HAL
+   #ifndef USE_RDKE_HAL
    if(!obj->detect_active) {
       XLOGD_INFO("ignore keyword detect event");
       return;
@@ -360,7 +360,7 @@ void xrsr_xraudio_device_granted(xrsr_xraudio_object_t object) {
    }
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
    
-   #ifdef USE_RDKV_HAL
+   #ifndef USE_RDKE_HAL
    if(!obj->detect_active) {
       XLOGD_INFO("don't start keyword detection");
       return;
@@ -428,7 +428,7 @@ void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_k
 }
 
 void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
-#ifdef USE_RDKV_HAL
+#ifndef USE_RDKE_HAL
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
 
    if(!xrsr_xraudio_object_is_valid(obj)) {
@@ -474,7 +474,7 @@ static void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
 }
 
 static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
-#ifdef USE_RDKV_HAL
+#ifndef USE_RDKE_HAL
 
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
@@ -537,7 +537,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
       } else {
          XLOGD_WARN("Rejecting keyword detected from source <%s>, session in progress on source <%s>.  Restarting keyword detector...", xrsr_src_str(src), xrsr_src_str(current_session_src));
          obj->session_rejected = true;
-         #ifdef USE_RDKV_HAL
+         #ifndef USE_RDKE_HAL
          xrsr_xraudio_keyword_detect_restart(obj);
          //TODO inform new HAL to restart detection? The HAL might do that automatically after some time or after reading mic data, check on this
          #endif
@@ -608,7 +608,7 @@ void xrsr_xraudio_keyword_detect_error(xrsr_xraudio_object_t object, xraudio_dev
       #endif
    }
 
-   #ifdef USE_RDKV_HAL
+   #ifndef USE_RDKE_HAL
    // TODO Should the app determine what to do here?
    if(obj->detect_active) { // Start detector again
       xrsr_xraudio_keyword_detect_start(obj);
@@ -741,7 +741,7 @@ bool xrsr_xraudio_stream_end(xrsr_xraudio_object_t object, xraudio_devices_input
    if(!more_streams) { // no more streams open
       obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
 
-      #ifdef USE_RDKV_HAL
+      #ifndef USE_RDKE_HAL
       if(source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
          obj->detect_active = detect_resume;
 
