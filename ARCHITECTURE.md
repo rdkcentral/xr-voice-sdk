@@ -115,7 +115,12 @@ The HAL's end-of-command callback records the final sample offset and timeout
 status; it does not close the pipe while command audio is still buffered.
 The adapter reports HAL EOS once reads reach that offset, rounding up to the
 complete PCM frame required by xraudio. The HAL-relative byte count includes
-discarded leading audio, so trimming does not delay EOS. After EOS, native reads
+discarded leading audio, so trimming does not delay EOS. Native local recording
+sessions explicitly select HAL EOS at record start because they skip the
+RDKV idle-start initialization. Software EOS cannot end these streams before
+the HAL endpoint is drained, including when the HAL reports a timeout.
+The final frame group is flushed to the output before the output pipe is closed.
+After EOS, native reads
 pause until the capture is stopped. Stopping the final local capture closes and
 reopens the `KEYWORD` channel to rearm HAL detection, resets the byte count and
 trim offset, and updates xraudio's pipe descriptor. Explicit early capture stops

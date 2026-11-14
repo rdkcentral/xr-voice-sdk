@@ -1102,6 +1102,10 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
    #ifndef USE_RDKV_HAL
    XLOGD_INFO("setting handler_unpack to xraudio_unpack_multi_int16");
    state->record.handler_unpack = xraudio_unpack_multi_int16;
+   if(!external_src && state->params.hal_plugin == vsdk_ffv_adapter_api_get()) {
+      // Native FFV skips idle-start, which normally selects HAL EOS.
+      instance->use_hal_eos = true;
+   }
    #endif
 
    if(state->params.kwd_plugin != NULL) {

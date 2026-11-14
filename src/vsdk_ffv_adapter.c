@@ -641,6 +641,9 @@ static int32_t vsdk_ffv_adapter_input_read(xraudio_hal_input_obj_t input_obj, ui
    pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
    if((eos_event != NULL) && obj->hal_obj->end_of_command_pending &&
       (obj->bytes_read_total >= (uint64_t)obj->hal_obj->end_of_command_sample * sizeof(int16_t))) {
+      XLOGD_INFO("FFV command audio drained through sample %llu, end of command %d, timed out=%d",
+                 (unsigned long long)(obj->bytes_read_total / sizeof(int16_t)),
+                 obj->hal_obj->end_of_command_sample, obj->hal_obj->end_of_command_timed_out);
       *eos_event = obj->hal_obj->end_of_command_timed_out ? XRAUDIO_EOS_EVENT_TIMEOUT_END : XRAUDIO_EOS_EVENT_ENDOFSPEECH;
       obj->hal_obj->end_of_command_pending = false;
       session_ended = true;
