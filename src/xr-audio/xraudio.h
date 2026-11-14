@@ -225,7 +225,9 @@ typedef int16_t         xraudio_sample_t;
 typedef struct {
    uint32_t                  chan_selected;
    xraudio_kwd_endpoints_t   endpoints;
+   #ifndef USE_RDKE_HAL
    xraudio_kwd_chan_result_t channels[XRAUDIO_INPUT_MAX_CHANNEL_QTY];
+   #endif
    const char *              detector_name;
    const char *              dsp_name;
    float                     sensitivity;
@@ -378,6 +380,11 @@ xraudio_result_t xraudio_detect_params(xraudio_object_t object, xraudio_keyword_
 /// @brief Start keyword detection
 /// @details Starts a keyword detection session.  The detector begins processing incoming audio data and provides keyword detection events by invoking the callback.
 xraudio_result_t xraudio_detect_keyword(xraudio_object_t object, keyword_callback_t callback, void *param);
+#ifdef USE_RDKE_HAL
+/// @brief Register a keyword callback
+/// @details Registers a callback function to be called when the HAL reports a keyword detection
+xraudio_result_t xraudio_register_keyword_callback(xraudio_object_t object, keyword_callback_t callback, void *param);
+#endif
 /// @brief Stop keyword detection
 /// @details Stop the keyword detection session.  The detector stops processing incoming audio data.
 xraudio_result_t xraudio_detect_stop(xraudio_object_t object);
