@@ -1,0 +1,34 @@
+schema: spec-driven
+githubCopilot:
+  cloudAgent: false
+
+context: |
+  This repo builds xr-voice-sdk, the C voice library linked by control manager (ctrlm); it contains xraudio (audio capture, keyword detection, HAL loading), the speech router, VREX/WS speech protocols, and supporting modules (logger, timers, message queues, state machine engine).
+  Do not change public headers or exported function signatures (xr_voice_sdk.h, xraudio.h, xraudio_hal.h and other installed headers); ctrlm and the out-of-tree xraudio HAL plugins depend on them.
+  xraudio is multithreaded (API caller threads plus the xraudio main thread and its worker threads); locking changes must not introduce deadlocks or alter lock ordering without explanation.
+  Current work is Coverity defect remediation; fixes must not change runtime behavior unless the defect is a real bug, and any intended behavior change must be called out explicitly.
+  Remediation scope is High and Critical severity Coverity findings; Medium and Low findings are out of scope unless a change explicitly includes them.
+  Coverity line numbers may be stale because sources changed after the scan; locate each defect by CID, function name and event description.
+  Validation happens in CI (native build workflow on the PR to develop), not via local builds or on-device testing.
+  Code comments should be one-line // comments unless the rationale is genuinely complex.
+
+  High/Critical Coverity findings in scope:
+  - CID 55776, High, INTEGER_OVERFLOW, src/xr-audio/xraudio_thread.c, xraudio_process_input_external_data: "(uint32_t)bytes_read", which might have overflowed, is passed to "xraudio_in_capture_internal_to_file(session, &session->external_frame_buffer[(session->external_frame_group_index - 1) * session->external_frame_size_out], (uint32_t)bytes_read, capture_file)".
+
+rules:
+  proposal:
+    - List every Coverity CID in scope with its checker and severity
+    - State what is out of scope, including any CIDs deliberately deferred or to be triaged as false positives
+  design:
+    - For each non-trivial fix, explain why behavior is preserved or describe the intended behavior change
+    - For integer overflow fixes, state the value's possible range at the flagged point (including error returns such as -1) and why the fix rules out the overflow
+    - If a defect looks like a false positive, say so and recommend a Coverity triage action instead of a code change
+  tasks:
+    - One task per Coverity CID, with the CID and checker in the task title
+    - End with a task to push the branch and confirm the native build passes; Coverity confirmation of the CIDs is tracked outside OpenSpec
+
+operations:
+  apply:
+    guidance:
+      - Keep each fix minimal and limited to the defect; no unrelated refactoring or reformatting
+      - Do not create git commits; the developer commits their own changes
