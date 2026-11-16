@@ -16,7 +16,10 @@ int rc_cap = xraudio_in_capture_internal_to_file(session,
 - `xraudio_opus_decode()` / `xraudio_opus_deframe()` (`int32_t`, negative on error)
 - arithmetic on those results
 
-The Coverity scan's line numbers may be stale. The defect was located by function name and the event text, which matches this call exactly. The full Coverity event trace, including which upstream expression it marks as the "overflow" source, is not in the repo.
+The Coverity scan's line numbers may be stale. The defect was located by function name and the event text, which matches this call exactly. The CID's event chain follows only the PCM→PCM path, and its line numbers match the current branch:
+1. cast_overflow at `bytes_read = xraudio_external_fd_read(session, inbuf, inlen)` (4989)
+2. `bytes_read += session->external_frame_bytes_read` (4991), marked as possibly overflowed
+3. the `(uint32_t)bytes_read` sink (5114)
 
 ## Goals / Non-Goals
 
@@ -44,13 +47,24 @@ The Coverity scan's line numbers may be stale. The defect was located by functio
 | OPUS → OPUS | read | `-1..inlen` |
 | PCM → PCM | read + `external_frame_bytes_read`. A short frame `return`s early. | `-1`, `0`, or exactly `external_frame_size_out` |
 
-One guard is common to all paths and runs before the flagged call: `if(bytes_read <= 0) { ... return; }`. Every error return (`-1`, other negative decoder errors) and EOF (`0`) leaves the function here. `bytes_read` is not reassigned after this guard. At the flagged point it is therefore in `[1, INT32_MAX]`. Any positive `int32_t` converts to `uint32_t` without wrap or truncation, so `(uint32_t)bytes_read` cannot overflow, whichever upstream arithmetic Coverity treats as the overflow source. (Likely candidates are `bytes_read *= sizeof(pcm_t)` in ADPCM→PCM and `bytes_read += session->external_frame_bytes_read` in PCM→PCM. Both are bounded as the table shows, but the argument does not depend on those bounds.)
+**The traced PCM→PCM path, step by step.**
 
-The later `if(session->external_frame_size_out != bytes_read) { ... return; }` check is not part of the argument. On the OPUS→PCM and OPUS_XVP→PCM paths, `external_frame_size_out` is assigned from `bytes_read` just before that check, so it limits nothing there.
+- **Invariant: `external_frame_bytes_read < external_frame_size_in` between calls.** The field is written only in four places:
+  - `= 0` at record start (1181)
+  - `= sum` at 4992 and 4994. The sum is kept only when it differs from `external_frame_size_out`. On PCM→PCM that equals `external_frame_size_in` (1204–1205, `encoding_in == encoding_out`), and the sum is at most `external_frame_size_in` (see 4991 below). A kept sum is therefore strictly less than `external_frame_size_in`.
+  - `= 0` at 4997, once a full frame has been read.
+
+  So `inlen = external_frame_size_in - external_frame_bytes_read` is at least 1 and cannot underflow.
+- **4989, cast_overflow.** `read()` returns `-1` or at most `inlen`, and `inlen <= external_frame_size_in`. That is one 20 ms PCM frame, `sample_rate/1000 × sample_size × 20`, which is 640 bytes at 16 kHz/16-bit. Narrowing the result from `ssize_t` to `int32_t` cannot overflow.
+- **4991, addition.** This line runs only when `bytes_read > 0`; otherwise the `break` at 4990 skips it. The sum is at most `inlen + external_frame_bytes_read = external_frame_size_in`, so it cannot overflow.
+- **4993 and 5082.** On PCM→PCM, `external_frame_size_out == external_frame_size_in`. The `!=` → return checks therefore pin `bytes_read` to exactly the frame size from 4993 to the sink.
+- **5114, the sink.** The guard `if(bytes_read <= 0) { ... return; }` at 5010 is common to all paths, and `bytes_read` is not reassigned after it. At the sink, `bytes_read` is in `[1, INT32_MAX]`, and on PCM→PCM it equals the frame size. Any positive `int32_t` converts to `uint32_t` without wrap or truncation, so `(uint32_t)bytes_read` keeps its value.
+
+The same `> 0` guard keeps the cast value-preserving on the untraced paths in the table. The `external_frame_size_out != bytes_read` check pins the value on PCM→PCM only. On OPUS→PCM and OPUS_XVP→PCM, `external_frame_size_out` is assigned from `bytes_read` just before that check, so it limits nothing there.
 
 The buffer offset in the same call does not underflow either. `(external_frame_group_index - 1)` is evaluated just after `external_frame_group_index++`, so the index is at least 1. This is not part of the CID.
 
-**Action:** in Coverity, set CID 55776 to Classification *False Positive*, Action *Ignore*. Use a comment along the lines of: "bytes_read is guarded `<= 0` → return before this call and not reassigned afterwards (see openspec change resolve-coverity-high-critical, design.md D1); the int32→uint32 conversion of a positive value preserves it."
+**Action:** in Coverity, set CID 55776 to Classification *False Positive*, Action *Ignore*. Use a comment along the lines of: "PCM→PCM trace: read() returns at most inlen = external_frame_size_in - external_frame_bytes_read, and external_frame_bytes_read < external_frame_size_in between calls, so neither the read cast (4989) nor the sum (4991) can exceed external_frame_size_in (one 20 ms PCM frame). The size_out == size_in checks (4993/5082) pin bytes_read to the frame size, and the bytes_read <= 0 → return guard (5010) makes the int32→uint32 cast at 5114 value-preserving. See openspec change resolve-coverity-high-critical, design.md D1."
 
 **Behavior:** unchanged. No code is modified.
 
@@ -60,7 +74,7 @@ The buffer offset in the same call does not underflow either. `(external_frame_g
 
 ## Risks / Trade-offs
 
-- [The Coverity event trace for CID 55776 points at a source expression not covered above] → Before triaging, compare the trace's "overflow" event against the table in D1. If it identifies a path where `bytes_read` can reach the flagged call with `bytes_read <= 0`, or a path that reassigns it after the guard, stop and replace this decision with a code fix in an updated change.
+- [A future edit breaks `external_frame_bytes_read < external_frame_size_in`, for example by changing `external_frame_size_in` mid-session or dropping the 1181/4997 resets] → The triage comment cites the invariant. Coverity re-raises the CID if that code changes enough.
 - [A future edit moves or removes the `bytes_read <= 0` guard, or reassigns `bytes_read` after it, so the false-positive reasoning becomes wrong] → The triage comment cites the guard. Coverity re-raises the CID as new if the code shape changes enough.
 - [The triage is rejected by the reviewer or by Coverity policy] → Fall back to the code-change alternative above as a follow-up change.
 
