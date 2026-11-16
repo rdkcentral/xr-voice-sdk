@@ -44,16 +44,13 @@ The Coverity scan's line numbers may be stale. The defect was located by functio
 | OPUS → OPUS | read | `-1..inlen` |
 | PCM → PCM | read + `external_frame_bytes_read`. A short frame `return`s early. | `-1`, `0`, or exactly `external_frame_size_out` |
 
-Two guards are common to all paths and run before the flagged call:
+One guard is common to all paths and runs before the flagged call: `if(bytes_read <= 0) { ... return; }`. Every error return (`-1`, other negative decoder errors) and EOF (`0`) leaves the function here. `bytes_read` is not reassigned after this guard. At the flagged point it is therefore in `[1, INT32_MAX]`. Any positive `int32_t` converts to `uint32_t` without wrap or truncation, so `(uint32_t)bytes_read` cannot overflow, whichever upstream arithmetic Coverity treats as the overflow source. (Likely candidates are `bytes_read *= sizeof(pcm_t)` in ADPCM→PCM and `bytes_read += session->external_frame_bytes_read` in PCM→PCM. Both are bounded as the table shows, but the argument does not depend on those bounds.)
 
-1. `if(bytes_read <= 0) { ... return; }`. Every error return (`-1`, other negative decoder errors) and EOF (`0`) leaves the function here.
-2. `if(session->external_frame_size_out != bytes_read) { ... return; }`. Guard 1 established `bytes_read > 0`, so the implicit conversion to `uint32_t` in this comparison preserves the value. Passing the guard means `bytes_read == external_frame_size_out` exactly.
-
-`bytes_read` is not modified between guard 2 and the flagged call. At the flagged point it is therefore in `[1, INT32_MAX]`, and it equals `external_frame_size_out`. Any positive `int32_t` converts to `uint32_t` without wrap or truncation, so `(uint32_t)bytes_read` cannot overflow. This holds regardless of which upstream arithmetic Coverity treats as the overflow source. The most likely candidates are `bytes_read *= sizeof(pcm_t)` in the ADPCM→PCM path and `bytes_read += session->external_frame_bytes_read` in the PCM path. Both are bounded as shown above. Even an out-of-range result would be filtered by guards 1 and 2 before the cast.
+The later `if(session->external_frame_size_out != bytes_read) { ... return; }` check is not part of the argument. On the OPUS→PCM and OPUS_XVP→PCM paths, `external_frame_size_out` is assigned from `bytes_read` just before that check, so it limits nothing there.
 
 The buffer offset in the same call does not underflow either. `(external_frame_group_index - 1)` is evaluated just after `external_frame_group_index++`, so the index is at least 1. This is not part of the CID.
 
-**Action:** in Coverity, set CID 55776 to Classification *False Positive*, Action *Ignore*. Use a comment along the lines of: "bytes_read is guarded `> 0` and `== external_frame_size_out` immediately before this call (see openspec change resolve-coverity-high-critical, design.md D1); the int32→uint32 conversion is value-preserving."
+**Action:** in Coverity, set CID 55776 to Classification *False Positive*, Action *Ignore*. Use a comment along the lines of: "bytes_read is guarded `<= 0` → return before this call and not reassigned afterwards (see openspec change resolve-coverity-high-critical, design.md D1); the int32→uint32 conversion of a positive value preserves it."
 
 **Behavior:** unchanged. No code is modified.
 
@@ -63,8 +60,8 @@ The buffer offset in the same call does not underflow either. `(external_frame_g
 
 ## Risks / Trade-offs
 
-- [The Coverity event trace for CID 55776 points at a source expression not covered above] → Before triaging, compare the trace's "overflow" event against the table in D1. If it identifies a path where `bytes_read` can reach the flagged call without passing both guards, stop and replace this decision with a code fix in an updated change.
-- [A future edit moves or removes guard 1 or guard 2, so the false-positive reasoning becomes wrong] → The triage comment cites the guards. Coverity re-raises the CID as new if the code shape changes enough.
+- [The Coverity event trace for CID 55776 points at a source expression not covered above] → Before triaging, compare the trace's "overflow" event against the table in D1. If it identifies a path where `bytes_read` can reach the flagged call with `bytes_read <= 0`, or a path that reassigns it after the guard, stop and replace this decision with a code fix in an updated change.
+- [A future edit moves or removes the `bytes_read <= 0` guard, or reassigns `bytes_read` after it, so the false-positive reasoning becomes wrong] → The triage comment cites the guard. Coverity re-raises the CID as new if the code shape changes enough.
 - [The triage is rejected by the reviewer or by Coverity policy] → Fall back to the code-change alternative above as a follow-up change.
 
 ## Migration Plan

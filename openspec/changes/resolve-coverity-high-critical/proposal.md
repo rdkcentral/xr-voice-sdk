@@ -7,7 +7,7 @@ The Coverity scan of xr-voice-sdk reports one High-severity defect: CID 55776 (I
 ## What Changes
 
 - **CID 55776, INTEGER_OVERFLOW, High**: `src/xr-audio/xraudio_thread.c`, `xraudio_process_input_external_data()`. Coverity reports that `(uint32_t)bytes_read` "might have overflowed" where it is passed to `xraudio_in_capture_internal_to_file()` in the internal-capture block at the end of the function.
-  - Disposition: **false positive**. At the flagged call, `bytes_read` has already passed two guards. It is `> 0` and equals `session->external_frame_size_out`, a frame size bounded by `sizeof(external_frame_buffer)`. The cast cannot wrap or truncate.
+  - Disposition: **false positive**. At the flagged call, `bytes_read` has already passed the `bytes_read <= 0` → `return` guard, so it is in `[1, INT32_MAX]`. Converting any positive `int32_t` to `uint32_t` keeps the value, so the cast cannot wrap or truncate.
   - Action: triage the CID in Coverity as *False Positive* (classification: False Positive, action: Ignore), with the range justification from design.md as the triage comment.
 - No source, header, or build changes. No runtime behavior changes.
 
