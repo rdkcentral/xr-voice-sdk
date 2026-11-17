@@ -453,6 +453,7 @@ static bool vsdk_ffv_adapter_privacy_mode_get(xraudio_hal_obj_t hal_obj, bool *e
       return(false);
    }
    *enabled = status.privacyStateActive;
+   XLOGD_INFO("privacy mode enabled <%d>", *enabled);
 
    return(true);
 }
@@ -500,6 +501,7 @@ static bool vsdk_ffv_adapter_thread_poll(void) {
 }
 
 static xraudio_hal_input_obj_t vsdk_ffv_adapter_input_open(xraudio_hal_obj_t hal_obj, xraudio_devices_input_t device, xraudio_input_format_t format, xraudio_device_input_configuration_t *configuration) {
+
    if((configuration == NULL) || !vsdk_ffv_source_is_local(device) ||
       (format.container != XRAUDIO_CONTAINER_NONE) || (format.encoding.type != XRAUDIO_ENCODING_PCM) ||
       (format.sample_rate != 16000) || (format.sample_size != 2) || (format.channel_qty != 1)) {

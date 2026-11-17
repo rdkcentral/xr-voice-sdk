@@ -116,8 +116,10 @@ status; it does not close the pipe while command audio is still buffered.
 The adapter reports HAL EOS once reads reach that offset, rounding up to the
 complete PCM frame required by xraudio. The HAL-relative byte count includes
 discarded leading audio, so trimming does not delay EOS. Native local recording
-sessions explicitly select HAL EOS at record start because they skip the
-RDKV idle-start initialization. Software EOS cannot end these streams before
+sessions explicitly set the session input device and select HAL EOS at record
+start because they skip the RDKV idle-start initialization. This keeps the EOS
+flush source consistent with the active recording source.
+Software EOS cannot end these streams before
 the HAL endpoint is drained, including when the HAL reports a timeout.
 The final frame group is flushed to the output before the output pipe is closed.
 After EOS, native reads

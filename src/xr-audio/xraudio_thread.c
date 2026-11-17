@@ -1103,7 +1103,7 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
    XLOGD_INFO("setting handler_unpack to xraudio_unpack_multi_int16");
    state->record.handler_unpack = xraudio_unpack_multi_int16;
    if(!external_src && state->params.hal_plugin == vsdk_ffv_adapter_api_get()) {
-      // Native FFV skips idle-start, which normally selects HAL EOS.
+      state->record.devices_input = record->source;
       instance->use_hal_eos = true;
    }
    #endif
@@ -1472,7 +1472,6 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
       }
 
       xraudio_in_session_group_semaphore_unlock(state, stop->source);
-      #ifdef USE_RDKE_HAL
       if(state->params.hal_plugin == vsdk_ffv_adapter_api_get() &&
          XRAUDIO_DEVICE_INPUT_LOCAL_GET(stop->source) != XRAUDIO_DEVICE_INPUT_NONE &&
          stop->source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
@@ -1493,7 +1492,6 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
             }
          }
       }
-      #endif
    }
 }
 
@@ -2202,7 +2200,13 @@ void xraudio_msg_privacy_mode(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    // Call HAL to enter the privacy mode
-   if(state->params.kwd_plugin != NULL && !state->params.hal_plugin->privacy_mode(state->params.hal_obj, privacy_mode->enable)) {
+   #ifndef USE_RDKE_HAL
+   if(state->params.kwd_plugin != NULL) {
+      result = XRAUDIO_RESULT_ERROR_INTERNAL;
+   }
+   #endif
+
+   if(result != XRAUDIO_RESULT_ERROR_INTERNAL && !state->params.hal_plugin->privacy_mode(state->params.hal_obj, privacy_mode->enable)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
 
@@ -2219,15 +2223,15 @@ void xraudio_msg_privacy_mode_get(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    //Call HAL to get mute state
-  #ifndef USE_RDKE_HAL
-  if(state->params.kwd_plugin != NULL && !state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
-      result = XRAUDIO_RESULT_ERROR_INTERNAL;
-   }
-   #else
-   if(!state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
+   #ifndef USE_RDKE_HAL
+   if(state->params.kwd_plugin != NULL) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
    #endif
+
+   if(result != XRAUDIO_RESULT_ERROR_INTERNAL && !state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
+      result = XRAUDIO_RESULT_ERROR_INTERNAL;
+   }
 
    if(privacy_mode_get->semaphore != NULL) {
       if(privacy_mode_get->result != NULL) {
