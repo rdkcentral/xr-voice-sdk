@@ -28,7 +28,10 @@
 #include <xr_voice_sdk.h>
 #include <vsdk_version.h>
 #include <vsdk_private.h>
-
+#ifdef USE_RDKE_HAL
+#include "xr_ffv_hal_interface.h"
+#include "vsdk_ffv_adapter.h"
+#endif
 #define VSDK_VENDOR_OPTIONS_FILE  "/etc/vendor/input/vsdk_options.json"
 
 typedef struct {
@@ -342,6 +345,7 @@ void vsdk_parse_options(bool *curtail_xlog, bool *curtail_xraudio, bool *xraudio
 
 bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
    if(handles == NULL) {
+      XLOGD_ERROR("invalid parameters");
       return(false);
    }
 
@@ -357,15 +361,19 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
       handles->handle_ffv_kwd  = vsdk_load_plugin_ffv_kwd();
 
+      #ifndef USE_RDKE_HAL
       if(handles->handle_ffv_kwd == NULL) {
          break;
       }
+      #endif
 
       handles->handle_ffv_alg = vsdk_load_plugin_ffv_alg(&handles->handle_ffv_ppr);
 
+      #ifndef USE_RDKE_HAL
       if(handles->handle_ffv_alg == NULL) {
          break;
       }
+      #endif
 
       handles->handle_ffv_sdf = vsdk_load_plugin_ffv_sdf();
       handles->handle_ffv_ovc = vsdk_load_plugin_ffv_ovc();
@@ -374,6 +382,11 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 
    if(!ret) {
       if(handles->handle_ffv_hal != NULL) {
+         g_vsdk.hal_plugin = NULL;
+         g_vsdk.hal_out_enabled = false;
+         #ifdef USE_RDKE_HAL
+         vsdk_ffv_adapter_set_interface_plugin(NULL);
+         #endif
          if(dlclose(handles->handle_ffv_hal) != 0) {
             const char *err = dlerror();
             XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
@@ -423,6 +436,9 @@ bool vsdk_load_plugin_ffv(vsdk_ffv_plugin_handles_t *handles) {
 }
 
 void *vsdk_load_plugin_ffv_kwd(void) {
+#ifdef USE_RDKE_HAL
+   return(NULL);
+#else
    void *handle = NULL;
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-kwd.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-kwd.so";
@@ -488,9 +504,15 @@ void *vsdk_load_plugin_ffv_kwd(void) {
    XLOGD_INFO("Loaded required plugin KWD.");
 
    return(handle);
+   #endif
 }
 
 void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
+#ifdef USE_RDKE_HAL
+   g_vsdk.dga_plugin = NULL;
+   g_vsdk.eos_plugin = NULL;
+   return(NULL);
+#else
    void *handle = NULL;
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-algorithms.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-algorithms.so";
@@ -640,6 +662,7 @@ void *vsdk_load_plugin_ffv_alg(void **handle_ppr) {
    XLOGD_INFO("FFV ALG plugin is loaded."); // TODO Print the version info here
    
    return(handle);
+#endif
 }
 
 void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
@@ -649,8 +672,14 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
       *out_enabled = false;
    }
 
+   #ifndef USE_RDKE_HAL
    const char *so_path_vd = "/vendor/lib/libxraudio-ffv-hal.so";
    const char *so_path_mw = "/usr/lib/libxraudio-ffv-hal.so";
+   #else
+   const char *so_path_vd = "/vendor/lib/libxr-ffv-hal.so";
+   const char *so_path_mw = NULL;
+   #endif
+
    if(vsdk_file_exists(so_path_vd)) {
       handle = dlopen(so_path_vd, RTLD_NOW);
    } else if(vsdk_file_exists(so_path_mw)) {
@@ -670,8 +699,61 @@ void *vsdk_load_plugin_ffv_hal(bool *out_enabled) {
    xraudio_hal_plugin_api_get_t plugin_api_get = (xraudio_hal_plugin_api_get_t)dlsym(handle, "xraudio_hal_plugin_api_get");
    char *error = dlerror();
 
+   #ifdef USE_RDKE_HAL
    if(error != NULL) {
-      XLOGD_ERROR("Required plugin HAL not present, error <%s>", error);
+      dlerror();  // Clear any existing error
+      xr_ffv_hal_plugin_func_get_t ffv_plugin_func_get = (xr_ffv_hal_plugin_func_get_t)dlsym(handle, "xr_ffv_hal_plugin_func_get");
+      error = dlerror();
+
+      if(error == NULL && ffv_plugin_func_get != NULL) {
+         xr_ffv_hal_plugin_func_t *ffv_api = ffv_plugin_func_get();
+         if((ffv_api == NULL) ||
+            (ffv_api->get_handle == NULL) ||
+            (ffv_api->destroy == NULL) ||
+            (ffv_api->get_capabilities == NULL) ||
+            (ffv_api->get_state == NULL) ||
+            (ffv_api->get_status == NULL) ||
+            (ffv_api->get_channel_status == NULL) ||
+            (ffv_api->get_keyword_meta_data == NULL) ||
+            (ffv_api->set_configuration == NULL) ||
+            (ffv_api->register_event_listeners == NULL) ||
+            (ffv_api->unregister_event_listeners == NULL) ||
+            (ffv_api->open == NULL) ||
+            (ffv_api->close == NULL) ||
+            (ffv_api->open_channel == NULL) ||
+            (ffv_api->close_channel == NULL) ||
+            (ffv_api->set_privacy_state == NULL) ||
+            (ffv_api->set_power_mode == NULL)) {
+            XLOGD_ERROR("FFV HAL interface API incomplete");
+            if(dlclose(handle) != 0) {
+               const char *err = dlerror();
+               XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
+            }
+            return(NULL);
+         }
+
+         XLOGD_INFO("Loading required plugin HAL through xr_ffv_hal_interface adapter.");
+         vsdk_ffv_adapter_set_interface_plugin(ffv_api);
+         g_vsdk.hal_plugin = vsdk_ffv_adapter_api_get();
+
+         if(out_enabled != NULL) {
+            *out_enabled = false;
+         }
+
+         return(handle);
+      }
+      if(error == NULL) {
+         XLOGD_ERROR("FFV HAL interface getter is NULL");
+         if(dlclose(handle) != 0) {
+            XLOGD_ERROR("dlclose failed for FFV HAL <%s>", dlerror());
+         }
+         return(NULL);
+      }
+   }
+   #endif
+
+   if(error != NULL || plugin_api_get == NULL) {
+      XLOGD_ERROR("Required plugin HAL not present, error <%s>", (error != NULL) ? error : "getter is NULL");
       if(dlclose(handle) != 0) {
          const char *err = dlerror();
          XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");

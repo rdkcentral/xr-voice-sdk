@@ -128,7 +128,7 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
    obj->hal_plugin           = vsdk_hal_plugin_get();
    obj->eos_plugin           = vsdk_eos_plugin_get();
    obj->ovc_plugin           = vsdk_ovc_plugin_get();
-   
+  
    if(obj->eos_plugin != NULL) {
       if(NULL == json_obj_output) {
          XLOGD_INFO("json_obj_output is null, using defaults");
@@ -154,6 +154,7 @@ xraudio_output_object_t xraudio_output_object_create(xraudio_hal_obj_t hal_obj, 
          return(NULL);
       }
    }
+
    obj->use_external_gain    = (capabilities & XRAUDIO_CAPS_OUTPUT_HAL_VOLUME_CONTROL) ? 1 : 0;
    obj->ramp_enable          = 1;
 

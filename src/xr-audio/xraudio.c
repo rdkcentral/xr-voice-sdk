@@ -304,6 +304,11 @@ xraudio_result_t xraudio_available_devices_get(xraudio_object_t object, xraudio_
       }
    }
 
+   #ifdef USE_RDKE_HAL
+   obj->devices_input |= *inputs;
+   XLOGD_INFO("obtained additional input devices from HAL plugin: <%s>", xraudio_devices_input_str(obj->devices_input));
+   #endif
+
    return(XRAUDIO_RESULT_OK);
 }
 
@@ -475,7 +480,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
       XLOGD_ERROR("Invalid power mode <%s>", xraudio_power_mode_str(power_mode));
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
-
+XLOGD_INFO("power mode <%s>", xraudio_power_mode_str(power_mode));
    XRAUDIO_API_MUTEX_LOCK();
 
    if(obj->opened) {
@@ -569,6 +574,9 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
 
    g_xraudio_process.privacy_mode = privacy_mode;
 
+   #ifdef USE_RDKE_HAL
+   g_xraudio_process.power_mode = power_mode;
+   #endif
    if(XRAUDIO_RESULT_OK != xraudio_audio_hal_open(obj)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    } else if(XRAUDIO_RESULT_OK != xraudio_message_queue_main_open(obj)) {
@@ -580,6 +588,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
    if(obj->hal_plugin != NULL) {
       dsp_config = &g_xraudio_process.dsp_config;
    }
+   XLOGD_INFO("obj->hal_plugin %p, dsp_config %p", obj->hal_plugin, dsp_config);
 
    if(result == XRAUDIO_RESULT_OK) {
       XLOGD_INFO("input sample rate %u Hz %u-bit %s privacy <%s>", obj->input_format.sample_rate, obj->input_format.sample_size * 8, xraudio_channel_qty_str(obj->input_format.channel_qty), privacy_mode ? "YES" : "NO");
@@ -1121,7 +1130,7 @@ xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
 
       // Get qahw handle from process global memory
       if(g_xraudio_process.hal_obj == NULL) {
-         XLOGD_INFO("hal open obj");
+         XLOGD_INFO("hal open obj power mode %s", xraudio_power_mode_str(g_xraudio_process.power_mode));
          g_xraudio_process.hal_obj = obj->hal_plugin->open(false, g_xraudio_process.power_mode, g_xraudio_process.privacy_mode, xraudio_hal_msg_async_handler);
          if(g_xraudio_process.hal_obj == NULL) {
             XLOGD_ERROR("hal open failed.");
@@ -1172,6 +1181,7 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
       params.obj_output                     = NULL;
       params.json_obj_output                = NULL;
    }
+   #ifndef USE_RDKE_HAL
    if(obj->kwd_plugin != NULL && obj->obj_input != NULL) {
       params.hal_obj                        = g_xraudio_process.hal_obj;
       params.dsp_config                     = g_xraudio_process.dsp_config;
@@ -1181,6 +1191,11 @@ xraudio_result_t main_thread_launch(xraudio_obj_t *obj) {
       memset(&params.dsp_config, 0, sizeof(params.dsp_config));
       params.hal_input_obj                  = NULL;
    }
+   #else
+   params.hal_obj                        = g_xraudio_process.hal_obj;
+   params.dsp_config                     = g_xraudio_process.dsp_config;
+   params.hal_input_obj                  = xraudio_input_hal_obj_get(obj->obj_input);
+   #endif
    params.internal_capture_params        = obj->internal_capture_params;
    params.json_obj_input                 = obj->json_obj_input;
 
@@ -1398,6 +1413,7 @@ xraudio_result_t xraudio_detect_stop(xraudio_object_t object) {
 }
 
 xraudio_result_t xraudio_detect_sensitivity_limits_get(xraudio_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity_min, xraudio_keyword_sensitivity_t *keyword_sensitivity_max) {
+   #ifndef USE_RDKE_HAL
    xraudio_obj_t *obj = (xraudio_obj_t *)object;
    if(!xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("Invalid object.");
@@ -1432,6 +1448,9 @@ xraudio_result_t xraudio_detect_sensitivity_limits_get(xraudio_object_t object, 
 
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
+   #else
+   return(XRAUDIO_RESULT_OK);
+   #endif
 }
 
 xraudio_result_t xraudio_source_fd_set(xraudio_object_t object, xraudio_devices_input_t source, int fd, xraudio_input_format_t format, xraudio_input_data_read_cb_t callback, void *user_data) {
