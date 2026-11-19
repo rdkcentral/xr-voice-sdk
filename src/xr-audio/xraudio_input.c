@@ -33,6 +33,9 @@
 #include "xraudio.h"
 #include "vsdk_private.h"
 #include "xraudio_private.h"
+#ifdef USE_RDKE_HAL
+#include "vsdk_ffv_adapter.h"
+#endif
 
 #define POLAR_ACTIVITY_PERIOD_IN_MSEC    (50)
 
@@ -708,7 +711,7 @@ xraudio_result_t xraudio_input_stream_keyword_info_get(xraudio_object_t object, 
 
    if(obj->kwd_enabled) {
       xraudio_hal_stream_params_t stream_params;
-      if(!obj->hal_plugin->input_stream_params_get(object, &stream_params)) {
+      if(!obj->hal_plugin->input_stream_params_get(obj->hal_input_obj, &stream_params)) {
          XLOGD_ERROR("Failed to read HAL keyword parameters");
          return(XRAUDIO_RESULT_ERROR_INPUT);
       }
@@ -1589,7 +1592,11 @@ xraudio_result_t xraudio_input_capture_stop_locked(xraudio_input_obj_t *obj) {
 }
 
 void xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj) {
-#ifndef USE_RDKE_HAL
+   #ifdef USE_RDKE_HAL
+   if(obj->hal_plugin != vsdk_ffv_adapter_api_get()) {
+      return;
+   }
+   #endif
    xraudio_queue_msg_idle_start_t msg;
    msg.header.type         = XRAUDIO_MAIN_QUEUE_MSG_TYPE_RECORD_IDLE_START;
    msg.fd                  = obj->fd;
@@ -1599,7 +1606,6 @@ void xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj) {
    msg.capabilities        = obj->capabilities;
 
    xraudio_input_queue_msg_push(obj, (const char *)&msg, sizeof(msg));
-#endif
 }
 
 void xraudio_input_dispatch_idle_stop(xraudio_input_obj_t *obj) {
@@ -1726,7 +1732,6 @@ xraudio_result_t xraudio_input_dispatch_detect_params(xraudio_input_obj_t *obj) 
 }
 
 xraudio_result_t xraudio_input_dispatch_detect_stop(xraudio_input_obj_t *obj, xraudio_devices_input_t source, audio_in_callback_t callback, void *param) {
-   #ifndef USE_RDKE_HAL
    bool synchronous = (callback == NULL) ? true : false;
    xraudio_queue_msg_detect_stop_t msg;
    msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_STOP;
@@ -1750,7 +1755,6 @@ xraudio_result_t xraudio_input_dispatch_detect_stop(xraudio_input_obj_t *obj, xr
 
    // asynchronous
    xraudio_input_queue_msg_push(obj, (const char *)&msg, sizeof(msg));
-   #endif
    return(XRAUDIO_RESULT_OK);
 }
 

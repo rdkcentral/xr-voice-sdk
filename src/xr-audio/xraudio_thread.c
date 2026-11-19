@@ -569,12 +569,16 @@ void *xraudio_main_thread(void *param) {
    }
 
    if(!g_voice_session.init) {
+      //Moved setting of msg queue to after g_voice_session initialization confirm this is good for RDK-V
       g_voice_session = (xraudio_session_voice_t) { .init              = true,
-                                                    .msgq              = state->params.msgq,
                                                     .detecting         = 0,
                                                     .sources_supported = XRAUDIO_DEVICE_INPUT_NONE,
                                                     .source            = { XRAUDIO_DEVICE_INPUT_INVALID } };
    }
+
+   // The main queue is recreated when audio is reopened after a power-mode change.
+   // Confirm this works for RDK-V as well
+   g_voice_session.msgq = state->params.msgq;
 
    state->record.recording            = false;
    state->record.fd                   = -1;
@@ -981,7 +985,11 @@ void xraudio_msg_record_idle_start(xraudio_thread_state_t *state, void *msg) {
       instance->stream_begin_offset[index] = 0;
    }
 
-   if(state->params.kwd_plugin != NULL) {
+   bool use_hal_input_fd = (state->params.kwd_plugin != NULL);
+   #ifdef USE_RDKE_HAL
+   use_hal_input_fd = use_hal_input_fd || (state->params.hal_plugin == vsdk_ffv_adapter_api_get());
+   #endif
+   if(use_hal_input_fd) {
       state->record.fd                     = idle_start->fd;
    }
    state->record.format_in                 = idle_start->format;
@@ -2183,7 +2191,12 @@ void xraudio_msg_power_mode(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    // Call HAL to enter the power mode
-   if(state->params.kwd_plugin != NULL && !state->params.hal_plugin->power_mode(state->params.hal_obj, power_mode->power_mode)) {
+   #ifndef USE_RDKE_HAL
+   if(state->params.kwd_plugin != NULL) {
+      result = XRAUDIO_RESULT_ERROR_INTERNAL;
+   }
+   #endif
+   if(result != XRAUDIO_RESULT_ERROR_INTERNAL && !state->params.hal_plugin->power_mode(state->params.hal_obj, power_mode->power_mode)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
 

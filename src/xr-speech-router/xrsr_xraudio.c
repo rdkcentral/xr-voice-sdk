@@ -24,6 +24,9 @@
 #include <xrsr_private.h>
 #include <vsdk_private.h>
 #include <xraudio.h>
+#ifdef USE_RDKE_HAL
+#include <vsdk_ffv_adapter.h>
+#endif
 
 #define XRSR_XRAUDIO_IDENTIFIER (0x93482578)
 
@@ -428,7 +431,11 @@ void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_k
 }
 
 void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
-#ifndef USE_RDKE_HAL
+   #ifdef USE_RDKE_HAL
+   if(vsdk_hal_plugin_get() != vsdk_ffv_adapter_api_get()) {
+      return;
+   }
+   #endif
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
 
    if(!xrsr_xraudio_object_is_valid(obj)) {
@@ -436,7 +443,6 @@ void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
       return;
    }
    xrsr_xraudio_keyword_detect_start(obj);
-#endif
 }
 
 
@@ -474,7 +480,6 @@ static void xrsr_xraudio_keyword_detect_start(xrsr_xraudio_obj_t *obj) {
 }
 
 static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
-#ifndef USE_RDKE_HAL
 
    xrsr_xraudio_stream_t *stream = &obj->xraudio_streams[XRSR_SESSION_GROUP_DEFAULT];
 
@@ -490,7 +495,6 @@ static void xrsr_xraudio_keyword_detect_stop(xrsr_xraudio_obj_t *obj) {
        return;
    }
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
-#endif
 }
 
 void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_keyword_detected_t *msg, xrsr_src_t current_session_src, bool requested_more_audio, bool *audio_stream_start) {
@@ -741,15 +745,17 @@ bool xrsr_xraudio_stream_end(xrsr_xraudio_object_t object, xraudio_devices_input
    if(!more_streams) { // no more streams open
       obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
 
-      #ifndef USE_RDKE_HAL
-      if(source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
+      bool manage_detection = true;
+      #ifdef USE_RDKE_HAL
+      manage_detection = (vsdk_hal_plugin_get() == vsdk_ffv_adapter_api_get());
+      #endif
+      if(manage_detection && source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
          obj->detect_active = detect_resume;
 
          if(obj->detect_active) { // Start detector again
             xrsr_xraudio_keyword_detect_start(obj);
          }
       }
-      #endif
       xrsr_audio_stats_clear(stream);
    }
 

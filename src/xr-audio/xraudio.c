@@ -480,7 +480,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
       XLOGD_ERROR("Invalid power mode <%s>", xraudio_power_mode_str(power_mode));
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
-
+XLOGD_INFO("power mode <%s>", xraudio_power_mode_str(power_mode));
    XRAUDIO_API_MUTEX_LOCK();
 
    if(obj->opened) {
@@ -574,6 +574,9 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
 
    g_xraudio_process.privacy_mode = privacy_mode;
 
+   #ifdef USE_RDKE_HAL
+   g_xraudio_process.power_mode = power_mode;
+   #endif
    if(XRAUDIO_RESULT_OK != xraudio_audio_hal_open(obj)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    } else if(XRAUDIO_RESULT_OK != xraudio_message_queue_main_open(obj)) {
@@ -1127,7 +1130,7 @@ xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
 
       // Get qahw handle from process global memory
       if(g_xraudio_process.hal_obj == NULL) {
-         XLOGD_INFO("hal open obj");
+         XLOGD_INFO("hal open obj power mode %s", xraudio_power_mode_str(g_xraudio_process.power_mode));
          g_xraudio_process.hal_obj = obj->hal_plugin->open(false, g_xraudio_process.power_mode, g_xraudio_process.privacy_mode, xraudio_hal_msg_async_handler);
          if(g_xraudio_process.hal_obj == NULL) {
             XLOGD_ERROR("hal open failed.");
