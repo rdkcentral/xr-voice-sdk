@@ -18,11 +18,11 @@ context: |
 rules:
   proposal:
     - List every Coverity CID in scope with its checker and severity
-    - State what is out of scope, including any CIDs deliberately deferred or to be triaged as false positives
+    - State what is out of scope, including any CIDs deliberately deferred
   design:
     - For each non-trivial fix, explain why behavior is preserved or describe the intended behavior change
     - For integer overflow fixes, state the value's possible range at the flagged point (including error returns such as -1) and why the fix rules out the overflow
-    - If a defect looks like a false positive, say so and recommend a Coverity triage action instead of a code change
+    - If a defect cannot occur at runtime, say so, but still add a minimal defensive fix that makes the bound explicit to Coverity without changing behavior for valid inputs
   tasks:
     - One task per Coverity CID, with the CID and checker in the task title
     - End with a task to push the branch and confirm the native build passes; Coverity confirmation of the CIDs is tracked outside OpenSpec

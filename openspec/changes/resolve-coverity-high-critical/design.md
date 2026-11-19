@@ -24,8 +24,8 @@ The Coverity scan's line numbers may be stale. The defect was located by functio
 ## Goals / Non-Goals
 
 **Goals:**
-- Decide CID 55776 with a written range argument that a reviewer can check against the source.
-- Keep runtime behavior and the public ABI unchanged.
+- Resolve CID 55776 with a written range argument that a reviewer can check against the source, plus a minimal defensive bound that makes the range explicit to Coverity.
+- Keep runtime behavior for valid inputs and the public ABI unchanged.
 
 **Non-Goals:**
 - Changing the shape of the decode paths or the frame-group logic.
@@ -33,7 +33,7 @@ The Coverity scan's line numbers may be stale. The defect was located by functio
 
 ## Decisions
 
-### D1: CID 55776 is a false positive. Triage it; do not change code.
+### D1: CID 55776 cannot occur at runtime. Add a defensive bound anyway.
 
 **Range of `bytes_read` at the flagged point.** All per-path values are inclusive.
 
@@ -64,20 +64,33 @@ The same `> 0` guard keeps the cast value-preserving on the untraced paths in th
 
 The buffer offset in the same call does not underflow either. `(external_frame_group_index - 1)` is evaluated just after `external_frame_group_index++`, so the index is at least 1. This is not part of the CID.
 
-**Action:** in Coverity, set CID 55776 to Classification *False Positive*, Action *Ignore*. Use a comment along the lines of: "PCM→PCM trace: read() returns at most inlen = external_frame_size_in - external_frame_bytes_read, and external_frame_bytes_read < external_frame_size_in between calls, so neither the read cast (4989) nor the sum (4991) can exceed external_frame_size_in (one 20 ms PCM frame). The size_out == size_in checks (4993/5082) pin bytes_read to the frame size, and the bytes_read <= 0 → return guard (5010) makes the int32→uint32 cast at 5114 value-preserving. See openspec change resolve-coverity-high-critical, design.md D1."
+**Action:** add a defensive bound at the first event in Coverity's chain (4989), where the `ssize_t` read result is narrowed into `int32_t bytes_read` on the PCM→PCM path. Use the `ssize_t read_result` pattern the ADPCM path already uses (4827):
 
-**Behavior:** unchanged. No code is modified.
+```c
+ssize_t read_result = xraudio_external_fd_read(session, inbuf, inlen);
+if(read_result > (ssize_t)inlen) { // Defensive: read() never returns more than requested
+   read_result = -1;
+}
+bytes_read = (int32_t)read_result;
+```
+
+With `bytes_read <= inlen` explicit before the cast, the sum at 4991 is at most `inlen + external_frame_bytes_read = external_frame_size_in`, and the sink at 5114 is bounded by derivation through the existing `!=` and `<= 0` checks. An out-of-range result is treated as a read error, not clamped, so unverified bytes are never passed downstream.
+
+**Behavior:** unchanged for valid inputs. `read()` cannot return more than `count`, so the new branch is dead in practice. If it were ever taken, `bytes_read = -1` follows the existing read-error path (`break` at 4990, then the common `bytes_read <= 0` handling at 5010).
 
 **Alternatives considered:**
-- *Silence the checker in code.* Options include making the arithmetic stay in `int32_t` (`bytes_read *= (int32_t)sizeof(pcm_t)`), adding a redundant explicit bound before the cast, or passing `session->external_frame_size_out` instead of `(uint32_t)bytes_read`. Each would be behavior-preserving. All were rejected for this change: the project rule is to triage false positives rather than edit code, and each option would touch a hot audio path only to satisfy the analyzer. This remains the fallback if the triage is rejected.
-- *Add a Coverity annotation comment (`// coverity[...]`).* Rejected. It puts tool-specific markup in the source for a defect that is not real, and the triage database already records the decision.
+- *Triage as False Positive only, with no code change.* Rejected: the project rule is to add a minimal defensive fix even when the defect cannot occur. Triage with the range argument above remains the fallback if Coverity still reports the CID after the fix.
+- *Pass `session->external_frame_size_out` instead of `(uint32_t)bytes_read` at the sink.* Rejected: on the OPUS paths it changes which value is captured, and it does not address the flagged narrowing at 4989.
+- *Keep the arithmetic in `int32_t` (e.g. `bytes_read *= (int32_t)sizeof(pcm_t)`).* Rejected: it does not touch the PCM→PCM narrowing that starts the event chain.
+- *Clamp an out-of-range read to `inlen` instead of treating it as an error.* Rejected: it would forward bytes whose count cannot be trusted.
+- *Add a Coverity annotation comment (`// coverity[...]`).* Rejected. It puts tool-specific markup in the source, and the explicit bound makes it unnecessary.
 
 ## Risks / Trade-offs
 
-- [A future edit breaks `external_frame_bytes_read < external_frame_size_in`, for example by changing `external_frame_size_in` mid-session or dropping the 1181/4997 resets] → The triage comment cites the invariant. Coverity re-raises the CID if that code changes enough.
-- [A future edit moves or removes the `bytes_read <= 0` guard, or reassigns `bytes_read` after it, so the false-positive reasoning becomes wrong] → The triage comment cites the guard. Coverity re-raises the CID as new if the code shape changes enough.
-- [The triage is rejected by the reviewer or by Coverity policy] → Fall back to the code-change alternative above as a follow-up change.
+- [A future edit breaks `external_frame_bytes_read < external_frame_size_in`, for example by changing `external_frame_size_in` mid-session or dropping the 1181/4997 resets] → The new bound still caps each read at `inlen`, but `inlen` itself could then underflow; the D1 invariant documents what must hold.
+- [A future edit moves or removes the `bytes_read <= 0` guard, or reassigns `bytes_read` after it] → The sink would no longer be bounded by derivation; Coverity would re-raise the CID.
+- [Coverity still reports CID 55776 after the fix] → Re-check the event chain against the new code; if it is unchanged, fall back to triage as False Positive with the D1 range argument as the comment.
 
 ## Migration Plan
 
-None. No code or configuration is deployed. Rollback means reopening the CID in Coverity.
+None beyond the normal build. Ships with the PR to develop; rollback means reverting the commit.
