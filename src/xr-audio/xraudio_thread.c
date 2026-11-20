@@ -4986,7 +4986,11 @@ void xraudio_process_input_external_data(xraudio_main_thread_params_t *params, x
                inbuf += session->external_frame_bytes_read;
                inlen  = session->external_frame_size_in - session->external_frame_bytes_read;
             }
-            bytes_read = xraudio_external_fd_read(session, inbuf, inlen);
+            ssize_t read_result = xraudio_external_fd_read(session, inbuf, inlen);
+            if(read_result > (ssize_t)inlen) { // Defensive: read() never returns more than requested
+               read_result = -1;
+            }
+            bytes_read = (int32_t)read_result;
             if(bytes_read <= 0) break;
             bytes_read += session->external_frame_bytes_read;
             session->external_frame_bytes_read = bytes_read;
