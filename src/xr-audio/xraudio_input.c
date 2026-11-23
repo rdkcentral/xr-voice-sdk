@@ -1609,7 +1609,11 @@ void xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj) {
 }
 
 void xraudio_input_dispatch_idle_stop(xraudio_input_obj_t *obj) {
-#ifndef USE_RDKE_HAL
+   #ifdef USE_RDKE_HAL
+   if(obj->hal_plugin != vsdk_ffv_adapter_api_get()) {
+      return;
+   }
+   #endif
    xraudio_queue_msg_record_idle_stop_t msg;
    msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_RECORD_IDLE_STOP;
 
@@ -1621,7 +1625,6 @@ void xraudio_input_dispatch_idle_stop(xraudio_input_obj_t *obj) {
 
    // Block until operation is complete
    sem_wait(&semaphore);
-#endif 
 }
 
 

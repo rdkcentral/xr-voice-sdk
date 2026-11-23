@@ -137,9 +137,7 @@ static bool vsdk_ffv_stream_params_get(vsdk_ffv_hal_obj_t *obj, xraudio_hal_stre
    json_t *gain = json_object_get(detector, "gain");
    json_t *sensitivity = json_object_get(detector, "keywordSensitivity");
    if(!json_is_number(gain) || !json_is_number(sensitivity)) {
-      XLOGD_ERROR("FFV HAL keyword metadata requires numeric wuw.detector.gain and keywordSensitivity");
-      json_decref(root);
-      return(false);
+      XLOGD_WARN("FFV HAL keyword metadata has no numeric wuw.detector.gain or keywordSensitivity, defaulting to 0");
    }
 
    json_int_t begin = json_integer_value(sowuw);
@@ -167,8 +165,8 @@ static bool vsdk_ffv_stream_params_get(vsdk_ffv_hal_obj_t *obj, xraudio_hal_stre
    stream_params->kwd_end   = (int32_t)end - (int32_t)start_sample;
    stream_params->keyword_detector = "ffv-hal";
    stream_params->dsp_name = "ffv-hal";
-   stream_params->dsp_kwd_gain = json_number_value(gain);
-   stream_params->sensitivity = json_number_value(sensitivity);
+   stream_params->dsp_kwd_gain = json_is_number(gain) ? json_number_value(gain) : 0;
+   stream_params->sensitivity = json_is_number(sensitivity) ? json_number_value(sensitivity) : 0;
    // Peak power is not exposed by the HAL metadata; zero means no DGA update.
    stream_params->kwd_peak_power_dBFS = 0;
    stream_params->valid = true;
@@ -340,6 +338,8 @@ static void vsdk_ffv_adapter_capabilities_get(xraudio_hal_capabilities *caps) {
       }
       caps->output_qty = 0;
    }
+   // Release the temporary handle; adapter_open obtains its own
+   ffv_api->destroy(handle);
 }
 
 static bool vsdk_ffv_adapter_dsp_config_get(xraudio_hal_dsp_config_t *dsp_config) {
@@ -438,7 +438,12 @@ static xraudio_hal_obj_t vsdk_ffv_adapter_open(bool debug, xraudio_power_mode_t 
       XLOGD_WARN("FFVhal_setPowerMode failed");
    }
    if(ffv_api->set_privacy_state(obj->ffv_controller, privacy_mode) != EX_NONE) {
-      XLOGD_WARN("FFVhal_setPrivacyState failed");
+      if(privacy_mode) { // Keep the HAL open so privacy can be set again, but do not report privacy as applied
+         XLOGD_ERROR("FFVhal_setPrivacyState failed, privacy is not enabled");
+         obj->privacy_mode = false;
+      } else {
+         XLOGD_WARN("FFVhal_setPrivacyState failed");
+      }
    }
 
    g_vsdk_ffv_adapter.active_hal_obj = obj;

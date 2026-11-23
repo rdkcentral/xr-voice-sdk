@@ -569,15 +569,13 @@ void *xraudio_main_thread(void *param) {
    }
 
    if(!g_voice_session.init) {
-      //Moved setting of msg queue to after g_voice_session initialization confirm this is good for RDK-V
       g_voice_session = (xraudio_session_voice_t) { .init              = true,
                                                     .detecting         = 0,
                                                     .sources_supported = XRAUDIO_DEVICE_INPUT_NONE,
                                                     .source            = { XRAUDIO_DEVICE_INPUT_INVALID } };
    }
 
-   // The main queue is recreated when audio is reopened after a power-mode change.
-   // Confirm this works for RDK-V as well
+   // The main queue is recreated when audio is reopened after a power-mode change
    g_voice_session.msgq = state->params.msgq;
 
    state->record.recording            = false;
@@ -1480,6 +1478,7 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
       }
 
       xraudio_in_session_group_semaphore_unlock(state, stop->source);
+      #ifdef USE_RDKE_HAL
       if(state->params.hal_plugin == vsdk_ffv_adapter_api_get() &&
          XRAUDIO_DEVICE_INPUT_LOCAL_GET(stop->source) != XRAUDIO_DEVICE_INPUT_NONE &&
          stop->source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
@@ -1500,6 +1499,7 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
             }
          }
       }
+      #endif
    }
 }
 
@@ -1954,7 +1954,7 @@ void xraudio_msg_detect(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_input_sound_focus_set(state->params.obj_input, XRAUDIO_SDF_MODE_KEYWORD_DETECTION);
    #else
-   XLOGD_INFO("Registering callback %p at state->record.keyword_detector with param 0x%x", detect->callback, detect->param);
+   XLOGD_INFO("Registering callback %p at state->record.keyword_detector with param %p", detect->callback, detect->param);
    state->record.keyword_detector.callback = detect->callback;
    state->record.keyword_detector.cb_param = detect->param;
    #endif
@@ -2036,7 +2036,6 @@ void xraudio_msg_async_session_begin(xraudio_thread_state_t *state, void *msg) {
    XLOGD_DEBUG("");
 
    #ifndef USE_RDKE_HAL
-     xraudio_session_record_inst_t *instance = &state->record.instances[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
    if(!xraudio_keyword_detector_session_is_armed(&state->record.keyword_detector)) {
       XLOGD_ERROR("detector is not armed");
       return;
@@ -2191,12 +2190,11 @@ void xraudio_msg_power_mode(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    // Call HAL to enter the power mode
+   bool call_hal = (state->params.hal_plugin != NULL);
    #ifndef USE_RDKE_HAL
-   if(state->params.kwd_plugin != NULL) {
-      result = XRAUDIO_RESULT_ERROR_INTERNAL;
-   }
+   call_hal = (state->params.kwd_plugin != NULL);
    #endif
-   if(result != XRAUDIO_RESULT_ERROR_INTERNAL && !state->params.hal_plugin->power_mode(state->params.hal_obj, power_mode->power_mode)) {
+   if(call_hal && !state->params.hal_plugin->power_mode(state->params.hal_obj, power_mode->power_mode)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
 
@@ -2213,13 +2211,12 @@ void xraudio_msg_privacy_mode(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    // Call HAL to enter the privacy mode
+   bool call_hal = (state->params.hal_plugin != NULL);
    #ifndef USE_RDKE_HAL
-   if(state->params.kwd_plugin != NULL) {
-      result = XRAUDIO_RESULT_ERROR_INTERNAL;
-   }
+   call_hal = (state->params.kwd_plugin != NULL);
    #endif
 
-   if(result != XRAUDIO_RESULT_ERROR_INTERNAL && !state->params.hal_plugin->privacy_mode(state->params.hal_obj, privacy_mode->enable)) {
+   if(call_hal && !state->params.hal_plugin->privacy_mode(state->params.hal_obj, privacy_mode->enable)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
 
@@ -2236,13 +2233,12 @@ void xraudio_msg_privacy_mode_get(xraudio_thread_state_t *state, void *msg) {
 
    xraudio_result_t result = XRAUDIO_RESULT_OK;
    //Call HAL to get mute state
+   bool call_hal = (state->params.hal_plugin != NULL);
    #ifndef USE_RDKE_HAL
-   if(state->params.kwd_plugin != NULL) {
-      result = XRAUDIO_RESULT_ERROR_INTERNAL;
-   }
+   call_hal = (state->params.kwd_plugin != NULL);
    #endif
 
-   if(result != XRAUDIO_RESULT_ERROR_INTERNAL && !state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
+   if(call_hal && !state->params.hal_plugin->privacy_mode_get(state->params.hal_obj, privacy_mode_get->enabled)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
 
@@ -3676,7 +3672,7 @@ void xraudio_in_sound_intensity_transfer(xraudio_main_thread_params_t *params, x
 }
 
 void xraudio_keyword_detector_init(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, json_t *jkwd_config) {
-#ifndef USE_RDKE_HAL   
+#ifndef USE_RDKE_HAL
    XLOGD_DEBUG("");
    detector->kwd_object                = params->kwd_plugin->object_create(jkwd_config);
    detector->sensitivity               = 0.0;
@@ -3726,7 +3722,7 @@ void xraudio_keyword_detector_term(xraudio_main_thread_params_t *params, xraudio
 #endif
 }
 
-#ifndef USE_RDKE_HAL   
+#ifndef USE_RDKE_HAL
 void xraudio_keyword_detector_session_init(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector, uint8_t chan_qty, xraudio_keyword_sensitivity_t *sensitivity) {
    XLOGD_DEBUG("");
    if(detector == NULL) {
@@ -3791,7 +3787,7 @@ bool xraudio_keyword_detector_session_is_active(xraudio_keyword_detector_t *dete
 #endif
 
 void xraudio_keyword_detector_session_term(xraudio_main_thread_params_t *params, xraudio_keyword_detector_t *detector) {
-#ifndef USE_RDKE_HAL   
+#ifndef USE_RDKE_HAL
    XLOGD_DEBUG("release memory");
    if(detector == NULL) {
       XLOGD_ERROR("Invalid parameters");
@@ -3922,7 +3918,11 @@ void xraudio_keyword_detector_session_event(xraudio_main_thread_params_t *params
    detector->callback(source, uuid, event, detector->cb_param, detector_result, format);
    xraudio_keyword_detector_session_disarm(params, detector);
    #else
-   XLOGD_INFO("making callback %p source 0x%x event %d detector_result %p format %p",  detector->callback, source, event, detector_result, format);
+   if(detector->callback == NULL) {
+      XLOGD_ERROR("no keyword callback registered");
+      return;
+   }
+   XLOGD_INFO("making callback %p source 0x%x event %d detector_result %p sample rate %u", detector->callback, source, event, detector_result, format.sample_rate);
    detector->callback(source, uuid, event, detector->cb_param, detector_result, format);
    #endif
 }

@@ -1967,6 +1967,7 @@ void xrsr_msg_session_begin(const xrsr_thread_params_t *params, xrsr_thread_stat
       if(begin->detector_result.chan_selected >= XRAUDIO_INPUT_MAX_CHANNEL_QTY) {
          XLOGD_ERROR("invalid selected channel <%u>", begin->detector_result.chan_selected);
       } else {
+         memset(&detector_result, 0, sizeof(detector_result));
          #ifndef USE_RDKE_HAL //I think we do want to provide this data
          detector_result.score                = begin->detector_result.channels[begin->detector_result.chan_selected].score;
          detector_result.snr                  = begin->detector_result.channels[begin->detector_result.chan_selected].snr;

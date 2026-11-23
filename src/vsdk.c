@@ -146,15 +146,15 @@ void vsdk_term(void) {
 
    if(g_vsdk.hal_in_enabled || g_vsdk.hal_out_enabled) {
       XLOGD_INFO("unload FFV hal");
-      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_hal) != 0) {
+      if(g_vsdk.ffv_plugins.handle_ffv_hal != NULL && dlclose(g_vsdk.ffv_plugins.handle_ffv_hal) != 0) {
          const char *err = dlerror();
          XLOGD_ERROR("dlclose failed for FFV HAL <%s>", (err != NULL) ? err : "unknown error");
       }
-      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_kwd) != 0) {
+      if(g_vsdk.ffv_plugins.handle_ffv_kwd != NULL && dlclose(g_vsdk.ffv_plugins.handle_ffv_kwd) != 0) {
          const char *err = dlerror();
          XLOGD_ERROR("dlclose failed for FFV KWD <%s>", (err != NULL) ? err : "unknown error");
       }
-      if(dlclose(g_vsdk.ffv_plugins.handle_ffv_alg) != 0) {
+      if(g_vsdk.ffv_plugins.handle_ffv_alg != NULL && dlclose(g_vsdk.ffv_plugins.handle_ffv_alg) != 0) {
          const char *err = dlerror();
          XLOGD_ERROR("dlclose failed for FFV ALG <%s>", (err != NULL) ? err : "unknown error");
       }

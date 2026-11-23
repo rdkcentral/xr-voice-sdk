@@ -480,7 +480,8 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
       XLOGD_ERROR("Invalid power mode <%s>", xraudio_power_mode_str(power_mode));
       return(XRAUDIO_RESULT_ERROR_PARAMS);
    }
-XLOGD_INFO("power mode <%s>", xraudio_power_mode_str(power_mode));
+
+   XLOGD_INFO("power mode <%s>", xraudio_power_mode_str(power_mode));
    XRAUDIO_API_MUTEX_LOCK();
 
    if(obj->opened) {
@@ -584,6 +585,17 @@ XLOGD_INFO("power mode <%s>", xraudio_power_mode_str(power_mode));
       xraudio_audio_hal_close(obj);
    }
 
+   #ifdef USE_RDKE_HAL
+   if(result == XRAUDIO_RESULT_OK && privacy_mode && obj->hal_plugin != NULL) {
+      // The HAL may not have applied the requested privacy state; cache what it actually reports
+      bool applied = false;
+      if(!obj->hal_plugin->privacy_mode_get(g_xraudio_process.hal_obj, &applied) || !applied) {
+         XLOGD_ERROR("privacy mode was requested but is not enabled in the HAL");
+         privacy_mode = false;
+         g_xraudio_process.privacy_mode = false;
+      }
+   }
+   #endif
    xraudio_hal_dsp_config_t *dsp_config = NULL;
    if(obj->hal_plugin != NULL) {
       dsp_config = &g_xraudio_process.dsp_config;
@@ -1449,7 +1461,8 @@ xraudio_result_t xraudio_detect_sensitivity_limits_get(xraudio_object_t object, 
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);
    #else
-   return(XRAUDIO_RESULT_OK);
+   XLOGD_ERROR("keyword sensitivity limits are not available from the native HAL");
+   return(XRAUDIO_RESULT_ERROR_INTERNAL);
    #endif
 }
 
