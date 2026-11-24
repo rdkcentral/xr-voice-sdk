@@ -566,7 +566,9 @@ static bool vsdk_ffv_adapter_privacy_mode(xraudio_hal_obj_t hal_obj, bool enable
    if(obj->ffv_api->set_privacy_state(obj->ffv_controller, enable) != EX_NONE) {
       return(false);
    }
+   pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
    obj->privacy_mode = enable;
+   pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
    return(true);
 }
 
