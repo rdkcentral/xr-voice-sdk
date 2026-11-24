@@ -96,7 +96,8 @@ typedef enum {
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_PRIVACY_MODE_GET                = 22,
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_CAPTURE_PARAMS_SET              = 23,
    XRAUDIO_MAIN_QUEUE_MSG_TYPE_INPUT_SOURCE_FD_SET             = 24,
-   XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID                         = 25,
+   XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_RESTART                  = 25,
+   XRAUDIO_MAIN_QUEUE_MSG_TYPE_INVALID                         = 26,
 } xraudio_main_queue_msg_type_t;
 
 #ifdef XRAUDIO_RESOURCE_MGMT
@@ -409,6 +410,13 @@ typedef struct {
    sem_t *                           semaphore;
    xraudio_result_t *                result;
 } xraudio_main_queue_msg_input_source_fd_set_t;
+
+typedef struct {
+   xraudio_main_queue_msg_header_t   header;
+   sem_t *                           semaphore;
+   xraudio_result_t *                result;
+   bool                              release_session; // Free the session group acquired by the rejected detection
+} xraudio_main_queue_msg_detect_restart_t;
 
 #ifdef __cplusplus
 extern "C" {

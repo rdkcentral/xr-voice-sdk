@@ -225,7 +225,7 @@ typedef int16_t         xraudio_sample_t;
 typedef struct {
    uint32_t                  chan_selected;
    xraudio_kwd_endpoints_t   endpoints;
-   xraudio_kwd_chan_result_t channels[XRAUDIO_INPUT_MAX_CHANNEL_QTY];
+   xraudio_kwd_chan_result_t channels[XRAUDIO_INPUT_MAX_CHANNEL_QTY]; // unused by the native HAL, kept so the layout is the same in every build
    const char *              detector_name;
    const char *              dsp_name;
    float                     sensitivity;
@@ -381,6 +381,9 @@ xraudio_result_t xraudio_detect_keyword(xraudio_object_t object, keyword_callbac
 /// @brief Stop keyword detection
 /// @details Stop the keyword detection session.  The detector stops processing incoming audio data.
 xraudio_result_t xraudio_detect_stop(xraudio_object_t object);
+/// @brief Restart keyword detection in the HAL
+/// @details Closes and reopens the HAL keyword interface so the HAL detects the next keyword. Returns XRAUDIO_RESULT_ERROR_INVALID if the HAL does not need or support this, in which case the caller restarts detection with xraudio_detect_keyword.
+xraudio_result_t xraudio_keyword_detect_restart(xraudio_object_t object);
 /// @brief Get the keyword detection sensitivity limits
 /// @details Gets the keyword detection sensitivity limits from the detector.
 xraudio_result_t xraudio_detect_sensitivity_limits_get(xraudio_object_t object, xraudio_keyword_sensitivity_t *keyword_sensitivity_min, xraudio_keyword_sensitivity_t *keyword_sensitivity_max);
