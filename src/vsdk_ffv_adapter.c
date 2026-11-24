@@ -84,10 +84,10 @@ static bool vsdk_ffv_source_is_local(xraudio_devices_input_t source) {
    return((XRAUDIO_DEVICE_INPUT_LOCAL_GET(source) != XRAUDIO_DEVICE_INPUT_NONE) || (source == XRAUDIO_DEVICE_INPUT_FF));
 }
 
-static void vsdk_ffv_emit_session_request(vsdk_ffv_hal_obj_t *obj) {
+static bool vsdk_ffv_emit_session_request(vsdk_ffv_hal_obj_t *obj) {
    if((obj == NULL) || (obj->callback == NULL)) {
       XLOGD_ERROR("Invalid FFV HAL object or callback");
-      return;
+      return(false);
    }
 
    XLOGD_INFO("");
@@ -96,7 +96,7 @@ static void vsdk_ffv_emit_session_request(vsdk_ffv_hal_obj_t *obj) {
    memset(&msg, 0, sizeof(msg));
    msg.header.type   = XRAUDIO_MSG_TYPE_SESSION_REQUEST;
    msg.header.source = obj->source;
-   obj->callback(&msg);
+   return(obj->callback(&msg));
 }
 
 static bool vsdk_ffv_stream_params_get(vsdk_ffv_hal_obj_t *obj, xraudio_hal_stream_params_t *stream_params) {
@@ -263,7 +263,10 @@ static void vsdk_ffv_on_keyword_detected_cb(void) {
    }
 
    XLOGD_INFO("FFV keyword detected in power mode <%s>, starting session", xraudio_power_mode_str(power_mode));
-   vsdk_ffv_emit_session_request(g_vsdk_ffv_adapter.active_hal_obj);
+   if(!vsdk_ffv_emit_session_request(g_vsdk_ffv_adapter.active_hal_obj)) {
+      XLOGD_WARN("FFV keyword session request denied, not starting a session");
+      return;
+   }
    vsdk_ffv_emit_session_begin(g_vsdk_ffv_adapter.active_hal_obj);
 }
 

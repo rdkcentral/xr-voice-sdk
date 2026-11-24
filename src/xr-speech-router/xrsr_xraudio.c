@@ -365,15 +365,22 @@ void xrsr_xraudio_device_granted(xrsr_xraudio_object_t object) {
 
    #ifdef USE_RDKE_HAL
    if(obj->xraudio_privacy_mode) {
-      // The HAL may not have applied the requested privacy state; keep the router cache in step with xraudio
+      // Reconcile the router cache with the HAL. The status query can fail at boot, in which case privacy
+      // stays enabled until a later query succeeds.
       bool privacy_enabled = true;
       if(!xrsr_xraudio_privacy_mode_get(obj, &privacy_enabled)) {
+         XLOGD_WARN("unable to confirm privacy mode, keeping it enabled");
          obj->xraudio_privacy_mode = true;
+      } else if(!privacy_enabled) { // The HAL did not apply the request (the get updated the cache), so apply it again
+         XLOGD_WARN("HAL privacy mode not applied, retrying");
+         if(!xrsr_xraudio_privacy_mode_update(obj, true)) {
+            obj->xraudio_privacy_mode = true; // never allow microphone sessions while privacy is requested
+         }
       }
       XLOGD_INFO("privacy mode <%s>", obj->xraudio_privacy_mode ? "enabled" : "disabled");
    }
    #endif
-   
+
    #ifndef USE_RDKE_HAL
    if(!obj->detect_active) {
       XLOGD_INFO("don't start keyword detection");

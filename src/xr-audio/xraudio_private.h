@@ -415,6 +415,7 @@ typedef struct {
    xraudio_main_queue_msg_header_t   header;
    sem_t *                           semaphore;
    xraudio_result_t *                result;
+   bool                              release_session; // Free the session group acquired by the rejected detection
 } xraudio_main_queue_msg_detect_restart_t;
 
 #ifdef __cplusplus

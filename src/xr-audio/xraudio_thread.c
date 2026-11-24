@@ -384,6 +384,18 @@ typedef void (*xraudio_msg_handler_t)(xraudio_thread_state_t *state, void *msg);
 
 static void timer_frame_process(void *data);
 
+#ifdef USE_RDKE_HAL
+// True if any local session group (regular or mic tap) has a consumer for the input audio.
+static bool xraudio_session_record_has_consumer(const xraudio_session_record_t *session) {
+   for(uint32_t group = XRAUDIO_INPUT_SESSION_GROUP_DEFAULT; group < XRAUDIO_INPUT_SESSION_GROUP_QTY; group++) {
+      if(session->instances[group].record_callback != NULL) {
+         return(true);
+      }
+   }
+   return(false);
+}
+#endif
+
 static void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, unsigned long *timeout);
 static void xraudio_process_mic_error(xraudio_main_thread_params_t *params, xraudio_session_record_t *session);
 static void xraudio_unpack_mono_int16(xraudio_session_record_t *session, void *buffer_in, xraudio_audio_group_int16_t *audio_group_int16, xraudio_audio_group_float_t *audio_group_fp32, uint32_t frame_group_index, uint32_t sample_qty_frame);
@@ -579,6 +591,16 @@ void *xraudio_main_thread(void *param) {
 
    // The main queue is recreated when audio is reopened after a power-mode change
    g_voice_session.msgq = state->params.msgq;
+
+   #ifdef USE_RDKE_HAL
+   if(state->params.hal_plugin == vsdk_ffv_adapter_api_get()) {
+      // No session can be in flight when the thread is created, so start with every group free. A
+      // native keyword detection then only acquires a free group instead of overwriting its owner.
+      for(uint32_t group = XRAUDIO_INPUT_SESSION_GROUP_DEFAULT; group < XRAUDIO_INPUT_SESSION_GROUP_QTY; group++) {
+         xraudio_atomic_int_set(&g_voice_session.source[group], XRAUDIO_DEVICE_INPUT_NONE);
+      }
+   }
+   #endif
 
    state->record.recording            = false;
    state->record.fd                   = -1;
@@ -820,7 +842,7 @@ void *xraudio_main_thread(void *param) {
       bool record_fd_enabled = (state->params.kwd_plugin != NULL && state->record.fd >= 0);
       #else
       bool native_ffv = (state->params.hal_plugin == vsdk_ffv_adapter_api_get());
-      bool record_fd_enabled = (state->record.fd >= 0 && (!native_ffv || instance->record_callback != NULL));
+      bool record_fd_enabled = (state->record.fd >= 0 && (!native_ffv || xraudio_session_record_has_consumer(&state->record)));
       #endif
       if(record_fd_enabled) {
          if(state->record.fd > state->params.msgq) {
@@ -1521,13 +1543,19 @@ void xraudio_msg_detect_restart(xraudio_thread_state_t *state, void *msg) {
 
    #ifdef USE_RDKE_HAL
    if(state->params.hal_plugin == vsdk_ffv_adapter_api_get() && state->params.hal_input_obj != NULL) {
-      if(state->record.recording) { // closing the keyword channel would cut off the audio of the session in progress
-         XLOGD_ERROR("session in progress, not restarting FFV keyword detection");
+      xraudio_devices_input_t owner = xraudio_in_session_group_source_get(XRAUDIO_INPUT_SESSION_GROUP_DEFAULT);
+      // Only a local session streams from the keyword channel. An external session (e.g. PTT) doesn't, so the detector can be rearmed during it.
+      if(state->record.recording && XRAUDIO_DEVICE_INPUT_LOCAL_GET(owner) != XRAUDIO_DEVICE_INPUT_NONE) { // closing the keyword channel would cut off its audio
+         XLOGD_ERROR("local session in progress, not restarting FFV keyword detection");
          result = XRAUDIO_RESULT_ERROR_STATE;
       } else if(!xraudio_ffv_keyword_rearm(state, state->record.devices_input)) {
          XLOGD_ERROR("Unable to restart FFV keyword detection");
          result = XRAUDIO_RESULT_ERROR_INTERNAL;
       } else {
+         // A detection rejected by the router leaves the group acquired by the session request, so free it with the rearm
+         if(detect_restart->release_session && XRAUDIO_DEVICE_INPUT_LOCAL_GET(owner) != XRAUDIO_DEVICE_INPUT_NONE) {
+            xraudio_in_session_group_semaphore_unlock(state, owner);
+         }
          result = XRAUDIO_RESULT_OK;
       }
    }
@@ -2206,7 +2234,6 @@ void xraudio_msg_terminate(xraudio_thread_state_t *state, void *msg) {
 void xraudio_msg_thread_poll(xraudio_thread_state_t *state, void *msg) {
    xraudio_main_queue_msg_thread_poll_t *thread_poll = (xraudio_main_queue_msg_thread_poll_t *)msg;
 
-   XLOGD_WARN("state->params.kwd_plugin %p, state->params.out_enabled %d, state->params.hal_plugin %p", state->params.kwd_plugin, state->params.out_enabled, state->params.hal_plugin); 
    if(state->params.kwd_plugin != NULL || state->params.out_enabled) {
       // Call hal to ensure that it is ok
       if(state->params.hal_plugin == NULL) {
@@ -2431,8 +2458,7 @@ void timer_frame_process(void *data) {
 
 void xraudio_process_mic_data(xraudio_main_thread_params_t *params, xraudio_session_record_t *session, unsigned long *timeout) {
    #ifdef USE_RDKE_HAL
-   if(params->hal_plugin == vsdk_ffv_adapter_api_get() &&
-      session->instances[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT].record_callback == NULL) {
+   if(params->hal_plugin == vsdk_ffv_adapter_api_get() && !xraudio_session_record_has_consumer(session)) {
       *timeout = 0;
       return;
    }
@@ -4965,9 +4991,7 @@ bool xraudio_hal_msg_async_handler(void *msg) {
    switch(header->type) {
       case XRAUDIO_MSG_TYPE_SESSION_REQUEST: {
          #ifdef USE_RDKE_HAL
-         uint32_t group = xraudio_input_source_to_group(header->source); // Select the group based on source type
-         XLOGD_INFO("group <%s>", xraudio_input_session_group_str(group));
-         xraudio_atomic_int_set(&g_voice_session.source[group], XRAUDIO_DEVICE_INPUT_NONE);
+         XLOGD_INFO("group <%s>", xraudio_input_session_group_str(xraudio_input_source_to_group(header->source)));
          g_voice_session.detecting = 1; // Used to make sure we don't close HAL when detecting stops
          g_voice_session.sources_supported |= XRAUDIO_DEVICE_INPUT_SINGLE;
          #endif
@@ -4977,6 +5001,14 @@ bool xraudio_hal_msg_async_handler(void *msg) {
          } else {
             ret = xraudio_in_session_group_semaphore_lock(header->source);
          }
+         #ifdef USE_RDKE_HAL
+         if(!ret) { // The HAL keeps the detected command's pipe open, so restart keyword detection without waiting for a result
+            xraudio_main_queue_msg_detect_restart_t restart_msg;
+            memset(&restart_msg, 0, sizeof(restart_msg));
+            restart_msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_RESTART;
+            queue_msg_push(g_voice_session.msgq, (char *)&restart_msg, sizeof(restart_msg));
+         }
+         #endif
          break;
       }
       case XRAUDIO_MSG_TYPE_SESSION_BEGIN: {

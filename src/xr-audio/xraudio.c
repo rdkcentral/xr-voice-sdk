@@ -41,6 +41,7 @@
 #include "vsdk_private.h"
 #include "xraudio.h"
 #include "xraudio_private.h"
+#include "vsdk_ffv_adapter.h"
 #include "adpcm.h"
 #ifdef XRAUDIO_DECODE_OPUS
 #include "xraudio_opus.h"
@@ -587,11 +588,12 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
    }
 
    #ifdef USE_RDKE_HAL
-   if(result == XRAUDIO_RESULT_OK && privacy_mode && obj->hal_plugin != NULL) {
-      // The HAL may not have applied the requested privacy state; cache what it actually reports
+   if(result == XRAUDIO_RESULT_OK && privacy_mode && obj->hal_plugin == vsdk_ffv_adapter_api_get()) {
+      // The HAL may not have applied the privacy state yet (the query can fail at boot), so keep privacy
+      // enabled and let a later status query reconcile it
       bool applied = false;
       if(!obj->hal_plugin->privacy_mode_get(g_xraudio_process.hal_obj, &applied) || !applied) {
-         XLOGD_ERROR("requested privacy mode could not be confirmed in the HAL");
+         XLOGD_ERROR("requested privacy mode could not be confirmed in the HAL, keeping privacy enabled");
          privacy_mode = true;
          g_xraudio_process.privacy_mode = true;
       }
@@ -1442,6 +1444,7 @@ xraudio_result_t xraudio_keyword_detect_restart(xraudio_object_t object) {
       msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_RESTART;
       msg.semaphore   = &semaphore;
       msg.result      = &result;
+      msg.release_session = true;
 
       queue_msg_push(obj->msgq_main, (const char *)&msg, sizeof(msg));
 
