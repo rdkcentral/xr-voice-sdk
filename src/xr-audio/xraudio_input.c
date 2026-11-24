@@ -1590,11 +1590,6 @@ xraudio_result_t xraudio_input_capture_stop_locked(xraudio_input_obj_t *obj) {
 }
 
 void xraudio_input_dispatch_idle_start(xraudio_input_obj_t *obj) {
-   #ifdef USE_RDKE_HAL
-   if(obj->hal_plugin != vsdk_ffv_adapter_api_get()) {
-      return;
-   }
-   #endif
    xraudio_queue_msg_idle_start_t msg;
    msg.header.type         = XRAUDIO_MAIN_QUEUE_MSG_TYPE_RECORD_IDLE_START;
    msg.fd                  = obj->fd;
