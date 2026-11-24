@@ -579,6 +579,7 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
    g_xraudio_process.power_mode = power_mode;
    #endif
    if(XRAUDIO_RESULT_OK != xraudio_audio_hal_open(obj)) {
+      XLOGD_ERROR("failed to open audio HAL");
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    } else if(XRAUDIO_RESULT_OK != xraudio_message_queue_main_open(obj)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
@@ -590,9 +591,9 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
       // The HAL may not have applied the requested privacy state; cache what it actually reports
       bool applied = false;
       if(!obj->hal_plugin->privacy_mode_get(g_xraudio_process.hal_obj, &applied) || !applied) {
-         XLOGD_ERROR("privacy mode was requested but is not enabled in the HAL");
-         privacy_mode = false;
-         g_xraudio_process.privacy_mode = false;
+         XLOGD_ERROR("requested privacy mode could not be confirmed in the HAL");
+         privacy_mode = true;
+         g_xraudio_process.privacy_mode = true;
       }
    }
    #endif
@@ -600,7 +601,6 @@ xraudio_result_t xraudio_open(xraudio_object_t object, xraudio_power_mode_t powe
    if(obj->hal_plugin != NULL) {
       dsp_config = &g_xraudio_process.dsp_config;
    }
-   XLOGD_INFO("obj->hal_plugin %p, dsp_config %p", obj->hal_plugin, dsp_config);
 
    if(result == XRAUDIO_RESULT_OK) {
       XLOGD_INFO("input sample rate %u Hz %u-bit %s privacy <%s>", obj->input_format.sample_rate, obj->input_format.sample_size * 8, xraudio_channel_qty_str(obj->input_format.channel_qty), privacy_mode ? "YES" : "NO");
@@ -1138,11 +1138,9 @@ void xraudio_shared_mem_unlock(xraudio_object_t object) {
 
 xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
    if(obj->hal_plugin != NULL) {
-      XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
 
       // Get qahw handle from process global memory
       if(g_xraudio_process.hal_obj == NULL) {
-         XLOGD_INFO("hal open obj power mode %s", xraudio_power_mode_str(g_xraudio_process.power_mode));
          g_xraudio_process.hal_obj = obj->hal_plugin->open(false, g_xraudio_process.power_mode, g_xraudio_process.privacy_mode, xraudio_hal_msg_async_handler);
          if(g_xraudio_process.hal_obj == NULL) {
             XLOGD_ERROR("hal open failed.");
@@ -1150,17 +1148,14 @@ xraudio_result_t xraudio_audio_hal_open(xraudio_obj_t *obj) {
          }
       }
       g_xraudio_process.hal_user_cnt++;
-      XLOGD_INFO("hal obj %p", g_xraudio_process.hal_obj);
    }
    return(XRAUDIO_RESULT_OK);
 }
 
 void xraudio_audio_hal_close(xraudio_obj_t *obj) {
    if(obj->hal_plugin != NULL) {
-      XLOGD_INFO("hal obj %p user count %u", g_xraudio_process.hal_obj, g_xraudio_process.hal_user_cnt);
       g_xraudio_process.hal_user_cnt--;
       if((g_xraudio_process.hal_user_cnt == 0) && (g_xraudio_process.hal_obj != NULL)) {
-         XLOGD_INFO("");
          obj->hal_plugin->close(g_xraudio_process.hal_obj);
          g_xraudio_process.hal_obj = NULL;
       }
@@ -1419,6 +1414,39 @@ xraudio_result_t xraudio_detect_stop(xraudio_object_t object) {
       result = XRAUDIO_RESULT_ERROR_OPEN;
    } else {
       result = xraudio_input_detect_stop(obj->obj_input, obj->devices_input);
+   }
+   XRAUDIO_API_MUTEX_UNLOCK();
+   return(result);
+}
+
+xraudio_result_t xraudio_keyword_detect_restart(xraudio_object_t object) {
+   xraudio_obj_t *  obj    = (xraudio_obj_t *)object;
+   xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID;
+   if(!xraudio_object_is_valid(obj)) {
+      XLOGD_ERROR("Invalid object.");
+      return(XRAUDIO_RESULT_ERROR_OBJECT);
+   }
+
+   XRAUDIO_API_MUTEX_LOCK();
+   if(!obj->opened) {
+      XLOGD_ERROR("xraudio is not open!");
+      result = XRAUDIO_RESULT_ERROR_OPEN;
+   } else if(XRAUDIO_DEVICE_INPUT_LOCAL_GET(obj->devices_input) == XRAUDIO_DEVICE_INPUT_NONE) {
+      XLOGD_ERROR("microphone not opened!");
+      result = XRAUDIO_RESULT_ERROR_INPUT;
+   } else {
+      sem_t semaphore;
+      sem_init(&semaphore, 0, 0);
+
+      xraudio_main_queue_msg_detect_restart_t msg;
+      msg.header.type = XRAUDIO_MAIN_QUEUE_MSG_TYPE_DETECT_RESTART;
+      msg.semaphore   = &semaphore;
+      msg.result      = &result;
+
+      queue_msg_push(obj->msgq_main, (const char *)&msg, sizeof(msg));
+
+      sem_wait(&semaphore);
+      sem_destroy(&semaphore);
    }
    XRAUDIO_API_MUTEX_UNLOCK();
    return(result);

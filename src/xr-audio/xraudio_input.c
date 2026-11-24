@@ -255,8 +255,6 @@ xraudio_input_object_t xraudio_input_object_create(xraudio_hal_obj_t hal_obj, ui
       obj->ppr_plugin            = NULL;
    }
 
-   XLOGD_INFO("obj->hal_plugin is %p", obj->hal_plugin);
-
    if(NULL == json_obj_input) {
       XLOGD_INFO("json_obj_input is null, using defaults");
    } else {

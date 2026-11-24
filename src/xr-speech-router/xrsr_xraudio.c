@@ -362,6 +362,17 @@ void xrsr_xraudio_device_granted(xrsr_xraudio_object_t object) {
       return;
    }
    obj->xraudio_state = XRSR_XRAUDIO_STATE_OPENED;
+
+   #ifdef USE_RDKE_HAL
+   if(obj->xraudio_privacy_mode) {
+      // The HAL may not have applied the requested privacy state; keep the router cache in step with xraudio
+      bool privacy_enabled = true;
+      if(!xrsr_xraudio_privacy_mode_get(obj, &privacy_enabled)) {
+         obj->xraudio_privacy_mode = true;
+      }
+      XLOGD_INFO("privacy mode <%s>", obj->xraudio_privacy_mode ? "enabled" : "disabled");
+   }
+   #endif
    
    #ifndef USE_RDKE_HAL
    if(!obj->detect_active) {
@@ -431,16 +442,19 @@ void xrsr_xraudio_keyword_detect_params(xrsr_xraudio_object_t *object, xraudio_k
 }
 
 void xrsr_xraudio_keyword_detect_restart(xrsr_xraudio_object_t object) {
-   #ifdef USE_RDKE_HAL
-   if(vsdk_hal_plugin_get() != vsdk_ffv_adapter_api_get()) {
-      return;
-   }
-   #endif
    xrsr_xraudio_obj_t *obj = (xrsr_xraudio_obj_t *)object;
 
    if(!xrsr_xraudio_object_is_valid(obj)) {
       XLOGD_ERROR("invalid xrsr xraudio object");
       return;
+   }
+
+   // A rejected session is released by xraudio_stream_stop in xrsr_xraudio_keyword_detect_start, which also restarts the HAL
+   if(!obj->session_rejected) {
+      xraudio_result_t result = xraudio_keyword_detect_restart(obj->xraudio_obj);
+      if((result != XRAUDIO_RESULT_OK) && (result != XRAUDIO_RESULT_ERROR_INVALID)) { // INVALID means the HAL needs no restart
+         XLOGD_ERROR("xraudio_keyword_detect_restart <%s>", xraudio_result_str(result));
+      }
    }
    xrsr_xraudio_keyword_detect_start(obj);
 }
@@ -541,10 +555,7 @@ void xrsr_xraudio_keyword_detected(xrsr_xraudio_object_t object, xrsr_queue_msg_
       } else {
          XLOGD_WARN("Rejecting keyword detected from source <%s>, session in progress on source <%s>.  Restarting keyword detector...", xrsr_src_str(src), xrsr_src_str(current_session_src));
          obj->session_rejected = true;
-         #ifndef USE_RDKE_HAL
          xrsr_xraudio_keyword_detect_restart(obj);
-         //TODO inform new HAL to restart detection? The HAL might do that automatically after some time or after reading mic data, check on this
-         #endif
          return;
       }
    }

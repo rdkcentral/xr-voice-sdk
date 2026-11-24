@@ -489,6 +489,7 @@ static void xraudio_msg_privacy_mode(xraudio_thread_state_t *state, void *msg);
 static void xraudio_msg_privacy_mode_get(xraudio_thread_state_t *state, void *msg);
 static void xraudio_msg_capture_params_set(xraudio_thread_state_t *state, void *msg);
 static void xraudio_msg_input_source_fd_set(xraudio_thread_state_t *state, void *msg);
+static void xraudio_msg_detect_restart(xraudio_thread_state_t *state, void *msg);
 
 static void xraudio_encoding_parameters_get(xraudio_input_format_t *format, uint32_t frame_duration, uint32_t *frame_size, uint16_t stream_time_min_ms, uint32_t *min_audio_data_len);
 static bool xraudio_in_aop_adjust_apply(int32_t *buffer, uint32_t sample_qty_frame, int8_t input_aop_adjust_shift);
@@ -519,7 +520,8 @@ static const xraudio_msg_handler_t g_xraudio_msg_handlers[XRAUDIO_MAIN_QUEUE_MSG
    xraudio_msg_privacy_mode,
    xraudio_msg_privacy_mode_get,
    xraudio_msg_capture_params_set,
-   xraudio_msg_input_source_fd_set
+   xraudio_msg_input_source_fd_set,
+   xraudio_msg_detect_restart
 };
 
 #ifdef MASK_FIRST_WRITE_DELAY
@@ -1373,6 +1375,27 @@ void xraudio_msg_record_start(xraudio_thread_state_t *state, void *msg) {
    XLOGD_DEBUG("nominal timeout %u us", state->record.timeout);
 }
 
+#ifdef USE_RDKE_HAL
+// Closes and reopens the FFV keyword channel so the HAL detects the next keyword
+static bool xraudio_ffv_keyword_rearm(xraudio_thread_state_t *state, xraudio_devices_input_t source) {
+   state->record.fd = -1;
+   state->record.recording = false;
+   if(!state->params.hal_plugin->input_keyword_detector_reset(state->params.hal_input_obj)) {
+      return(false);
+   }
+   xraudio_device_input_configuration_t configuration = { .fd = -1 };
+   xraudio_hal_input_obj_t input = state->params.hal_plugin->input_open(
+      state->params.hal_input_obj, source, state->record.format_in, &configuration);
+   if(input == NULL) {
+      XLOGD_ERROR("Unable to obtain rearmed FFV keyword input");
+      return(false);
+   }
+   state->params.hal_input_obj = input;
+   state->record.fd = configuration.fd;
+   return(true);
+}
+#endif
+
 void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
    xraudio_queue_msg_record_stop_t *stop = (xraudio_queue_msg_record_stop_t *)msg;
    XLOGD_DEBUG("");
@@ -1482,24 +1505,39 @@ void xraudio_msg_record_stop(xraudio_thread_state_t *state, void *msg) {
       if(state->params.hal_plugin == vsdk_ffv_adapter_api_get() &&
          XRAUDIO_DEVICE_INPUT_LOCAL_GET(stop->source) != XRAUDIO_DEVICE_INPUT_NONE &&
          stop->source != XRAUDIO_DEVICE_INPUT_MIC_TAP) {
-         state->record.fd = -1;
-         state->record.recording = false;
          instance->eos_hal_cmd_pending = false;
-         if(!state->params.hal_plugin->input_keyword_detector_reset(state->params.hal_input_obj)) {
+         if(!xraudio_ffv_keyword_rearm(state, stop->source)) {
             XLOGD_ERROR("Unable to rearm FFV keyword detection after capture stop");
-         } else {
-            xraudio_device_input_configuration_t configuration = { .fd = -1 };
-            xraudio_hal_input_obj_t input = state->params.hal_plugin->input_open(
-               state->params.hal_input_obj, stop->source, state->record.format_in, &configuration);
-            if(input == NULL) {
-               XLOGD_ERROR("Unable to obtain rearmed FFV keyword input");
-            } else {
-               state->params.hal_input_obj = input;
-               state->record.fd = configuration.fd;
-            }
          }
       }
       #endif
+   }
+}
+
+void xraudio_msg_detect_restart(xraudio_thread_state_t *state, void *msg) {
+   xraudio_main_queue_msg_detect_restart_t *detect_restart = (xraudio_main_queue_msg_detect_restart_t *)msg;
+   xraudio_result_t result = XRAUDIO_RESULT_ERROR_INVALID; // only the native HAL restarts detection here
+   XLOGD_DEBUG("");
+
+   #ifdef USE_RDKE_HAL
+   if(state->params.hal_plugin == vsdk_ffv_adapter_api_get() && state->params.hal_input_obj != NULL) {
+      if(state->record.recording) { // closing the keyword channel would cut off the audio of the session in progress
+         XLOGD_ERROR("session in progress, not restarting FFV keyword detection");
+         result = XRAUDIO_RESULT_ERROR_STATE;
+      } else if(!xraudio_ffv_keyword_rearm(state, state->record.devices_input)) {
+         XLOGD_ERROR("Unable to restart FFV keyword detection");
+         result = XRAUDIO_RESULT_ERROR_INTERNAL;
+      } else {
+         result = XRAUDIO_RESULT_OK;
+      }
+   }
+   #endif
+
+   if(detect_restart->semaphore != NULL) {
+      if(detect_restart->result != NULL) {
+         *(detect_restart->result) = result;
+      }
+      sem_post(detect_restart->semaphore);
    }
 }
 

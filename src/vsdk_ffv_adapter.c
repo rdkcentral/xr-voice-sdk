@@ -321,7 +321,9 @@ static void vsdk_ffv_adapter_capabilities_get(xraudio_hal_capabilities *caps) {
       return;
    }
 
-   FFVhalHandle handle = ffv_api->get_handle();
+   vsdk_ffv_hal_obj_t *active_obj = g_vsdk_ffv_adapter.active_hal_obj;
+   bool temp_handle = (active_obj == NULL) || (active_obj->ffv_handle == NULL);
+   FFVhalHandle handle = temp_handle ? ffv_api->get_handle() : active_obj->ffv_handle;
    if(handle == NULL) {
       XLOGD_ERROR("FFV HAL handle is NULL");
       return;
@@ -338,8 +340,9 @@ static void vsdk_ffv_adapter_capabilities_get(xraudio_hal_capabilities *caps) {
       }
       caps->output_qty = 0;
    }
-   // Release the temporary handle; adapter_open obtains its own
-   ffv_api->destroy(handle);
+   if(temp_handle) { // adapter_open obtains its own handle
+      ffv_api->destroy(handle);
+   }
 }
 
 static bool vsdk_ffv_adapter_dsp_config_get(xraudio_hal_dsp_config_t *dsp_config) {
@@ -482,6 +485,7 @@ static bool vsdk_ffv_adapter_privacy_mode(xraudio_hal_obj_t hal_obj, bool enable
 
 static bool vsdk_ffv_adapter_privacy_mode_get(xraudio_hal_obj_t hal_obj, bool *enabled) {
    vsdk_ffv_hal_obj_t *obj = (vsdk_ffv_hal_obj_t *)hal_obj;
+
    if((obj == NULL) || (obj->magic != VSDK_FFV_HAL_OBJ_MAGIC) || (enabled == NULL)) {
       XLOGD_ERROR("invalid parameters (obj %p, magic 0x%x, enabled %p)", obj, (obj != NULL) ? obj->magic : 0, enabled);
       return(false);
@@ -493,6 +497,7 @@ static bool vsdk_ffv_adapter_privacy_mode_get(xraudio_hal_obj_t hal_obj, bool *e
       XLOGD_ERROR("FFV HAL get status failed <%d>", result);
       return(false);
    }
+
    *enabled = status.privacyStateActive;
    XLOGD_INFO("privacy mode enabled <%d>", *enabled);
 
