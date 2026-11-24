@@ -385,10 +385,12 @@ typedef void (*xraudio_msg_handler_t)(xraudio_thread_state_t *state, void *msg);
 static void timer_frame_process(void *data);
 
 #ifdef USE_RDKE_HAL
-// True if any local session group (regular or mic tap) has a consumer for the input audio.
+// True if any session group (regular or mic tap) has a local consumer for the input audio. An external session
+// (e.g. PTT) also installs a record callback but doesn't consume the local microphone.
 static bool xraudio_session_record_has_consumer(const xraudio_session_record_t *session) {
    for(uint32_t group = XRAUDIO_INPUT_SESSION_GROUP_DEFAULT; group < XRAUDIO_INPUT_SESSION_GROUP_QTY; group++) {
-      if(session->instances[group].record_callback != NULL) {
+      const xraudio_session_record_inst_t *instance = &session->instances[group];
+      if(instance->record_callback != NULL && XRAUDIO_DEVICE_INPUT_LOCAL_GET(instance->source) != XRAUDIO_DEVICE_INPUT_NONE) {
          return(true);
       }
    }
@@ -552,6 +554,13 @@ static unsigned char g_frame_silence[2 * XRAUDIO_OUTPUT_FRAME_SIZE_MAX];
 
 static xraudio_session_voice_t g_voice_session = {0};
 
+#ifdef USE_RDKE_HAL
+// Native FFV keyword detection state. Detection is only armed between the router's detect and detect_stop requests; a
+// keyword that arrives while it is stopped is ignored and the HAL is rearmed when detection resumes.
+static xraudio_atomic_int_t g_ffv_detect_armed  = 1; // Only cleared for the native HAL, so other HALs are unaffected
+static xraudio_atomic_int_t g_ffv_detect_missed = 0;
+#endif
+
 void *xraudio_main_thread(void *param) {
    xraudio_thread_state_t *state = (xraudio_thread_state_t *)malloc(sizeof(xraudio_thread_state_t));
    if(state == NULL) {
@@ -599,6 +608,8 @@ void *xraudio_main_thread(void *param) {
       for(uint32_t group = XRAUDIO_INPUT_SESSION_GROUP_DEFAULT; group < XRAUDIO_INPUT_SESSION_GROUP_QTY; group++) {
          xraudio_atomic_int_set(&g_voice_session.source[group], XRAUDIO_DEVICE_INPUT_NONE);
       }
+      xraudio_atomic_int_set(&g_ffv_detect_armed, 0);  // The router arms detection once audio is open
+      xraudio_atomic_int_set(&g_ffv_detect_missed, 0);
    }
    #endif
 
@@ -1406,8 +1417,9 @@ static bool xraudio_ffv_keyword_rearm(xraudio_thread_state_t *state, xraudio_dev
       return(false);
    }
    xraudio_device_input_configuration_t configuration = { .fd = -1 };
+   // The keyword input was opened for the local source only, so drop any external device bits
    xraudio_hal_input_obj_t input = state->params.hal_plugin->input_open(
-      state->params.hal_input_obj, source, state->record.format_in, &configuration);
+      state->params.hal_input_obj, XRAUDIO_DEVICE_INPUT_LOCAL_GET(source), state->record.format_in, &configuration);
    if(input == NULL) {
       XLOGD_ERROR("Unable to obtain rearmed FFV keyword input");
       return(false);
@@ -2023,6 +2035,17 @@ void xraudio_msg_detect(xraudio_thread_state_t *state, void *msg) {
    XLOGD_INFO("Registering callback %p at state->record.keyword_detector with param %p", detect->callback, detect->param);
    state->record.keyword_detector.callback = detect->callback;
    state->record.keyword_detector.cb_param = detect->param;
+   if(state->params.hal_plugin == vsdk_ffv_adapter_api_get()) {
+      xraudio_atomic_int_set(&g_ffv_detect_armed, 1);
+      // A keyword that arrived while detection was stopped left the HAL's keyword pipe in use, so rearm it unless a local session is streaming from it
+      xraudio_devices_input_t owner = xraudio_in_session_group_source_get(XRAUDIO_INPUT_SESSION_GROUP_DEFAULT);
+      bool local_session = state->record.recording && XRAUDIO_DEVICE_INPUT_LOCAL_GET(owner) != XRAUDIO_DEVICE_INPUT_NONE;
+      if(!local_session && state->params.hal_input_obj != NULL && xraudio_atomic_compare_and_set(&g_ffv_detect_missed, 1, 0)) {
+         if(!xraudio_ffv_keyword_rearm(state, state->record.devices_input)) {
+            XLOGD_ERROR("Unable to rearm FFV keyword detection");
+         }
+      }
+   }
    #endif
 
    if(detect->semaphore != NULL) {
@@ -2086,6 +2109,10 @@ void xraudio_msg_detect_stop(xraudio_thread_state_t *state, void *msg) {
       } else {
          xraudio_keyword_detector_session_disarm(&state->params, detector);
       }
+   }
+   #else
+   if(state->params.hal_plugin == vsdk_ffv_adapter_api_get()) {
+      xraudio_atomic_int_set(&g_ffv_detect_armed, 0);
    }
    #endif
    if(detect_stop->synchronous) {
@@ -2258,9 +2285,35 @@ void xraudio_msg_power_mode(xraudio_thread_state_t *state, void *msg) {
    #ifndef USE_RDKE_HAL
    call_hal = (state->params.kwd_plugin != NULL);
    #endif
+
+   #ifdef USE_RDKE_HAL
+   if(call_hal && state->params.hal_plugin == vsdk_ffv_adapter_api_get()) {
+      // The native HAL closes the keyword channel to change power mode, which cuts off a local session streaming from it.
+      // End that session first: notify its owner of the error and stop feeding it from the channel.
+      xraudio_session_record_inst_t *instance = &state->record.instances[XRAUDIO_INPUT_SESSION_GROUP_DEFAULT];
+      if(instance->callback != NULL && XRAUDIO_DEVICE_INPUT_LOCAL_GET(instance->source) != XRAUDIO_DEVICE_INPUT_NONE) {
+         XLOGD_WARN("power mode change ending the session on source <%s>", xraudio_devices_input_str(instance->source));
+         xraudio_process_mic_error(&state->params, &state->record);
+         instance->record_callback = NULL;
+      }
+   }
+   #endif
+
    if(call_hal && !state->params.hal_plugin->power_mode(state->params.hal_obj, power_mode->power_mode)) {
       result = XRAUDIO_RESULT_ERROR_INTERNAL;
    }
+
+   #ifdef USE_RDKE_HAL
+   if(state->params.hal_plugin == vsdk_ffv_adapter_api_get() && state->params.hal_input_obj != NULL) {
+      // The native HAL closes and reopens the keyword channel around a power mode change, so pick up the new descriptor
+      xraudio_device_input_configuration_t configuration = { .fd = -1 };
+      xraudio_hal_input_obj_t input = state->params.hal_plugin->input_open(state->params.hal_input_obj, XRAUDIO_DEVICE_INPUT_LOCAL_GET(state->record.devices_input), state->record.format_in, &configuration);
+      state->record.fd = (input != NULL) ? configuration.fd : -1;
+      if(input == NULL) {
+         XLOGD_INFO("FFV keyword channel is not open after power mode change");
+      }
+   }
+   #endif
 
    if(power_mode->semaphore != NULL) {
       if(power_mode->result != NULL) {
@@ -2779,6 +2832,11 @@ void xraudio_process_mic_error(xraudio_main_thread_params_t *params, xraudio_ses
          }
          #ifndef USE_RDKE_HAL
           else if(device_local != XRAUDIO_DEVICE_INPUT_NONE && xraudio_keyword_detector_session_is_armed(&session->keyword_detector)) {
+            xraudio_keyword_detector_session_event(params, &session->keyword_detector, device_local, NULL, KEYWORD_CALLBACK_EVENT_ERROR, NULL, session->format_in);
+         }
+         #else
+          else if(group == XRAUDIO_INPUT_SESSION_GROUP_DEFAULT && device_local != XRAUDIO_DEVICE_INPUT_NONE && session->keyword_detector.callback != NULL) {
+            // An idle native detector has no record callback, so report the error to the keyword callback so the router can recover
             xraudio_keyword_detector_session_event(params, &session->keyword_detector, device_local, NULL, KEYWORD_CALLBACK_EVENT_ERROR, NULL, session->format_in);
          }
          #endif
@@ -4993,6 +5051,11 @@ bool xraudio_hal_msg_async_handler(void *msg) {
          XLOGD_INFO("group <%s>", xraudio_input_session_group_str(xraudio_input_source_to_group(header->source)));
          g_voice_session.detecting = 1; // Used to make sure we don't close HAL when detecting stops
          g_voice_session.sources_supported |= XRAUDIO_DEVICE_INPUT_SINGLE;
+         if(xraudio_atomic_int_get(&g_ffv_detect_armed) == 0) { // The router discards detections while stopped, so don't acquire the group
+            XLOGD_WARN("keyword detection is stopped, ignoring session request");
+            xraudio_atomic_int_set(&g_ffv_detect_missed, 1);
+            break;
+         }
          #endif
          if(!XRAUDIO_DEVICE_INPUT_CONTAINS(g_voice_session.sources_supported, header->source)) {
             XLOGD_ERROR("requested source <%s> is not supported", xraudio_devices_input_str(header->source));

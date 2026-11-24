@@ -38,6 +38,8 @@
 #define VSDK_FFV_INPUT_OBJ_MAGIC (0x7668696f) // "vhio"
 #define VSDK_FFV_KEYWORD_PREROLL_SAMPLES (4000)
 
+typedef struct vsdk_ffv_input_obj vsdk_ffv_input_obj_t;
+
 typedef struct {
    uint32_t                    magic;
    xr_ffv_hal_plugin_func_t   *ffv_api;
@@ -51,16 +53,17 @@ typedef struct {
    int32_t                    end_of_command_sample;
    bool                       end_of_command_pending;
    bool                       end_of_command_timed_out;
+   vsdk_ffv_input_obj_t      *keyword_input; // Open keyword input, so power mode changes can close and reopen its channel
 } vsdk_ffv_hal_obj_t;
 
-typedef struct {
+struct vsdk_ffv_input_obj {
    uint32_t                 magic;
    vsdk_ffv_hal_obj_t      *hal_obj;
    FFVhalFileDescriptor     fd;
    const char              *channel_type;
    xraudio_devices_input_t  source;
    uint64_t                 bytes_read_total;
-} vsdk_ffv_input_obj_t;
+};
 
 typedef struct {
    xr_ffv_hal_plugin_func_t *ffv_hal_interface_plugin;
@@ -70,6 +73,38 @@ typedef struct {
 
 static vsdk_ffv_adapter_t g_vsdk_ffv_adapter = {0};
 static pthread_mutex_t g_vsdk_ffv_session_mutex = PTHREAD_MUTEX_INITIALIZER;
+
+// Guards active_hal_obj and counts the HAL callbacks using it, so close can wait for them before freeing the object.
+// The lock is only held to update the pointer and counter, never across a call into the HAL or xraudio.
+static pthread_mutex_t g_vsdk_ffv_active_mutex = PTHREAD_MUTEX_INITIALIZER;
+static pthread_cond_t  g_vsdk_ffv_active_cond  = PTHREAD_COND_INITIALIZER;
+static uint32_t        g_vsdk_ffv_active_users = 0;
+
+static vsdk_ffv_hal_obj_t *vsdk_ffv_active_acquire(void) {
+   pthread_mutex_lock(&g_vsdk_ffv_active_mutex);
+   vsdk_ffv_hal_obj_t *obj = g_vsdk_ffv_adapter.active_hal_obj;
+   if(obj != NULL) {
+      g_vsdk_ffv_active_users++;
+   }
+   pthread_mutex_unlock(&g_vsdk_ffv_active_mutex);
+   return(obj);
+}
+
+static void vsdk_ffv_active_wait_idle(void) {
+   pthread_mutex_lock(&g_vsdk_ffv_active_mutex);
+   while(g_vsdk_ffv_active_users > 0) {
+      pthread_cond_wait(&g_vsdk_ffv_active_cond, &g_vsdk_ffv_active_mutex);
+   }
+   pthread_mutex_unlock(&g_vsdk_ffv_active_mutex);
+}
+
+static void vsdk_ffv_active_release(void) {
+   pthread_mutex_lock(&g_vsdk_ffv_active_mutex);
+   if(--g_vsdk_ffv_active_users == 0) {
+      pthread_cond_broadcast(&g_vsdk_ffv_active_cond);
+   }
+   pthread_mutex_unlock(&g_vsdk_ffv_active_mutex);
+}
 
 static FFVhalPowerMode_t vsdk_ffv_power_mode_from_xraudio(xraudio_power_mode_t power_mode) {
    switch(power_mode) {
@@ -233,58 +268,70 @@ static const char *vsdk_ffv_failure_code_str(FFVhalFailureCode_t failureCode) {
 static void vsdk_ffv_on_hardware_failed_cb(FFVhalFailureCode_t failureCode) {
 
    XLOGD_ERROR("FFV HAL hardware failure <%s> (%d)", vsdk_ffv_failure_code_str(failureCode), failureCode);
-   if((g_vsdk_ffv_adapter.active_hal_obj == NULL) || (g_vsdk_ffv_adapter.active_hal_obj->callback == NULL)) {
+   vsdk_ffv_hal_obj_t *active = vsdk_ffv_active_acquire();
+   if(active == NULL) {
+      return;
+   }
+   if(active->callback == NULL) {
+      vsdk_ffv_active_release();
       return;
    }
 
    // If a session is active, force an end before reporting the input error.
-   vsdk_ffv_emit_session_end(g_vsdk_ffv_adapter.active_hal_obj);
+   vsdk_ffv_emit_session_end(active);
 
    xraudio_hal_msg_input_error_t msg;
    memset(&msg, 0, sizeof(msg));
    msg.header.type   = XRAUDIO_MSG_TYPE_INPUT_ERROR;
-   msg.header.source = g_vsdk_ffv_adapter.active_hal_obj->source;
-   g_vsdk_ffv_adapter.active_hal_obj->callback(&msg);
+   msg.header.source = active->source;
+   active->callback(&msg);
+   vsdk_ffv_active_release();
 }
 
 static void vsdk_ffv_on_keyword_detected_cb(void) {
    XLOGD_INFO("");
-   if(g_vsdk_ffv_adapter.active_hal_obj == NULL) {
+   vsdk_ffv_hal_obj_t *active = vsdk_ffv_active_acquire();
+   if(active == NULL) {
       XLOGD_ERROR("FFV HAL keyword detected but no active HAL object");
       return;
    }
    pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
-   xraudio_power_mode_t power_mode = g_vsdk_ffv_adapter.active_hal_obj->power_mode;
+   xraudio_power_mode_t power_mode = active->power_mode;
+   bool privacy_mode = active->privacy_mode;
    pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
-   if(power_mode != XRAUDIO_POWER_MODE_FULL) {
+   if(privacy_mode) {
+      XLOGD_WARN("Received keyword detection privacy mode. Does this HAL allow that?");
+   } else if(power_mode != XRAUDIO_POWER_MODE_FULL) {
       XLOGD_INFO("Deferring FFV keyword session to Control Manager in power mode <%s>",
                  xraudio_power_mode_str(power_mode));
-      return;
+   } else {
+      XLOGD_INFO("FFV keyword detected in power mode <%s>, starting session", xraudio_power_mode_str(power_mode));
+      if(!vsdk_ffv_emit_session_request(active)) {
+         XLOGD_WARN("FFV keyword session request denied, not starting a session");
+      } else {
+         vsdk_ffv_emit_session_begin(active);
+      }
    }
-
-   XLOGD_INFO("FFV keyword detected in power mode <%s>, starting session", xraudio_power_mode_str(power_mode));
-   if(!vsdk_ffv_emit_session_request(g_vsdk_ffv_adapter.active_hal_obj)) {
-      XLOGD_WARN("FFV keyword session request denied, not starting a session");
-      return;
-   }
-   vsdk_ffv_emit_session_begin(g_vsdk_ffv_adapter.active_hal_obj);
+   vsdk_ffv_active_release();
 }
 
 static void vsdk_ffv_on_end_of_command_cb(int32_t sampleOffset, bool timedOut) {
    XLOGD_INFO("end of command detected at sample offset %d, timed out=%d", sampleOffset, timedOut);
-   if(g_vsdk_ffv_adapter.active_hal_obj == NULL) {
+   vsdk_ffv_hal_obj_t *active = vsdk_ffv_active_acquire();
+   if(active == NULL) {
       XLOGD_ERROR("FFV HAL end of command detected but no active HAL object");
       return;
    }
    if(sampleOffset < 0) {
       XLOGD_ERROR("FFV HAL reported invalid end-of-command sample offset %d", sampleOffset);
-      return;
+   } else {
+      pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
+      active->end_of_command_sample = sampleOffset;
+      active->end_of_command_timed_out = timedOut;
+      active->end_of_command_pending = true;
+      pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
    }
-   pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
-   g_vsdk_ffv_adapter.active_hal_obj->end_of_command_sample = sampleOffset;
-   g_vsdk_ffv_adapter.active_hal_obj->end_of_command_timed_out = timedOut;
-   g_vsdk_ffv_adapter.active_hal_obj->end_of_command_pending = true;
-   pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
+   vsdk_ffv_active_release();
 }
 
 //This function is currently unused
@@ -324,11 +371,14 @@ static void vsdk_ffv_adapter_capabilities_get(xraudio_hal_capabilities *caps) {
       return;
    }
 
-   vsdk_ffv_hal_obj_t *active_obj = g_vsdk_ffv_adapter.active_hal_obj;
+   vsdk_ffv_hal_obj_t *active_obj = vsdk_ffv_active_acquire(); // keeps the open adapter's handle alive while it is used
    bool temp_handle = (active_obj == NULL) || (active_obj->ffv_handle == NULL);
    FFVhalHandle handle = temp_handle ? ffv_api->get_handle() : active_obj->ffv_handle;
    if(handle == NULL) {
       XLOGD_ERROR("FFV HAL handle is NULL");
+      if(active_obj != NULL) {
+         vsdk_ffv_active_release();
+      }
       return;
    }
 
@@ -345,6 +395,9 @@ static void vsdk_ffv_adapter_capabilities_get(xraudio_hal_capabilities *caps) {
    }
    if(temp_handle) { // adapter_open obtains its own handle
       ffv_api->destroy(handle);
+   }
+   if(active_obj != NULL) {
+      vsdk_ffv_active_release();
    }
 }
 
@@ -452,7 +505,9 @@ static xraudio_hal_obj_t vsdk_ffv_adapter_open(bool debug, xraudio_power_mode_t 
       }
    }
 
+   pthread_mutex_lock(&g_vsdk_ffv_active_mutex);
    g_vsdk_ffv_adapter.active_hal_obj = obj;
+   pthread_mutex_unlock(&g_vsdk_ffv_active_mutex);
    XLOGD_INFO("FFV HAL adapter opened successfully");
    XLOGD_INFO("source is 0x%x", obj->source);
    return((xraudio_hal_obj_t)obj);
@@ -464,13 +519,42 @@ static bool vsdk_ffv_adapter_power_mode(xraudio_hal_obj_t hal_obj, xraudio_power
    if((obj == NULL) || (obj->magic != VSDK_FFV_HAL_OBJ_MAGIC) || (obj->ffv_api == NULL) || (obj->ffv_api->set_power_mode == NULL)) {
       return(false);
    }
-   if(obj->ffv_api->set_power_mode(obj->ffv_controller, vsdk_ffv_power_mode_from_xraudio(power_mode)) != EX_NONE) {
-      return(false);
+
+   // The HAL only changes power mode with every channel closed
+   vsdk_ffv_input_obj_t *input = obj->keyword_input;
+   if((input != NULL) && (input->fd >= 0) && (obj->ffv_api->close_channel != NULL)) {
+      if(obj->ffv_api->close_channel(obj->ffv_controller, input->channel_type) != EX_NONE) {
+         XLOGD_ERROR("FFV HAL keyword channel close failed before power mode change");
+         return(false);
+      }
+      input->fd = -1;
    }
-   pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
-   obj->power_mode = power_mode;
-   pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
-   return(true);
+
+   FFVhalPowerMode_t ffv_power_mode = vsdk_ffv_power_mode_from_xraudio(power_mode);
+   bool result = (obj->ffv_api->set_power_mode(obj->ffv_controller, ffv_power_mode) == EX_NONE);
+   if(result) {
+      pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
+      obj->power_mode = power_mode;
+      pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
+   }
+
+   // The keyword channel can only be open in standby or full power. Reopen it even if the change failed so detection keeps running in the previous mode.
+   FFVhalPowerMode_t current_mode = vsdk_ffv_power_mode_from_xraudio(obj->power_mode);
+   if((input != NULL) && (input->fd < 0) && ((current_mode == STANDBY) || (current_mode == FULL_POWER)) && (obj->ffv_api->open_channel != NULL)) {
+      FFVhalFileDescriptor fd = -1;
+      if((obj->ffv_api->open_channel(obj->ffv_controller, input->channel_type, &fd) != EX_NONE) || (fd < 0)) {
+         XLOGD_ERROR("FFV HAL keyword channel reopen failed after power mode change");
+         return(false);
+      }
+      input->fd = fd;
+      input->bytes_read_total = 0;
+      pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
+      obj->stream_start_sample = 0;
+      obj->end_of_command_pending = false;
+      pthread_mutex_unlock(&g_vsdk_ffv_session_mutex);
+      XLOGD_INFO("FFV keyword channel reopened after power mode change, fd %d", fd);
+   }
+   return(result);
 }
 
 static bool vsdk_ffv_adapter_privacy_mode(xraudio_hal_obj_t hal_obj, bool enable) {
@@ -515,11 +599,15 @@ static void vsdk_ffv_adapter_close(xraudio_hal_obj_t hal_obj) {
       return;
    }
 
+   // Stop new callbacks from picking up this object, then wait for those already running before it is freed
+   pthread_mutex_lock(&g_vsdk_ffv_active_mutex);
    if(g_vsdk_ffv_adapter.active_hal_obj == obj) {
       g_vsdk_ffv_adapter.active_hal_obj = NULL;
    }
+   pthread_mutex_unlock(&g_vsdk_ffv_active_mutex);
 
    if(obj->ffv_handle == NULL) {
+      vsdk_ffv_active_wait_idle();
       obj->magic = 0;
       free(obj);
       return;
@@ -536,6 +624,7 @@ static void vsdk_ffv_adapter_close(xraudio_hal_obj_t hal_obj) {
       XLOGD_WARN("FFVhal_unregisterEventListeners failed");
    }
 
+   vsdk_ffv_active_wait_idle(); // callbacks in flight may still use the handle, so wait before destroying it
    obj->ffv_api->destroy(obj->ffv_handle);
    obj->ffv_handle = NULL;
 
@@ -601,6 +690,7 @@ static xraudio_hal_input_obj_t vsdk_ffv_adapter_input_open(xraudio_hal_obj_t hal
    input->channel_type= channel;
    input->source      = device;
    obj->source        = device;
+   obj->keyword_input = input;
    configuration->fd = fd;
    configuration->pcm_bit_qty = 16;
    XLOGD_INFO("channel %s, fd %d", channel, fd);
@@ -615,7 +705,13 @@ static void vsdk_ffv_adapter_input_close(xraudio_hal_input_obj_t input_obj) {
       return;
    }
 
-   if((obj->hal_obj->ffv_api != NULL) && (obj->hal_obj->ffv_api->close_channel != NULL) && (obj->channel_type != NULL)) {
+   if(obj->hal_obj->keyword_input == obj) {
+      obj->hal_obj->keyword_input = NULL;
+   }
+
+   if(obj->fd < 0) { // the channel is already closed, e.g. by a power mode change
+      XLOGD_INFO("channel %s already closed", obj->channel_type);
+   } else if((obj->hal_obj->ffv_api != NULL) && (obj->hal_obj->ffv_api->close_channel != NULL) && (obj->channel_type != NULL)) {
       if(obj->hal_obj->ffv_api->close_channel(obj->hal_obj->ffv_controller, obj->channel_type) != EX_NONE) {
          XLOGD_ERROR("FFVhal_close_channel failed for channel %s", obj->channel_type);
       }
@@ -651,10 +747,14 @@ static int32_t vsdk_ffv_adapter_input_read(xraudio_hal_input_obj_t input_obj, ui
 
    uint32_t bytes_read = 0;
    while(bytes_read < size) {
+      // Read at most what is left of the frame, or what is left to skip before the stream start
+      size_t read_size = size - bytes_read;
       bool skipping = (obj->bytes_read_total < stream_start_bytes);
-      uint32_t read_size = size - bytes_read;
-      if(skipping && (stream_start_bytes - obj->bytes_read_total < read_size)) {
-         read_size = (uint32_t)(stream_start_bytes - obj->bytes_read_total);
+      if(skipping) {
+         uint64_t skip_left = stream_start_bytes - obj->bytes_read_total;
+         if(skip_left < read_size) {
+            read_size = (size_t)skip_left;
+         }
       }
       ssize_t rc = read(obj->fd, data + bytes_read, read_size);
       if(rc > 0) {
@@ -772,17 +872,19 @@ static bool vsdk_ffv_adapter_input_keyword_detector_reset(xraudio_hal_input_obj_
    vsdk_ffv_input_obj_t *obj = (vsdk_ffv_input_obj_t *)input_obj;
    if((obj == NULL) || (obj->magic != VSDK_FFV_INPUT_OBJ_MAGIC) || (obj->hal_obj == NULL) ||
       (obj->hal_obj->ffv_api == NULL) || (obj->hal_obj->ffv_api->close_channel == NULL) ||
-      (obj->hal_obj->ffv_api->open_channel == NULL) || (obj->fd < 0)) {
+      (obj->hal_obj->ffv_api->open_channel == NULL)) {
       XLOGD_ERROR("Invalid FFV input object or keyword channel API");
       return(false);
    }
 
    xr_ffv_hal_plugin_func_t *api = obj->hal_obj->ffv_api;
-   if(api->close_channel(obj->hal_obj->ffv_controller, obj->channel_type) != EX_NONE) {
-      XLOGD_ERROR("FFV HAL keyword channel close failed while rearming detection");
-      return(false);
+   if(obj->fd >= 0) { // A previous failed reopen leaves the channel closed, so only reopen it
+      if(api->close_channel(obj->hal_obj->ffv_controller, obj->channel_type) != EX_NONE) {
+         XLOGD_ERROR("FFV HAL keyword channel close failed while rearming detection");
+         return(false);
+      }
+      obj->fd = -1;
    }
-   obj->fd = -1;
    obj->bytes_read_total = 0;
    pthread_mutex_lock(&g_vsdk_ffv_session_mutex);
    obj->hal_obj->stream_start_sample = 0;
